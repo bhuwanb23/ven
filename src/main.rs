@@ -1,9 +1,12 @@
+use clap::Parser;
+use anyhow::Result;
+
 mod cli;
 mod core;
 mod plugins;
-
-use anyhow::Result;
+mod shell;
 
 fn main() -> Result<()> {
-    cli::run()
+    let cli = cli::Cli::parse();
+    cli::run(cli)
 }
