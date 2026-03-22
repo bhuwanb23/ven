@@ -52,6 +52,7 @@ __ven_activate  # activate on shell start
 // is needed, and PRINTS shell export commands as text.
 // The hook uses eval to run them in the current shell.
 
+#[allow(non_snake_case)]
 pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     // Find nearest ven.toml
     let toml_path = match find_ven_toml(dir) {

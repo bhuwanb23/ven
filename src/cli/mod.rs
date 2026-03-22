@@ -136,6 +136,7 @@ fn cmd_list(language: Option<&str>) -> Result<()> {
 }
 
 // ── ven status ────────────────────────────────────────────────────
+#[allow(non_snake_case)]
 fn cmd_status() -> Result<()> {
     use colored::Colorize;
 
@@ -267,6 +268,7 @@ fn cmd_shell_hook(shell: &str) -> Result<()> {
 }
 
 // ── ven shell activate <dir> ──────────────────────────────────────
+#[allow(non_snake_case)]
 fn cmd_shell_activate(dir: &str) -> Result<()> {
     use crate::shell::compute_exports;
     
