@@ -39,6 +39,24 @@ pub enum Commands {
         #[arg(short, long)]
         node: Option<String>,
     },
+
+    /// One-time setup: install shell hook
+    Setup,
+
+    /// Shell integration (internal — called by shell hook)
+    #[command(hide = true)]  // hides from --help
+    Shell {
+        #[command(subcommand)]
+        action: ShellCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ShellCommands {
+    /// Print shell hook code (eval this in your rc file)
+    Hook { shell: String },
+    /// Compute and print PATH exports for current directory
+    Activate { dir: String },
 }
 
 pub fn run(cli: Cli) -> Result<()> {
@@ -55,6 +73,13 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Init { node } => {
             cmd_init(node.as_deref())
         }
+        Commands::Setup => {
+            cmd_setup()
+        }
+        Commands::Shell { action } => match action {
+            ShellCommands::Hook { shell } => cmd_shell_hook(&shell),
+            ShellCommands::Activate { dir } => cmd_shell_activate(&dir),
+        },
     }
 }
 
@@ -183,5 +208,72 @@ fn cmd_init(node: Option<&str>) -> Result<()> {
     println!("\nEdit this file to customize your Node version and dependencies.");
     println!("Run: ven install node <version>   to install a specific version");
 
+    Ok(())
+}
+
+// ── ven setup ─────────────────────────────────────────────────────
+fn cmd_setup() -> Result<()> {
+    use colored::Colorize;
+    use std::io::Write;
+
+    // Detect which shell the user is running
+    let shell_path = std::env::var("SHELL").unwrap_or_default();
+    let shell_name = std::path::Path::new(&shell_path)
+        .file_name().and_then(|n| n.to_str())
+        .unwrap_or("bash");
+
+    println!("\n  {} ven setup", "→".cyan());
+    println!("  Detected shell: {}", shell_name.bold());
+
+    // Find the rc file
+    let home = dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?;
+
+    let rc_file = match shell_name {
+        "zsh"  => home.join(".zshrc"),
+        "fish" => home.join(".config/fish/config.fish"),
+        _      => home.join(".bashrc"),
+    };
+
+    // The line to add to the rc file
+    let hook_line = format!("\n# ven shell hook\neval \"$(ven shell {})\"", shell_name);
+
+    // Check if already installed
+    let existing = std::fs::read_to_string(&rc_file).unwrap_or_default();
+    if existing.contains("ven shell hook") {
+        println!("  {} Shell hook already installed in {}", "✓".green(), rc_file.display());
+        return Ok(());
+    }
+
+    // Append to rc file
+    let mut file = std::fs::OpenOptions::new().append(true).open(&rc_file)?;
+    writeln!(file, "{}", hook_line)?;
+
+    println!("  {} Written to {}", "✓".green(), rc_file.display());
+    println!();
+    println!("  Restart your shell or run:");
+    println!("  {}", format!("source {}", rc_file.display()).bold());
+    println!();
+    Ok(())
+}
+
+// ── ven shell hook <shell> ────────────────────────────────────────
+fn cmd_shell_hook(shell: &str) -> Result<()> {
+    use crate::shell::generate_hook;
+    
+    // Just print the hook code — user wraps this in eval "$(ven shell hook bash)"
+    print!("{}", generate_hook(shell));
+    Ok(())
+}
+
+// ── ven shell activate <dir> ──────────────────────────────────────
+fn cmd_shell_activate(dir: &str) -> Result<()> {
+    use crate::shell::compute_exports;
+    
+    let path = std::path::Path::new(dir);
+    match compute_exports(path)? {
+        Some(exports) => print!("{}", exports),
+        None          => {}  // no ven.toml = print nothing = no eval
+    }
     Ok(())
 }
