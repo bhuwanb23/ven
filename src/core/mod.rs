@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+pub mod packages;
+
 // ── Config structs ──────────────────────────────────────────────────
 // These structs map exactly to ven.toml sections.
 // #[derive(Deserialize)] means serde can auto-read TOML into them.

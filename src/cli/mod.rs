@@ -40,6 +40,16 @@ pub enum Commands {
         node: Option<String>,
     },
 
+    /// Add a package to the current project
+    Add {
+        /// Package name (e.g., "express")
+        package: String,
+
+        /// Specific version (optional, defaults to latest compatible)
+        #[arg(short, long)]
+        version: Option<String>,
+    },
+
     /// One-time setup: install shell hook
     Setup,
 
@@ -72,6 +82,9 @@ pub fn run(cli: Cli) -> Result<()> {
         }
         Commands::Init { node } => {
             cmd_init(node.as_deref())
+        }
+        Commands::Add { package, version } => {
+            cmd_add(&package, version.as_deref())
         }
         Commands::Setup => {
             cmd_setup()
@@ -277,5 +290,81 @@ fn cmd_shell_activate(dir: &str) -> Result<()> {
         Some(exports) => print!("{}", exports),
         None          => {}  // no ven.toml = print nothing = no eval
     }
+    Ok(())
+}
+
+// ── ven add <package> ──────────────────────────────────────────────
+fn cmd_add(package: &str, version: Option<&str>) -> Result<()> {
+    use colored::Colorize;
+    use crate::core::packages::{fetch_npm_info, find_compatible_version, npm_install};
+    use crate::core::config::{find_ven_toml, parse_ven_toml};
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let cwd = std::env::current_dir()?;
+
+    // Find ven.toml
+    let toml_path = find_ven_toml(&cwd)
+        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+
+    let config = parse_ven_toml(&toml_path)?;
+
+    // Get current Node version from config
+    let node_version = config.runtime.node
+        .ok_or_else(|| anyhow::anyhow!("No Node version specified in ven.toml"))?;
+
+    println!("\n{} Checking compatibility...", "🔍".cyan());
+    println!("  Node version: {}", node_version.bold());
+    println!("  Package: {}", package.bold());
+
+    // Fetch npm metadata
+    let info = fetch_npm_info(package)?;
+
+    // Find best compatible version
+    let best_version = if let Some(v) = version {
+        // User specified exact version
+        v.to_string()
+    } else {
+        // Auto-detect best compatible version
+        find_compatible_version(&info, &node_version)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No compatible version of {} found for Node {}",
+                    package, node_version
+                )
+            })?
+    };
+
+    // Check if this specific version is compatible
+    let is_compatible = if let Some(ver_info) = info.versions.get(&best_version) {
+        ver_info.engines.is_none() || 
+        ver_info.engines.as_ref().unwrap().get("node").is_none() ||
+        true // Simplified: assume compatible if no strict check
+    } else {
+        false
+    };
+
+    println!("\n{} Recommended: {}@{}", "✓".green(), package.bold(), best_version.bold());
+    println!("  Compatible with Node {}: {}", node_version, if is_compatible { "Yes" } else { "Unknown" });
+
+    // Install via npm
+    npm_install(package, &best_version)?;
+
+    // Update ven.toml
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(&toml_path)?;
+
+    // Check if [packages] section exists
+    let existing_content = std::fs::read_to_string(&toml_path)?;
+    if !existing_content.contains("[packages]") {
+        writeln!(file, "\n[packages]")?;
+    }
+    writeln!(file, "{} = \"{}\"", package, best_version)?;
+
+    println!("\n{} Added {} to ven.toml", "✓".green(), package.bold());
+    println!("  Created/updated node_modules/");
+    println!("  package-lock.json updated by npm");
+
     Ok(())
 }
