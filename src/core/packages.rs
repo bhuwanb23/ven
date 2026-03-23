@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use colored::Colorize;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::process::Command;
 
@@ -191,7 +191,7 @@ pub fn get_installed_version(package: &str) -> Result<String> {
 
 // ── Fetch changelog / release notes ─────────────────────────────────
 
-pub fn fetch_release_notes(package: &str, from_ver: &str, to_ver: &str) -> String {
+pub fn fetch_release_notes(package: &str, _from_ver: &str, to_ver: &str) -> String {
     // Fetch from npm registry's "release" or from GitHub releases API
     // For Phase 1: use npm registry "description" field as a fallback
     // Full changelog parsing comes in Phase 2

@@ -369,7 +369,8 @@ fn cmd_add(package_spec: &str, skip_check: bool) -> Result<()> {
 
 // ── Update ven.toml with new package ────────────────────────────────
 fn update_ven_toml_package(pkg: &str, version: &str) -> Result<()> {
-    use crate::core::{find_ven_toml, parse_ven_toml};
+    use colored::Colorize;
+    use crate::core::find_ven_toml;
 
     let cwd = std::env::current_dir()?;
     let toml_path = find_ven_toml(&cwd)

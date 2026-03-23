@@ -52,6 +52,7 @@ pub fn parse_ven_toml(path: &Path) -> Result<VenConfig> {
 // Combined helper: find + parse in one call.
 // Used by the shell hook and all ven commands.
 
+#[allow(non_snake_case)]
 pub fn load_config(dir: &Path) -> Result<Option<VenConfig>> {
     match find_ven_toml(dir) {
         Some(path) => Ok(Some(parse_ven_toml(&path)?)),
