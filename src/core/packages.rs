@@ -128,3 +128,37 @@ pub fn npm_install(package: &str, version: &str) -> Result<()> {
     println!("{} Installed {}", "✓".green(), pkg_spec.bold());
     Ok(())
 }
+
+// ── Tests ────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_node_version_satisfies_basic() {
+        // Test major version checking
+        assert!(node_version_satisfies("20.11.0", ">= 0.10.0"));
+        assert!(node_version_satisfies("18.0.0", ">= 14"));
+        assert!(node_version_satisfies("22.0.0", ">= 18"));
+        
+        // Test incompatible versions
+        assert!(!node_version_satisfies("16.0.0", ">= 18"));
+        assert!(!node_version_satisfies("14.0.0", ">= 20"));
+        
+        // Test wildcard
+        assert!(node_version_satisfies("20.0.0", "*"));
+        assert!(node_version_satisfies("20.0.0", ""));
+    }
+
+    #[test]
+    fn test_semver_cmp() {
+        use std::cmp::Ordering;
+        
+        assert_eq!(semver_cmp("4.18.2", "4.18.1"), Ordering::Greater);
+        assert_eq!(semver_cmp("4.18.0", "4.17.9"), Ordering::Greater);
+        assert_eq!(semver_cmp("5.0.0", "4.99.99"), Ordering::Greater);
+        assert_eq!(semver_cmp("4.18.2", "4.18.2"), Ordering::Equal);
+        assert_eq!(semver_cmp("4.18.1", "4.18.2"), Ordering::Less);
+    }
+}
