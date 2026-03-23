@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use ven::core::config::{find_ven_toml, parse_ven_toml, version_spec_resolver};
+use ven::core::{find_ven_toml, parse_ven_toml};
 
 #[test]
 fn test_example_directory_config() {
@@ -29,11 +29,4 @@ fn test_nested_example_directory() {
     // Walk up from example/a/b/c to find ven.toml in example/
     let toml_path = find_ven_toml(&d).expect("Should walk up and find ven.toml");
     assert!(toml_path.ends_with("example\\ven.toml") || toml_path.ends_with("example/ven.toml"));
-}
-
-#[test]
-fn test_version_resolver() {
-    assert_eq!(version_spec_resolver("latest"), "latest");
-    assert_eq!(version_spec_resolver("18"), "18");
-    assert_eq!(version_spec_resolver(">=20"), ">=20");
 }

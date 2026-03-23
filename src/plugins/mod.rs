@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 // Every language backend (Node, Python, Go...) implements this trait.
 // It defines the 4 operations ven needs for any language.
+#[allow(dead_code)]
 pub trait LanguagePlugin: Send + Sync {
     fn name(&self) -> &str;
 

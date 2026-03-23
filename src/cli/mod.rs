@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 
 use anyhow::Result;
 
-use crate::core::{load_config, resolve_node_version};
+use crate::core::{load_config};
 use crate::plugins::{LanguagePlugin, NodePlugin};
 
 /// ven — Node.js version manager
@@ -203,7 +203,6 @@ fn cmd_status() -> Result<()> {
 fn cmd_init(node: Option<&str>) -> Result<()> {
     use colored::Colorize;
     use std::fs;
-    use std::path::Path;
 
     let cwd = std::env::current_dir()?;
     let toml_path = cwd.join("ven.toml");
