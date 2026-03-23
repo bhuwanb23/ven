@@ -129,6 +129,53 @@ pub fn npm_install(package: &str, version: &str) -> Result<()> {
     Ok(())
 }
 
+// ── Check what depends on a package ─────────────────────────────────
+
+pub fn find_dependents(package: &str) -> Result<Vec<(String, String)>> {
+    // Read node_modules/.package-lock.json or package-lock.json
+    // to find which installed packages require this one
+    let lock_path = std::env::current_dir()?.join("package-lock.json");
+
+    if !lock_path.exists() {
+        return Ok(vec![]); // no lock file = cannot check
+    }
+
+    let content = std::fs::read_to_string(&lock_path)?;
+    let lock: serde_json::Value = serde_json::from_str(&content)?;
+
+    let mut dependents = Vec::new();
+
+    // Walk packages in lock file, check their dependencies
+    if let Some(packages) = lock["packages"].as_object() {
+        for (name, info) in packages {
+            if name.is_empty() { continue; } // skip root
+            if let Some(deps) = info["dependencies"].as_object() {
+                if deps.contains_key(package) {
+                    let clean_name = name.trim_start_matches("node_modules/");
+                    let version = info["version"].as_str().unwrap_or("").to_string();
+                    dependents.push((clean_name.to_string(), version));
+                }
+            }
+        }
+    }
+
+    Ok(dependents)
+}
+
+// ── Run npm uninstall ────────────────────────────────────────────────
+
+pub fn npm_uninstall(package: &str) -> Result<()> {
+    let status = Command::new("npm")
+        .args(["uninstall", package])
+        .status()
+        .map_err(|_| anyhow!("npm not found"))?;
+
+    if !status.success() {
+        return Err(anyhow!("npm uninstall failed for {}", package));
+    }
+    Ok(())
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]

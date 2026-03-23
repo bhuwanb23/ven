@@ -49,6 +49,15 @@ pub enum Commands {
         skip_check: bool,
     },
 
+    /// Remove a package from this project
+    Remove {
+        /// Package name
+        package: String,
+        /// Skip dependency check
+        #[arg(long)]
+        force: bool,
+    },
+
     /// One-time setup: install shell hook
     Setup,
 
@@ -84,6 +93,9 @@ pub fn run(cli: Cli) -> Result<()> {
         }
         Commands::Add { package, skip_check } => {
             cmd_add(&package, skip_check)
+        }
+        Commands::Remove { package, force } => {
+            cmd_remove(&package, force)
         }
         Commands::Setup => {
             cmd_setup()
@@ -367,5 +379,47 @@ fn update_ven_toml_package(pkg: &str, version: &str) -> Result<()> {
 
     std::fs::write(&toml_path, content)?;
     println!("  {} Updated ven.toml", "✓".green());
+    Ok(())
+}
+
+// ── ven remove <package> ────────────────────────────────────────────
+fn cmd_remove(package: &str, force: bool) -> Result<()> {
+    use colored::Colorize;
+    use crate::core::packages::*;
+
+    if !force {
+        let dependents = find_dependents(package)?;
+        if !dependents.is_empty() {
+            println!(
+                "\n  {} {} packages depend on {}:",
+                "Warning:".yellow().bold(),
+                dependents.len(),
+                package.bold()
+            );
+            for (dep, ver) in &dependents {
+                println!(
+                    "    {} {}  requires  {}",
+                    "•".dimmed(),
+                    format!("{} {}", dep, ver).bold(),
+                    package
+                );
+            }
+            println!();
+            println!("  Removing {} may break these packages.", package);
+            print!("  Remove anyway? [y/N]: ");
+            use std::io::{self, BufRead};
+            let stdin = io::stdin();
+            let answer = stdin.lock().lines().next()
+                .and_then(|l| l.ok())
+                .unwrap_or_default();
+            if answer.trim().to_lowercase() != "y" {
+                println!("  Cancelled.");
+                return Ok(());
+            }
+        }
+    }
+
+    npm_uninstall(package)?;
+    println!("{} Removed {}", "✓".green(), package.bold());
     Ok(())
 }
