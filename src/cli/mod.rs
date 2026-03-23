@@ -40,14 +40,13 @@ pub enum Commands {
         node: Option<String>,
     },
 
-    /// Add a package to the current project
+    /// Add a package to this project
     Add {
-        /// Package name (e.g., "express")
+        /// Package name, e.g. express or express@4.18.2
         package: String,
-
-        /// Specific version (optional, defaults to latest compatible)
-        #[arg(short, long)]
-        version: Option<String>,
+        /// Skip compatibility check
+        #[arg(long)]
+        skip_check: bool,
     },
 
     /// One-time setup: install shell hook
@@ -83,8 +82,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Init { node } => {
             cmd_init(node.as_deref())
         }
-        Commands::Add { package, version } => {
-            cmd_add(&package, version.as_deref())
+        Commands::Add { package, skip_check } => {
+            cmd_add(&package, skip_check)
         }
         Commands::Setup => {
             cmd_setup()
@@ -294,77 +293,79 @@ fn cmd_shell_activate(dir: &str) -> Result<()> {
 }
 
 // ── ven add <package> ──────────────────────────────────────────────
-fn cmd_add(package: &str, version: Option<&str>) -> Result<()> {
+fn cmd_add(package_spec: &str, skip_check: bool) -> Result<()> {
     use colored::Colorize;
-    use crate::core::packages::{fetch_npm_info, find_compatible_version, npm_install};
-    use crate::core::config::{find_ven_toml, parse_ven_toml};
-    use std::fs::OpenOptions;
-    use std::io::Write;
+    use crate::core::{load_config, packages::*};
+
+    // Split "express@4.18.2" into name + optional version pin
+    let (pkg_name, pinned_version) = if package_spec.contains('@') && !package_spec.starts_with('@') {
+        let parts: Vec<&str> = package_spec.splitn(2, '@').collect();
+        (parts[0], Some(parts[1]))
+    } else {
+        (package_spec, None)
+    };
+
+    // Get current Node version from ven.toml
+    let cwd = std::env::current_dir()?;
+    let node_version = load_config(&cwd)?
+        .and_then(|c| c.runtime.node)
+        .unwrap_or_else(|| "0".to_string());
+
+    println!("{} Checking {} against Node {}...",
+        "→".cyan(), pkg_name.bold(), node_version.bold());
+
+    // Fetch npm metadata
+    let info = fetch_npm_info(pkg_name)?;
+
+    // Determine version to install
+    let version_to_install = if let Some(pinned) = pinned_version {
+        pinned.to_string()
+    } else if skip_check {
+        info.dist_tags.get("latest").cloned()
+            .ok_or_else(|| anyhow::anyhow!("No latest version found"))?
+    } else {
+        // Find best compatible
+        find_compatible_version(&info, &node_version)
+            .ok_or_else(|| anyhow::anyhow!(
+                "No compatible version of {} found for Node {}",
+                pkg_name, node_version
+            ))?
+    };
+
+    println!("  {} {} — compatible with Node {}",
+        "✓".green(), format!("{}@{}", pkg_name, version_to_install).bold(), node_version);
+
+    // Run npm install
+    npm_install(pkg_name, &version_to_install)?;
+
+    // Update ven.toml
+    update_ven_toml_package(pkg_name, &version_to_install)?;
+
+    Ok(())
+}
+
+// ── Update ven.toml with new package ────────────────────────────────
+fn update_ven_toml_package(pkg: &str, version: &str) -> Result<()> {
+    use crate::core::{find_ven_toml, parse_ven_toml};
 
     let cwd = std::env::current_dir()?;
-
-    // Find ven.toml
     let toml_path = find_ven_toml(&cwd)
         .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
 
-    let config = parse_ven_toml(&toml_path)?;
+    // Read current config as raw TOML string, append package
+    let mut content = std::fs::read_to_string(&toml_path)?;
 
-    // Get current Node version from config
-    let node_version = config.runtime.node
-        .ok_or_else(|| anyhow::anyhow!("No Node version specified in ven.toml"))?;
+    let entry = format!("{} = \"{}\"", pkg, version);
 
-    println!("\n{} Checking compatibility...", "🔍".cyan());
-    println!("  Node version: {}", node_version.bold());
-    println!("  Package: {}", package.bold());
-
-    // Fetch npm metadata
-    let info = fetch_npm_info(package)?;
-
-    // Find best compatible version
-    let best_version = if let Some(v) = version {
-        // User specified exact version
-        v.to_string()
+    if content.contains("[packages]") {
+        // Insert after [packages] header
+        content = content.replace("[packages]", &format!("[packages]\n{}", entry));
     } else {
-        // Auto-detect best compatible version
-        find_compatible_version(&info, &node_version)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No compatible version of {} found for Node {}",
-                    package, node_version
-                )
-            })?
-    };
-
-    // Check if this specific version is compatible
-    let is_compatible = if let Some(ver_info) = info.versions.get(&best_version) {
-        ver_info.engines.is_none() || 
-        ver_info.engines.as_ref().unwrap().get("node").is_none() ||
-        true // Simplified: assume compatible if no strict check
-    } else {
-        false
-    };
-
-    println!("\n{} Recommended: {}@{}", "✓".green(), package.bold(), best_version.bold());
-    println!("  Compatible with Node {}: {}", node_version, if is_compatible { "Yes" } else { "Unknown" });
-
-    // Install via npm
-    npm_install(package, &best_version)?;
-
-    // Update ven.toml
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(&toml_path)?;
-
-    // Check if [packages] section exists
-    let existing_content = std::fs::read_to_string(&toml_path)?;
-    if !existing_content.contains("[packages]") {
-        writeln!(file, "\n[packages]")?;
+        // Add [packages] section
+        content.push_str(&format!("\n[packages]\n{}\n", entry));
     }
-    writeln!(file, "{} = \"{}\"", package, best_version)?;
 
-    println!("\n{} Added {} to ven.toml", "✓".green(), package.bold());
-    println!("  Created/updated node_modules/");
-    println!("  package-lock.json updated by npm");
-
+    std::fs::write(&toml_path, content)?;
+    println!("  {} Updated ven.toml", "✓".green());
     Ok(())
 }

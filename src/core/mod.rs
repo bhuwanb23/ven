@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 pub mod packages;
+pub use packages::{fetch_npm_info, find_compatible_version, npm_install};
 
 // ── Config structs ──────────────────────────────────────────────────
 // These structs map exactly to ven.toml sections.
