@@ -176,6 +176,28 @@ pub fn npm_uninstall(package: &str) -> Result<()> {
     Ok(())
 }
 
+// ── Get installed version from node_modules ─────────────────────────
+
+pub fn get_installed_version(package: &str) -> Result<String> {
+    let pkg_json = std::env::current_dir()?
+        .join("node_modules").join(package).join("package.json");
+    
+    let content = std::fs::read_to_string(&pkg_json)?;
+    let v: serde_json::Value = serde_json::from_str(&content)?;
+    
+    v["version"].as_str().map(|s| s.to_string())
+        .ok_or_else(|| anyhow::anyhow!("Cannot read version"))
+}
+
+// ── Fetch changelog / release notes ─────────────────────────────────
+
+pub fn fetch_release_notes(package: &str, from_ver: &str, to_ver: &str) -> String {
+    // Fetch from npm registry's "release" or from GitHub releases API
+    // For Phase 1: use npm registry "description" field as a fallback
+    // Full changelog parsing comes in Phase 2
+    format!("See full changelog: npmjs.com/package/{}/v/{}", package, to_ver)
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]

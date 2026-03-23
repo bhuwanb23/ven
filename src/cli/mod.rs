@@ -58,6 +58,15 @@ pub enum Commands {
         force: bool,
     },
 
+    /// Upgrade a package (preview or apply)
+    Upgrade {
+        /// Package name
+        package: String,
+        /// Actually apply the upgrade (default: preview only)
+        #[arg(long)]
+        apply: bool,
+    },
+
     /// One-time setup: install shell hook
     Setup,
 
@@ -96,6 +105,9 @@ pub fn run(cli: Cli) -> Result<()> {
         }
         Commands::Remove { package, force } => {
             cmd_remove(&package, force)
+        }
+        Commands::Upgrade { package, apply } => {
+            cmd_upgrade(&package, apply)
         }
         Commands::Setup => {
             cmd_setup()
@@ -421,5 +433,46 @@ fn cmd_remove(package: &str, force: bool) -> Result<()> {
 
     npm_uninstall(package)?;
     println!("{} Removed {}", "✓".green(), package.bold());
+    Ok(())
+}
+
+// ── ven upgrade <package> ────────────────────────────────────────────
+fn cmd_upgrade(package: &str, apply: bool) -> Result<()> {
+    use colored::Colorize;
+    use crate::core::{load_config, packages::*};
+
+    let cwd = std::env::current_dir()?;
+    let node_version = load_config(&cwd)?
+        .and_then(|c| c.runtime.node)
+        .unwrap_or_else(|| "0".to_string());
+
+    // Get currently installed version from node_modules
+    let current_ver = get_installed_version(package)
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Fetch latest compatible version
+    let info = fetch_npm_info(package)?;
+    let latest = find_compatible_version(&info, &node_version)
+        .ok_or_else(|| anyhow::anyhow!("No compatible version found"))?;
+
+    if current_ver == latest {
+        println!("{} {} is already up to date ({})", "✓".green(), package.bold(), latest);
+        return Ok(());
+    }
+
+    println!("\n  {} {}  →  {}  (latest compatible)", package.bold(), current_ver.dimmed(), latest.green());
+    println!("\n  Compatibility: {} Node {} supported", "✓".green(), node_version);
+
+    // Show changelog hint
+    let notes = fetch_release_notes(package, &current_ver, &latest);
+    println!("\n  Release notes: {}", notes.dimmed());
+
+    if !apply {
+        println!("\n  Run  {} to upgrade", format!("ven upgrade {} --apply", package).bold());
+        return Ok(());
+    }
+
+    npm_install(package, &latest)?;
+    update_ven_toml_package(package, &latest)?;
     Ok(())
 }
