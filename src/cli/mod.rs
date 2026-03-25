@@ -187,11 +187,10 @@ fn cmd_status() -> Result<()> {
             println!("  Run: ven init   to create one.");
         }
         Some(cfg) => {
-            if let Some(node_ver) = &cfg.runtime.node {
-                println!("  {} {}", "node".bold(), node_ver.green());
-            }
-            if let Some(pkgs) = &cfg.packages {
-                println!("  {} {} packages declared", "packages".bold(), pkgs.len());
+            let node_ver = &cfg.runtime.node;
+            println!("  {} {}", "node".bold(), node_ver.green());
+            if !cfg.packages.is_empty() {
+                println!("  {} {} packages declared", "packages".bold(), cfg.packages.len());
             }
         }
     }
@@ -331,7 +330,7 @@ fn cmd_add(package_spec: &str, skip_check: bool) -> Result<()> {
     // Get current Node version from ven.toml
     let cwd = std::env::current_dir()?;
     let node_version = load_config(&cwd)?
-        .and_then(|c| c.runtime.node)
+        .map(|c| c.runtime.node)
         .unwrap_or_else(|| "0".to_string());
 
     println!("{} Checking {} against Node {}...",
@@ -443,7 +442,7 @@ fn cmd_upgrade(package: &str, apply: bool) -> Result<()> {
 
     let cwd = std::env::current_dir()?;
     let node_version = load_config(&cwd)?
-        .and_then(|c| c.runtime.node)
+        .map(|c| c.runtime.node)
         .unwrap_or_else(|| "0".to_string());
 
     // Get currently installed version from node_modules

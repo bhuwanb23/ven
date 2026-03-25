@@ -63,10 +63,7 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     let config = parse_ven_toml(&toml_path)?;
 
     // Get the node version spec from config
-    let node_spec = match &config.runtime.node {
-        Some(v) => v.clone(),
-        None => return Ok(None),
-    };
+    let node_spec = &config.runtime.node;
 
     // Resolve alias ("lts", "20") to concrete version ("20.11.0")
     let plugin = NodePlugin;
@@ -88,9 +85,9 @@ export VEN_TOML="{toml}"
     );
 
     // Also export env vars declared in [env] section
-    if let Some(env_vars) = &config.env {
+    if !config.env.is_empty() {
         let mut full_exports = exports;
-        for (key, val) in env_vars {
+        for (key, val) in &config.env {
             full_exports.push_str(&format!("export {}=\"{}\"\n", key, val));
         }
         return Ok(Some(full_exports));

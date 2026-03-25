@@ -49,6 +49,15 @@ pub fn parse_ven_toml(path: &Path) -> Result<VenConfig> {
     Ok(config)
 }
 
+/// Load config for current directory - combined helper: find + parse in one call.
+#[allow(non_snake_case)]
+pub fn load_config(dir: &Path) -> Result<Option<VenConfig>> {
+    match find_ven_toml(dir) {
+        Some(path) => Ok(Some(parse_ven_toml(&path)?)),
+        None       => Ok(None),
+    }
+}
+
 /// Maps version strings like "18", "latest", or ">=20" to a semantic version requirement or concrete string
 /// Currently a basic implementation that can be expanded later to query actual available versions
 pub fn version_spec_resolver(spec: &str) -> String {
@@ -60,6 +69,52 @@ pub fn version_spec_resolver(spec: &str) -> String {
     // For now, we just pass through the spec, assuming it's either an exact version or semver requirement
     // E.g., "18", "20.11.1", ">=18.0.0"
     spec.to_string()
+}
+
+/// Resolve version alias to concrete version string
+pub fn resolve_node_version(spec: &str, installed: &[String]) -> Result<String> {
+    match spec {
+        "latest" => {
+            installed.iter()
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Node versions installed. Run: ven install node latest"))
+        }
+        "lts" => {
+            // LTS = even major version numbers (18, 20, 22...)
+            installed.iter()
+                .filter(|v| is_lts_version(v))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No LTS Node versions installed."))
+        }
+        spec if !spec.contains('.') => {
+            // Major only: "20" → find highest 20.x.x installed
+            let major = spec;
+            installed.iter()
+                .filter(|v| v.starts_with(&format!("{}.", major)))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Node {} versions installed.", major))
+        }
+        _ => Ok(spec.to_string()), // already exact: "20.11.0"
+    }
+}
+
+fn is_lts_version(version: &str) -> bool {
+    // LTS versions have even major numbers: 18.x, 20.x, 22.x
+    version.split('.').next()
+        .and_then(|major| major.parse::<u32>().ok())
+        .map(|n| n % 2 == 0)
+        .unwrap_or(false)
+}
+
+fn version_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    // Compare "20.11.0" vs "22.3.0" numerically
+    let parse = |v: &str| -> Vec<u32> {
+        v.split('.').filter_map(|n| n.parse().ok()).collect()
+    };
+    parse(a).cmp(&parse(b))
 }
 
 #[cfg(test)]
