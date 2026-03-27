@@ -333,19 +333,26 @@ fn cmd_add(package_spec: &str, skip_check: bool) -> Result<()> {
         .map(|c| c.runtime.node)
         .unwrap_or_else(|| "0".to_string());
 
-    println!("{} Checking {} against Node {}...",
-        "→".cyan(), pkg_name.bold(), node_version.bold());
-
-    // Fetch npm metadata
-    let info = fetch_npm_info(pkg_name)?;
-
     // Determine version to install
     let version_to_install = if let Some(pinned) = pinned_version {
+        // User specified exact version
         pinned.to_string()
     } else if skip_check {
-        info.dist_tags.get("latest").cloned()
-            .ok_or_else(|| anyhow::anyhow!("No latest version found"))?
+        // Skip compatibility check - just use "latest" tag via npm directly
+        println!("{} Skipping compatibility check for {}...",
+            "→".cyan(), pkg_name.bold());
+        // Let npm decide the version (will install latest)
+        npm_install(pkg_name, "latest")?;
+        update_ven_toml_package(pkg_name, "latest")?;
+        return Ok(());
     } else {
+        // Normal path: fetch npm metadata and find compatible version
+        println!("{} Checking {} against Node {}...",
+            "→".cyan(), pkg_name.bold(), node_version.bold());
+        
+        // Fetch npm metadata
+        let info = fetch_npm_info(pkg_name)?;
+        
         // Find best compatible
         find_compatible_version(&info, &node_version)
             .ok_or_else(|| anyhow::anyhow!(

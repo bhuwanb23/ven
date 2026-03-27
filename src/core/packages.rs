@@ -6,16 +6,18 @@ use std::process::Command;
 
 // ── npm registry response types ──────────────────────────────────────
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NpmPackageInfo {
     pub name: String,
-    #[serde(rename = "dist-tags")]
+    #[serde(rename = "dist-tags", default)]
     pub dist_tags: HashMap<String, String>,
+    #[serde(default)]
     pub versions: HashMap<String, NpmVersionInfo>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NpmVersionInfo {
+    #[serde(default)]
     pub engines: Option<HashMap<String, String>>,
 }
 
@@ -32,8 +34,22 @@ pub fn fetch_npm_info(package: &str) -> Result<NpmPackageInfo> {
         return Err(anyhow!("Package '{}' not found on npm", package));
     }
 
-    let info: NpmPackageInfo = response.json()
-        .map_err(|e| anyhow!("Failed to parse npm response: {}", e))?;
+    // Get response as text first for better error messages
+    let status = response.status();
+    let text = response.text()
+        .map_err(|e| anyhow!("Failed to read response body: {}", e))?;
+
+    // Try to parse JSON
+    let info: NpmPackageInfo = serde_json::from_str(&text)
+        .map_err(|e| {
+            // Show first 300 chars of response on error
+            let preview = if text.len() > 300 {
+                format!("{}...", &text[..300])
+            } else {
+                text.clone()
+            };
+            anyhow!("Failed to parse npm response: {}\nStatus: {}\nResponse preview: {}", e, status, preview)
+        })?;
 
     Ok(info)
 }
