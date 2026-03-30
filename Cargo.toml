@@ -35,6 +35,12 @@ dirs = "5"
 walkdir = "2"
 # Async trait support
 async-trait = "0.1"
+# Archive handling
+zip = "0.6"
+flate2 = "1.0"
+tar = "0.4"
+# Checksum verification
+sha2 = "0.10"
 
 [profile.release]
 opt-level = 3
