@@ -247,18 +247,25 @@ fn cmd_init(node: Option<&str>) -> Result<()> {
     if let Some(version) = node {
         content.push_str(&format!("node = \"{}\"\n", version));
     } else {
-        // Try to detect current Node version
-        let output = std::process::Command::new("node")
-            .arg("--version")
-            .output();
-
-        if let Ok(out) = output {
-            let version = String::from_utf8_lossy(&out.stdout)
-                .trim()
-                .trim_start_matches('v')
-                .to_string();
-            content.push_str(&format!("node = \"{}\"\n", version));
-            println!("{} Detected current Node version: {}", "✓".green(), version);
+        // Try to detect ven-managed Node versions first
+        use crate::plugins::NodePlugin;
+        use crate::plugins::LanguagePlugin;
+        
+        let plugin = NodePlugin;
+        let installed = plugin.list_installed();
+        
+        if let Ok(versions) = installed {
+            if !versions.is_empty() {
+                // Use the latest ven-managed version
+                let latest_managed = &versions[0]; // Already sorted newest first
+                content.push_str(&format!("node = \"{}\"\n", latest_managed));
+                println!("{} Using ven-managed Node version: {}", "✓".green(), latest_managed);
+            } else {
+                // No ven-managed versions, default to latest LTS
+                content.push_str("node = \"latest\"\n");
+                println!("{} No ven-managed Node versions found. Using 'latest' as default", "ℹ️".blue());
+                println!("{} Run: ven install node latest   to install Node.js", "💡".yellow());
+            }
         } else {
             content.push_str("node = \"latest\"\n");
             println!("{} Using 'latest' as default Node version", "ℹ️".blue());
