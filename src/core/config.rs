@@ -4,8 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Default)]
 pub struct VenConfig {
+    #[serde(default)]
     pub runtime: RuntimeConfig,
     #[serde(default)]
     pub packages: HashMap<String, String>,
@@ -13,8 +14,11 @@ pub struct VenConfig {
     pub env: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Default)]
 pub struct RuntimeConfig {
+    // Optional so ven.toml can exist without a node field
+    // (useful when ven.toml only declares packages, or future languages)
+    #[serde(default)]
     pub node: String,
 }
 

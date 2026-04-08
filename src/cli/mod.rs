@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-
 use anyhow::Result;
 
 use crate::core::{load_config};
@@ -126,15 +125,24 @@ fn cmd_install(language: &str, version: &str) -> Result<()> {
     match language {
         "node" => {
             let plugin = NodePlugin;
-            
-            // Resolve alias first: "lts" or "latest" → real version number
+
+            // Resolve aliases AND major-only versions before installing
+            // "lts" → latest LTS  e.g. "20.11.0"
+            // "latest" → latest stable e.g. "22.3.0"
+            // "20" → highest 20.x available on nodejs.org e.g. "20.11.0"
+            // "20.11.0" → exact, pass through
             let resolved = if version == "lts" || version == "latest" {
-                println!("{} Fetching latest Node version...", "🔍".cyan());
+                println!("{} Fetching Node release list...", "→".cyan());
                 plugin.latest_version()?
+            } else if !version.contains('.') {
+                // Major-only like "20" — resolve to highest 20.x from nodejs.org
+                println!("{} Resolving Node {} to latest patch version...", "→".cyan(), version.bold());
+                resolve_major_version(version)?
             } else {
                 version.to_string()
             };
 
+            println!("{} Resolved to Node {}", "✓".green(), resolved.bold());
             plugin.install_version(&resolved)?;
             Ok(())
         }
@@ -142,6 +150,29 @@ fn cmd_install(language: &str, version: &str) -> Result<()> {
             Err(anyhow::anyhow!("Unknown language: {}. Supported: node", other))
         }
     }
+}
+
+/// Resolve a major version like "20" to the latest 20.x.x by fetching nodejs.org release list
+fn resolve_major_version(major: &str) -> Result<String> {
+    let response = reqwest::blocking::get("https://nodejs.org/dist/index.json")
+        .map_err(|e| anyhow::anyhow!("Cannot reach nodejs.org: {}", e))?;
+    let releases: Vec<serde_json::Value> = response.json()?;
+
+    // Find highest version with this major number
+    for release in &releases {
+        if let Some(ver) = release.get("version").and_then(|v| v.as_str()) {
+            let ver_clean = ver.trim_start_matches('v');
+            let release_major = ver_clean.split('.').next().unwrap_or("0");
+            if release_major == major {
+                return Ok(ver_clean.to_string()); // releases are sorted newest first
+            }
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "No Node {} version found. Check available versions at nodejs.org",
+        major
+    ))
 }
 
 // ── ven list (node) ───────────────────────────────────────────────
@@ -250,28 +281,36 @@ fn cmd_init(node: Option<&str>) -> Result<()> {
 fn cmd_setup() -> Result<()> {
     use colored::Colorize;
     use std::io::Write;
+    use crate::shell::{detect_shell, generate_hook};
 
-    // Detect which shell the user is running
-    let shell_path = std::env::var("SHELL").unwrap_or_default();
-    let shell_name = std::path::Path::new(&shell_path)
-        .file_name().and_then(|n| n.to_str())
-        .unwrap_or("bash");
+    // FIXED: detect shell properly — Windows always uses PowerShell
+    let shell_name = detect_shell();
 
     println!("\n  {} ven setup", "→".cyan());
     println!("  Detected shell: {}", shell_name.bold());
 
-    // Find the rc file
     let home = dirs::home_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?;
 
-    let rc_file = match shell_name {
-        "zsh"  => home.join(".zshrc"),
-        "fish" => home.join(".config/fish/config.fish"),
-        _      => home.join(".bashrc"),
+    // FIXED: Windows writes to PowerShell $PROFILE, not ~/.bashrc
+    let (rc_file, hook_line) = if cfg!(target_os = "windows") {
+        // PowerShell profile location
+        let profile = home
+            .join("Documents")
+            .join("PowerShell")
+            .join("Microsoft.PowerShell_profile.ps1");
+        let line = "\n# ven shell hook\nInvoke-Expression (& ven shell hook powershell | Out-String)".to_string();
+        (profile, line)
+    } else {
+        // Unix — bash/zsh/fish
+        let rc = match shell_name.as_str() {
+            "zsh"  => home.join(".zshrc"),
+            "fish" => home.join(".config").join("fish").join("config.fish"),
+            _      => home.join(".bashrc"),
+        };
+        let line = format!("\n# ven shell hook\neval \"$(ven shell hook {})\""  , shell_name);
+        (rc, line)
     };
-
-    // The line to add to the rc file
-    let hook_line = format!("\n# ven shell hook\neval \"$(ven shell {})\"", shell_name);
 
     // Check if already installed
     let existing = std::fs::read_to_string(&rc_file).unwrap_or_default();
@@ -280,14 +319,28 @@ fn cmd_setup() -> Result<()> {
         return Ok(());
     }
 
-    // Append to rc file
-    let mut file = std::fs::OpenOptions::new().append(true).open(&rc_file)?;
+    // Create parent dirs if needed (PowerShell profile dir may not exist)
+    if let Some(parent) = rc_file.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Append hook line to rc file
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&rc_file)?;
     writeln!(file, "{}", hook_line)?;
 
     println!("  {} Written to {}", "✓".green(), rc_file.display());
     println!();
-    println!("  Restart your shell or run:");
-    println!("  {}", format!("source {}", rc_file.display()).bold());
+
+    if cfg!(target_os = "windows") {
+        println!("  Restart PowerShell or run:");
+        println!("  {}", ". $PROFILE".bold());
+    } else {
+        println!("  Restart your shell or run:");
+        println!("  {}", format!("source {}", rc_file.display()).bold());
+    }
     println!();
     Ok(())
 }
