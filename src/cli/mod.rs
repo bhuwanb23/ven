@@ -280,7 +280,7 @@ fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, valida
                 ("react", "^18.2.0"),
                 ("react-dom", "^18.2.0"),
             ]),
-            ("Empty Project", "node", "lts", vec![]),
+            ("Empty Project", "", "", vec![]),  // Empty strings trigger interactive selection
         ];
         
         let template_names: Vec<&str> = templates.iter().map(|t| t.0).collect();
@@ -293,15 +293,42 @@ fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, valida
         
         let template = &templates[template_idx];
         template_name = template.0.to_string();
-        selected_language = template.1.to_string();
-        selected_version = template.2.to_string();
         
-        // Add template packages
-        for (pkg, ver) in &template.3 {
-            selected_packages.push((pkg.to_string(), ver.to_string()));
+        // Check if this is an "Empty Project" - if so, do interactive language/version selection
+        if template.1.is_empty() {
+            println!("\n{} Selected: {}", "✓".green(), template_name.bold());
+            println!("{} Configuring your empty project...", "→".cyan());
+            
+            // Show language selection
+            let languages = vec!["node", "python"];
+            let language_idx = Select::with_theme(&theme)
+                .with_prompt("Select language")
+                .items(&languages)
+                .default(0)
+                .interact()?;
+            
+            selected_language = languages[language_idx].to_string();
+            
+            // Version selection
+            selected_version = match selected_language.as_str() {
+                "node" => select_node_version()?,
+                "python" => select_python_version()?,
+                _ => {
+                    return Err(anyhow::anyhow!("Unsupported language: {}", selected_language));
+                }
+            };
+        } else {
+            // Pre-configured template
+            selected_language = template.1.to_string();
+            selected_version = template.2.to_string();
+            
+            // Add template packages
+            for (pkg, ver) in &template.3 {
+                selected_packages.push((pkg.to_string(), ver.to_string()));
+            }
+            
+            println!("\n{} Selected: {}", "✓".green(), template_name.bold());
         }
-        
-        println!("\n{} Selected: {}", "✓".green(), template_name.bold());
     } else {
         // MODE 2: Interactive language & version selection
         let languages = vec!["node", "python"];
