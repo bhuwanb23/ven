@@ -11,7 +11,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
     let file = File::open(zip_path)?;
     let mut archive = ZipArchive::new(file)?;
 
-    println!("{} Extracting to {}...", "→".cyan(), dest.display());
+    println!("{} Extracting to {}...", "[ARROW]".cyan(), dest.display());
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
@@ -43,7 +43,7 @@ fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
     let decoder = GzDecoder::new(file);
     let mut archive = Archive::new(decoder);
 
-    println!("{} Extracting to {}...", "→".cyan(), dest.display());
+    println!("{} Extracting to {}...", "[ARROW]".cyan(), dest.display());
     archive.unpack(dest)?;
 
     Ok(())
@@ -83,7 +83,7 @@ pub fn extract_archive(archive_path: &Path, dest: &Path) -> Result<()> {
         }
     }
 
-    println!("{} Extraction complete", "✓".green());
+    println!("{} Extraction complete", "[OK]".green());
     Ok(())
 }
 
@@ -131,7 +131,7 @@ fn move_contents(src: &Path, dest: &Path) -> Result<()> {
 
 /// Install Node.js - download, extract, and setup
 pub fn install_node(downloader: &crate::core::download::NodeDownloader, version: &str) -> Result<()> {
-    println!("{} Installing Node {}...", "↓".cyan(), version.bold());
+    println!("{} Installing Node {}...", "[DOWNLOAD]".cyan(), version.bold());
 
     // Download
     let archive_path = downloader.download(version)?;
@@ -152,7 +152,7 @@ pub fn install_node(downloader: &crate::core::download::NodeDownloader, version:
     let node_binary = bin_path.join("node");
 
     if node_binary.exists() {
-        println!("{} Node {} installed successfully", "✓".green(), version.bold());
+        println!("{} Node {} installed successfully", "[OK]".green(), version.bold());
         println!("{} Binary: {}", "•".blue(), node_binary.display());
         Ok(())
     } else {

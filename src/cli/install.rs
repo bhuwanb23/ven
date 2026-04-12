@@ -66,17 +66,17 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
     // "20" → highest 20.x available on nodejs.org e.g. "20.11.0"
     // "20.11.0" → exact, pass through
     let resolved = if version == "lts" || version == "latest" {
-        println!("{} Fetching {} release list...", "→".cyan(), language.bold());
+        println!("{} Fetching {} release list...", "[FETCH]".cyan(), language.bold());
         plugin.latest_version()?
     } else if !version.contains('.') {
         // Major-only like "20" — resolve to highest 20.x from nodejs.org
-        println!("{} Resolving {} {} to latest patch version...", "→".cyan(), language.bold(), version.bold());
+        println!("{} Resolving {} {} to latest patch version...", "[RESOLVE]".cyan(), language.bold(), version.bold());
         resolve_major_version(plugin, version)?
     } else {
         version.to_string()
     };
 
-    println!("{} Resolved to {} {}", "✓".green(), language.bold(), resolved.bold());
+    println!("{} Resolved to {} {}", "[OK]".green(), language.bold(), resolved.bold());
     plugin.install_version(&resolved)?;
     
     // Post-install validation

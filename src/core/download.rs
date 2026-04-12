@@ -169,7 +169,7 @@ impl NodeDownloader {
 
     /// Download a Node.js version archive — returns path to the cached archive file
     pub fn download(&self, version: &str) -> Result<PathBuf> {
-        println!("{} Preparing to download Node {}...", "→".cyan(), version.bold());
+        println!("{} Preparing to download Node {}...", "[ARROW]".cyan(), version.bold());
 
         let url = Self::build_download_url(version)?;
         println!("{} URL: {}", "•".blue(), url);
@@ -180,7 +180,7 @@ impl NodeDownloader {
         let cache_path = self.cache_dir.join(filename);
 
         if cache_path.exists() {
-            println!("{} Using cached archive", "✓".green());
+            println!("{} Using cached archive", "[OK]".green());
         } else {
             self.download_file(&url, &cache_path)?;
         }
@@ -190,7 +190,7 @@ impl NodeDownloader {
         match Self::fetch_checksum(version) {
             Ok(expected) => {
                 if Self::verify_checksum(&cache_path, &expected)? {
-                    println!("{} Checksum verified", "✓".green());
+                    println!("{} Checksum verified", "[OK]".green());
                 } else {
                     // Remove corrupted file so next run re-downloads
                     let _ = std::fs::remove_file(&cache_path);

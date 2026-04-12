@@ -58,6 +58,7 @@ impl PluginRegistry {
     }
     
     /// Check if a language is supported
+    #[allow(dead_code)]
     pub fn is_supported(&self, name: &str) -> bool {
         self.plugins.contains_key(name)
     }

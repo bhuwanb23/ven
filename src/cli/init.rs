@@ -13,8 +13,8 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
     }
 
     let theme = ColorfulTheme::default();
-    let mut selected_language = "node".to_string();
-    let mut selected_version = String::new();
+    let selected_language: String;
+    let selected_version: String;
     let mut selected_packages: Vec<(String, String)> = Vec::new();
     let mut template_name = String::new();
 

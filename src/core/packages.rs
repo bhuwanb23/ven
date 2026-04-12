@@ -131,7 +131,7 @@ fn semver_cmp(a: &str, b: &str) -> std::cmp::Ordering {
 
 pub fn npm_install(package: &str, version: &str) -> Result<()> {
     let pkg_spec = format!("{}@{}", package, version);
-    println!("{} Installing {}...", "↓".cyan(), pkg_spec.bold());
+    println!("{} Installing {}...", "[DOWNLOAD]".cyan(), pkg_spec.bold());
 
     let status = Command::new("npm")
         .args(["install", &pkg_spec])
@@ -142,7 +142,7 @@ pub fn npm_install(package: &str, version: &str) -> Result<()> {
         return Err(anyhow!("npm install failed for {}", pkg_spec));
     }
 
-    println!("{} Installed {}", "✓".green(), pkg_spec.bold());
+    println!("{} Installed {}", "[OK]".green(), pkg_spec.bold());
     Ok(())
 }
 
