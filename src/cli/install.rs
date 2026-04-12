@@ -160,68 +160,102 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
     let plugin = registry.require(language)?;
     let installed = plugin.list_installed().unwrap_or_default();
     
-    // Show top versions (latest from each major line)
-    let mut shown_majors = std::collections::HashSet::new();
-    let mut recommended_versions: Vec<(String, String)> = Vec::new();
-    
     println!();
     
-    for version in versions.iter().take(50) { // Show top 50
-        let major = version.split('.').next().unwrap_or("0");
+    // Show quick options first
+    println!("  {} Quick Options:", "[SPECIAL]".cyan().bold());
+    println!("    {}  - Install latest stable release", "latest".bold().green());
+    println!("    {}    - Install latest LTS version", "lts".bold().green());
+    println!();
+    
+    // Show latest 10 versions
+    println!("  {} Latest Available Versions:", "[VERSIONS]".cyan().bold());
+    
+    let display_count = std::cmp::min(10, versions.len());
+    
+    for (idx, version) in versions.iter().take(display_count).enumerate() {
+        let metadata = get_version_metadata(version);
+        let is_installed = installed.contains(&version.to_string());
+        let marker = if is_installed { "[INSTALLED]" } else { "         " };
+        let num = format!("{:2}.", idx + 1);
         
-        // Only show first version of each major (latest patch)
-        if shown_majors.insert(major.to_string()) {
-            let metadata = get_version_metadata(version);
-            let is_installed = installed.contains(&version.to_string());
-            let marker = if is_installed { " ✓" } else { "  " };
-            
-            println!("  {} {}  {}", marker, version.bold(), metadata.dimmed());
-            
-            // Track recommended versions
-            if major == "20" || major == "22" {
-                recommended_versions.push((version.clone(), major.to_string()));
-            }
-        }
+        println!("    {} {} {}  {}", num, marker, version, metadata);
+    }
+    
+    if versions.len() > 10 {
+        println!("\n  [INFO] ... and {} more versions (use major version like 20, 22, 18)", versions.len() - 10);
     }
     
     // Show recommendation
-    println!("\n{} Recommended: {} {} (LTS)", "[TIP]".yellow(), language.bold(), "20".green());
+    println!("\n{} Recommended: {} {} (LTS - Best compatibility)", "[TIP]".yellow(), language.bold(), "20".green());
     
     Ok(())
 }
 
 /// Interactive selection from version list
 fn select_from_version_list(versions: &[String], _language: &str) -> Result<String> {
-    use std::io::{self, BufRead, Write};
+    use dialoguer::Select;
+    use dialoguer::theme::ColorfulTheme;
     
-    println!();
-    print!("? Enter version number (or press ENTER for 20): ");
-    io::stdout().flush()?;
+    let theme = ColorfulTheme::default();
     
-    let stdin = io::stdin();
-    let mut input = String::new();
-    stdin.lock().read_line(&mut input)?;
-    let selected = input.trim().to_string();
+    // Build selection items
+    let mut items: Vec<String> = Vec::new();
+    let mut values: Vec<String> = Vec::new();
     
-    // Default to 20 if empty
-    let selected = if selected.is_empty() {
-        "20".to_string()
-    } else {
-        selected
-    };
+    // Add special options at the top
+    items.push("latest - Latest stable release".to_string());
+    values.push("latest".to_string());
     
-    // Validate version exists
-    let major_exists = versions.iter()
-        .any(|v| v.starts_with(&format!("{}.", selected)) || v == &selected);
+    items.push("lts    - Latest LTS version (Recommended)".to_string());
+    values.push("lts".to_string());
     
-    if !major_exists && selected != "lts" && selected != "latest" {
-        return Err(anyhow::anyhow!(
-            "Version {} not found. Use exact version (e.g., 20.20.2) or major version (e.g., 20)",
-            selected
-        ));
+    items.push("--- Press ENTER to select ---".to_string()); // Separator
+    values.push("".to_string());
+    
+    // Add latest 10 versions
+    let display_count = std::cmp::min(10, versions.len());
+    for (idx, version) in versions.iter().take(display_count).enumerate() {
+        let metadata = get_version_metadata_short(version);
+        items.push(format!("{:2}. {} ({})", idx + 1, version, metadata));
+        values.push(version.clone());
     }
     
-    Ok(selected)
+    // Show selection menu
+    let selection = Select::with_theme(&theme)
+        .with_prompt("Select version (use arrow keys)")
+        .items(&items)
+        .default(1) // Default to LTS option
+        .interact()?;
+    
+    let selected = &values[selection];
+    
+    // Check if user selected separator
+    if selected.is_empty() {
+        return Err(anyhow::anyhow!("Please select a valid version"));
+    }
+    
+    Ok(selected.clone())
+}
+
+/// Get short version metadata for display
+fn get_version_metadata_short(version: &str) -> String {
+    let major = version.split('.').next().unwrap_or("0");
+    let major_num: u32 = major.parse().unwrap_or(0);
+    
+    if major_num >= 23 {
+        format!("CURRENT")
+    } else if major_num == 22 {
+        format!("CURRENT")
+    } else if major_num == 20 {
+        format!("LTS")
+    } else if major_num == 18 {
+        format!("LTS")
+    } else if major_num <= 16 {
+        format!("DEPRECATED")
+    } else {
+        format!("STABLE")
+    }
 }
 
 /// Interactive version selection with metadata
