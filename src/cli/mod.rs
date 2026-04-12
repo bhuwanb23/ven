@@ -23,12 +23,13 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Install a language version
+    #[command(visible_alias = "i")]
     Install {
         /// Language: node
-        language: String,
+        language: Option<String>,
 
         /// Version: 20.11.0, 20, lts, latest
-        version: String,
+        version: Option<String>,
     },
 
     /// List installed versions
@@ -108,7 +109,22 @@ pub enum ShellCommands {
 pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Install { language, version } => {
-            install::cmd_install(&language, &version)
+            match (language, version) {
+                (Some(lang), Some(ver)) => {
+                    // Both provided: direct install
+                    install::cmd_install(&lang, &ver)
+                }
+                (None, None) => {
+                    // Neither provided: interactive mode
+                    install::cmd_install_interactive()
+                }
+                _ => {
+                    // Partial args: show error
+                    Err(anyhow::anyhow!(
+                        "Provide both language and version, or neither for interactive mode.\n\nExamples:\n  ven install node 20        # Direct install\n  ven install               # Interactive mode"
+                    ))
+                }
+            }
         }
         Commands::List { language } => {
             list::cmd_list(language.as_deref())
