@@ -114,14 +114,18 @@ pub fn run(cli: Cli) -> Result<()> {
                     // Both provided: direct install
                     install::cmd_install(&lang, &ver)
                 }
+                (Some(lang), None) => {
+                    // Language only: show available versions
+                    install::cmd_install_with_version_list(&lang)
+                }
                 (None, None) => {
                     // Neither provided: interactive mode
                     install::cmd_install_interactive()
                 }
                 _ => {
-                    // Partial args: show error
+                    // Partial args (version without language): show error
                     Err(anyhow::anyhow!(
-                        "Provide both language and version, or neither for interactive mode.\n\nExamples:\n  ven install node 20        # Direct install\n  ven install               # Interactive mode"
+                        "Provide language first, then version.\n\nExamples:\n  ven install node 20        # Direct install\n  ven install node           # Show available versions\n  ven install                # Interactive mode"
                     ))
                 }
             }
