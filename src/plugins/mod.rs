@@ -22,4 +22,7 @@ pub trait LanguagePlugin: Send + Sync {
 }
 
 pub mod node;
+pub mod registry;
+
 pub use node::NodePlugin;
+pub use registry::PluginRegistry;

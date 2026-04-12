@@ -4,6 +4,18 @@ use anyhow::Result;
 use crate::core::{load_config};
 use crate::plugins::{LanguagePlugin, NodePlugin};
 
+// Command modules
+pub mod install;
+pub mod list;
+pub mod status;
+pub mod setup;
+pub mod shell;
+// TODO: Move these large files next
+// pub mod init;
+// pub mod add;
+// pub mod remove;
+// pub mod upgrade;
+
 /// ven — Node.js version manager
 #[derive(Parser)]
 #[command(name = "ven", version, about)]
@@ -100,13 +112,13 @@ pub enum ShellCommands {
 pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Install { language, version } => {
-            cmd_install(&language, &version)
+            install::cmd_install(&language, &version)
         }
         Commands::List { language } => {
-            cmd_list(language.as_deref())
+            list::cmd_list(language.as_deref())
         }
         Commands::Status => {
-            cmd_status()
+            status::cmd_status()
         }
         Commands::Init { node, template, with_packages, validate } => {
             cmd_init(node.as_deref(), template, with_packages, validate)
@@ -121,125 +133,23 @@ pub fn run(cli: Cli) -> Result<()> {
             cmd_upgrade(&package, apply)
         }
         Commands::Setup => {
-            cmd_setup()
+            setup::cmd_setup()
         }
         Commands::Shell { action } => match action {
-            ShellCommands::Hook { shell } => cmd_shell_hook(&shell),
-            ShellCommands::Activate { dir } => cmd_shell_activate(&dir),
+            ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
+            ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),
         },
     }
 }
 
 // ── ven install node <version> ────────────────────────────────────
-fn cmd_install(language: &str, version: &str) -> Result<()> {
-    use colored::Colorize;
-
-    match language {
-        "node" => {
-            let plugin = NodePlugin;
-
-            // Resolve aliases AND major-only versions before installing
-            // "lts" → latest LTS  e.g. "20.11.0"
-            // "latest" → latest stable e.g. "22.3.0"
-            // "20" → highest 20.x available on nodejs.org e.g. "20.11.0"
-            // "20.11.0" → exact, pass through
-            let resolved = if version == "lts" || version == "latest" {
-                println!("{} Fetching Node release list...", "→".cyan());
-                plugin.latest_version()?
-            } else if !version.contains('.') {
-                // Major-only like "20" — resolve to highest 20.x from nodejs.org
-                println!("{} Resolving Node {} to latest patch version...", "→".cyan(), version.bold());
-                resolve_major_version(version)?
-            } else {
-                version.to_string()
-            };
-
-            println!("{} Resolved to Node {}", "✓".green(), resolved.bold());
-            plugin.install_version(&resolved)?;
-            Ok(())
-        }
-        other => {
-            Err(anyhow::anyhow!("Unknown language: {}. Supported: node", other))
-        }
-    }
-}
-
-/// Resolve a major version like "20" to the latest 20.x.x by fetching nodejs.org release list
-fn resolve_major_version(major: &str) -> Result<String> {
-    let response = reqwest::blocking::get("https://nodejs.org/dist/index.json")
-        .map_err(|e| anyhow::anyhow!("Cannot reach nodejs.org: {}", e))?;
-    let releases: Vec<serde_json::Value> = response.json()?;
-
-    // Find highest version with this major number
-    for release in &releases {
-        if let Some(ver) = release.get("version").and_then(|v| v.as_str()) {
-            let ver_clean = ver.trim_start_matches('v');
-            let release_major = ver_clean.split('.').next().unwrap_or("0");
-            if release_major == major {
-                return Ok(ver_clean.to_string()); // releases are sorted newest first
-            }
-        }
-    }
-
-    Err(anyhow::anyhow!(
-        "No Node {} version found. Check available versions at nodejs.org",
-        major
-    ))
-}
+// MOVED TO: src/cli/install.rs
 
 // ── ven list (node) ───────────────────────────────────────────────
-fn cmd_list(language: Option<&str>) -> Result<()> {
-    use colored::Colorize;
-
-    match language.unwrap_or("node") {
-        "node" => {
-            let plugin = NodePlugin;
-            let versions = plugin.list_installed()?;
-
-            if versions.is_empty() {
-                println!("{} No Node versions installed. Run: ven install node latest", "⚠️".yellow());
-                return Ok(());
-            }
-
-            println!("\n  {}", "node".bold().cyan());
-            for v in &versions {
-                println!("    {} {}", "•".dimmed(), v);
-            }
-            println!();
-            Ok(())
-        }
-        other => {
-            Err(anyhow::anyhow!("Unknown language: {}. Supported: node", other))
-        }
-    }
-}
+// MOVED TO: src/cli/list.rs
 
 // ── ven status ────────────────────────────────────────────────────
-#[allow(non_snake_case)]
-fn cmd_status() -> Result<()> {
-    use colored::Colorize;
-
-    let cwd = std::env::current_dir()?;
-    let config = load_config(&cwd)?;
-
-    println!("\n  {} {}", "ven status".bold(), cwd.display());
-
-    match config {
-        None => {
-            println!("  No ven.toml found in this directory tree.");
-            println!("  Run: ven init   to create one.");
-        }
-        Some(cfg) => {
-            let node_ver = &cfg.runtime.node;
-            println!("  {} {}", "node".bold(), node_ver.green());
-            if !cfg.packages.is_empty() {
-                println!("  {} {} packages declared", "packages".bold(), cfg.packages.len());
-            }
-        }
-    }
-    println!();
-    Ok(())
-}
+// MOVED TO: src/cli/status.rs
 
 // ── ven init ──────────────────────────────────────────────────────
 fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, validate: bool) -> Result<()> {
