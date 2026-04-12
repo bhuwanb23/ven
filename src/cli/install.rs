@@ -3,7 +3,7 @@ use colored::Colorize;
 use crate::plugins::{PluginRegistry, LanguagePlugin};
 
 /// Resolve a major version like "20" to the latest 20.x.x by fetching nodejs.org release list
-fn resolve_major_version(plugin: &dyn LanguagePlugin, major: &str) -> Result<String> {
+fn resolve_major_version(_plugin: &dyn LanguagePlugin, major: &str) -> Result<String> {
     let response = reqwest::blocking::get("https://nodejs.org/dist/index.json")
         .map_err(|e| anyhow::anyhow!("Cannot reach nodejs.org: {}", e))?;
     let releases: Vec<serde_json::Value> = response.json()?;
