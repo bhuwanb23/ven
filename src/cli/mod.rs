@@ -292,68 +292,112 @@ fn cmd_init(_node: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Interactive Node.js version selection
+/// Interactive Node.js version selection with compatibility matrix
 fn select_node_version() -> Result<String> {
     use crate::plugins::{NodePlugin, LanguagePlugin};
     use dialoguer::{Select, theme::ColorfulTheme};
     
     let theme = ColorfulTheme::default();
-
     let plugin = NodePlugin;
     
     // Get installed versions
     let installed = plugin.list_installed().unwrap_or_default();
     
-    // Build version options: installed versions + common aliases
-    let mut options: Vec<String> = Vec::new();
+    // Build version options with metadata
+    struct VersionOption {
+        value: String,
+        display: String,
+    }
     
-    // Add installed versions (newest first)
+    let mut options: Vec<VersionOption> = Vec::new();
+    
+    // Add installed versions with compatibility info
     for version in &installed {
-        options.push(version.clone());
+        let info = get_version_info(version);
+        options.push(VersionOption {
+            value: version.clone(),
+            display: format!("{}  {}", version, info),
+        });
     }
     
-    // Add separator and aliases if there are installed versions
+    // Add separator if there are installed versions
     if !installed.is_empty() {
-        options.push("─── Aliases ───".to_string());
+        options.push(VersionOption {
+            value: "".to_string(),
+            display: "─── Version Aliases ───".to_string(),
+        });
     }
     
-    options.push("latest".to_string());
-    options.push("lts".to_string());
-    options.push("20".to_string());
-    options.push("18".to_string());
+    // Add aliases with descriptions
+    options.push(VersionOption {
+        value: "latest".to_string(),
+        display: "latest              Latest stable release".to_string(),
+    });
+    options.push(VersionOption {
+        value: "lts".to_string(),
+        display: "lts                 Latest LTS (recommended)".to_string(),
+    });
+    options.push(VersionOption {
+        value: "22".to_string(),
+        display: "22                  Current release line".to_string(),
+    });
+    options.push(VersionOption {
+        value: "20".to_string(),
+        display: "20                  Active LTS (best compatibility)".to_string(),
+    });
+    options.push(VersionOption {
+        value: "18".to_string(),
+        display: "18                  Maintenance LTS".to_string(),
+    });
     
     // If no installed versions, show informative message
     if installed.is_empty() {
-        options.insert(0, "⚠️  No versions installed".to_string());
+        options.insert(0, VersionOption {
+            value: "".to_string(),
+            display: "⚠️  No versions installed - select an alias to install".to_string(),
+        });
     }
     
-    // Create display items (filter out separator for selection logic)
+    // Extract display items
     let display_items: Vec<String> = options.iter()
-        .map(|opt| {
-            if opt.starts_with("───") {
-                opt.clone()
-            } else if opt.starts_with("⚠️") {
-                opt.clone()
-            } else {
-                format!("{}  (installed)", opt)
-            }
-        })
+        .map(|opt| opt.display.clone())
         .collect();
     
     let version_idx = Select::with_theme(&theme)
         .with_prompt("Select Node.js version")
         .items(&display_items)
-        .default(if installed.is_empty() { 1 } else { 0 })
+        .default(if installed.is_empty() { 2 } else { 0 })
         .interact()?;
     
     let selected = &options[version_idx];
     
     // Skip separator and warning
-    if selected.starts_with("───") || selected.starts_with("⚠️") {
+    if selected.value.is_empty() || selected.value.starts_with("⚠️") {
         return Err(anyhow::anyhow!("Please select a valid version"));
     }
     
-    Ok(selected.clone())
+    Ok(selected.value.clone())
+}
+
+/// Get version compatibility and status information
+fn get_version_info(version: &str) -> String {
+    let major = version.split('.').next().unwrap_or("0");
+    let major_num: u32 = major.parse().unwrap_or(0);
+    
+    // Determine version status and compatibility
+    if major_num >= 23 {
+        format!("🔥 Current  (~85% pkg compat)")
+    } else if major_num == 22 {
+        format!("✅ Current  (~95% pkg compat)")
+    } else if major_num == 20 {
+        format!("⭐ LTS     (~98% pkg compat) [Recommended]")
+    } else if major_num == 18 {
+        format!("🔧 LTS     (~95% pkg compat) [Maintenance]")
+    } else if major_num <= 16 {
+        format!("⚠️  Deprecated (<80% pkg compat)")
+    } else {
+        format!("✅ Installed")
+    }
 }
 
 // ── ven setup ─────────────────────────────────────────────────────
