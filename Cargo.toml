@@ -2,7 +2,7 @@
 name = "ven"
 version = "0.1.0"
 edition = "2021"
-description = "Node-first intelligent version and dependency manager"
+description = "Any-first intelligent version and dependency manager"
 license = "MIT"
 
 [[bin]]
@@ -28,6 +28,8 @@ thiserror = "1"
 # Terminal output
 colored = "2"
 indicatif = "0.17"
+# Interactive prompts
+dialoguer = "0.11"
 # Semver parsing
 semver = "1"
 # File system

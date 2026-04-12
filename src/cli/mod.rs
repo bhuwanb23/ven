@@ -233,6 +233,7 @@ fn cmd_status() -> Result<()> {
 fn cmd_init(node: Option<&str>) -> Result<()> {
     use colored::Colorize;
     use std::fs;
+    use dialoguer::{Select, theme::ColorfulTheme};
 
     let cwd = std::env::current_dir()?;
     let toml_path = cwd.join("ven.toml");
@@ -241,47 +242,118 @@ fn cmd_init(node: Option<&str>) -> Result<()> {
         return Err(anyhow::anyhow!("ven.toml already exists in this directory"));
     }
 
-    // Build ven.toml content
-    let mut content = String::from("[runtime]\n");
+    let theme = ColorfulTheme::default();
+
+    // Step 1: Language selection
+    let languages = vec!["node", "python"];
+    let language_idx = Select::with_theme(&theme)
+        .with_prompt("Select language")
+        .items(&languages)
+        .default(0)
+        .interact()?;
     
-    if let Some(version) = node {
-        content.push_str(&format!("node = \"{}\"\n", version));
-    } else {
-        // Try to detect ven-managed Node versions first
-        use crate::plugins::NodePlugin;
-        use crate::plugins::LanguagePlugin;
-        
-        let plugin = NodePlugin;
-        let installed = plugin.list_installed();
-        
-        if let Ok(versions) = installed {
-            if !versions.is_empty() {
-                // Use the latest ven-managed version
-                let latest_managed = &versions[0]; // Already sorted newest first
-                content.push_str(&format!("node = \"{}\"\n", latest_managed));
-                println!("{} Using ven-managed Node version: {}", "✓".green(), latest_managed);
-            } else {
-                // No ven-managed versions, default to latest LTS
-                content.push_str("node = \"latest\"\n");
-                println!("{} No ven-managed Node versions found. Using 'latest' as default", "ℹ️".blue());
-                println!("{} Run: ven install node latest   to install Node.js", "💡".yellow());
-            }
-        } else {
-            content.push_str("node = \"latest\"\n");
-            println!("{} Using 'latest' as default Node version", "ℹ️".blue());
+    let selected_language = languages[language_idx];
+
+    // Step 2: Version selection based on language
+    let selected_version = match selected_language {
+        "node" => {
+            select_node_version()?
         }
-    }
+        "python" => {
+            println!("{} Python support coming soon!", "🔧".yellow());
+            println!("{} Defaulting to 'latest' for now", "ℹ️".blue());
+            "latest".to_string()
+        }
+        _ => {
+            return Err(anyhow::anyhow!("Unsupported language: {}", selected_language));
+        }
+    };
+
+    // Step 3: Generate ven.toml
+    let mut content = String::from("[runtime]\n");
+    content.push_str(&format!("{} = \"{}\"\n", selected_language, selected_version));
 
     content.push_str("\n[packages]\n");
     content.push_str("# Add your dependencies here\n");
     content.push_str("# express = \"^4.18.2\"\n");
 
     fs::write(&toml_path, &content)?;
-    println!("{} Created {}", "✓".green(), toml_path.display());
-    println!("\nEdit this file to customize your Node version and dependencies.");
-    println!("Run: ven install node <version>   to install a specific version");
+    
+    println!("\n{} Created {} with {} {}", 
+        "✓".green(), 
+        toml_path.display(),
+        selected_language.bold(),
+        selected_version.green()
+    );
+    println!("\nEdit this file to customize your dependencies.");
+    println!("Run: ven install {} {}   to install this version", 
+        selected_language, selected_version);
 
     Ok(())
+}
+
+/// Interactive Node.js version selection
+fn select_node_version() -> Result<String> {
+    use crate::plugins::{NodePlugin, LanguagePlugin};
+    use dialoguer::{Select, theme::ColorfulTheme};
+    
+    let theme = ColorfulTheme::default();
+
+    let plugin = NodePlugin;
+    
+    // Get installed versions
+    let installed = plugin.list_installed().unwrap_or_default();
+    
+    // Build version options: installed versions + common aliases
+    let mut options: Vec<String> = Vec::new();
+    
+    // Add installed versions (newest first)
+    for version in &installed {
+        options.push(version.clone());
+    }
+    
+    // Add separator and aliases if there are installed versions
+    if !installed.is_empty() {
+        options.push("─── Aliases ───".to_string());
+    }
+    
+    options.push("latest".to_string());
+    options.push("lts".to_string());
+    options.push("20".to_string());
+    options.push("18".to_string());
+    
+    // If no installed versions, show informative message
+    if installed.is_empty() {
+        options.insert(0, "⚠️  No versions installed".to_string());
+    }
+    
+    // Create display items (filter out separator for selection logic)
+    let display_items: Vec<String> = options.iter()
+        .map(|opt| {
+            if opt.starts_with("───") {
+                opt.clone()
+            } else if opt.starts_with("⚠️") {
+                opt.clone()
+            } else {
+                format!("{}  (installed)", opt)
+            }
+        })
+        .collect();
+    
+    let version_idx = Select::with_theme(&theme)
+        .with_prompt("Select Node.js version")
+        .items(&display_items)
+        .default(if installed.is_empty() { 1 } else { 0 })
+        .interact()?;
+    
+    let selected = &options[version_idx];
+    
+    // Skip separator and warning
+    if selected.starts_with("───") || selected.starts_with("⚠️") {
+        return Err(anyhow::anyhow!("Please select a valid version"));
+    }
+    
+    Ok(selected.clone())
 }
 
 // ── ven setup ─────────────────────────────────────────────────────
