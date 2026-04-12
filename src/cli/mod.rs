@@ -36,6 +36,14 @@ pub enum Commands {
     List {
         /// Language: node (optional)
         language: Option<String>,
+        
+        /// Show detailed info (installation date, disk size)
+        #[arg(short, long)]
+        verbose: bool,
+        
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
     },
 
     /// Show current active versions
@@ -130,8 +138,8 @@ pub fn run(cli: Cli) -> Result<()> {
                 }
             }
         }
-        Commands::List { language } => {
-            list::cmd_list(language.as_deref())
+        Commands::List { language, verbose, json } => {
+            list::cmd_list(language.as_deref(), verbose, json)
         }
         Commands::Status => {
             status::cmd_status()
