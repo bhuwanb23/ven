@@ -64,6 +64,7 @@ pub fn load_config(dir: &Path) -> Result<Option<VenConfig>> {
 
 /// Maps version strings like "18", "latest", or ">=20" to a semantic version requirement or concrete string
 /// Currently a basic implementation that can be expanded later to query actual available versions
+#[allow(dead_code)]
 pub fn version_spec_resolver(spec: &str) -> String {
     let spec = spec.trim();
     if spec.eq_ignore_ascii_case("latest") {

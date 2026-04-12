@@ -230,7 +230,7 @@ fn cmd_status() -> Result<()> {
 }
 
 // ── ven init ──────────────────────────────────────────────────────
-fn cmd_init(node: Option<&str>) -> Result<()> {
+fn cmd_init(_node: Option<&str>) -> Result<()> {
     use colored::Colorize;
     use std::fs;
     use dialoguer::{Select, theme::ColorfulTheme};
@@ -360,7 +360,7 @@ fn select_node_version() -> Result<String> {
 fn cmd_setup() -> Result<()> {
     use colored::Colorize;
     use std::io::Write;
-    use crate::shell::{detect_shell, generate_hook};
+    use crate::shell::detect_shell;
 
     // FIXED: detect shell properly — Windows always uses PowerShell
     let shell_name = detect_shell();

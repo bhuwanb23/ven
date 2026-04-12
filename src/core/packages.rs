@@ -7,6 +7,7 @@ use std::process::Command;
 // ── npm registry response types ──────────────────────────────────────
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct NpmPackageInfo {
     pub name: String,
     #[serde(rename = "dist-tags", default)]
