@@ -295,18 +295,14 @@ fn get_version_metadata_short(version: &str) -> String {
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
 
-    if major_num >= 23 {
-        format!("CURRENT")
-    } else if major_num == 22 {
-        format!("CURRENT")
-    } else if major_num == 20 {
-        format!("LTS")
-    } else if major_num == 18 {
-        format!("LTS")
+    if major_num >= 22 {
+        "CURRENT".to_string()
+    } else if major_num == 20 || major_num == 18 {
+        "LTS".to_string()
     } else if major_num <= 16 {
-        format!("DEPRECATED")
+        "DEPRECATED".to_string()
     } else {
-        format!("STABLE")
+        "STABLE".to_string()
     }
 }
 
@@ -399,18 +395,16 @@ fn get_version_metadata(version: &str) -> String {
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
 
-    if major_num >= 23 {
-        format!("[CURRENT]  (~85% pkg compat)")
-    } else if major_num == 22 {
-        format!("[CURRENT]  (~95% pkg compat)")
+    if major_num >= 22 {
+        "[CURRENT]  (~95% pkg compat)".to_string()
     } else if major_num == 20 {
-        format!("[LTS]      (~98% pkg compat) [Recommended]")
+        "[LTS]      (~98% pkg compat) [Recommended]".to_string()
     } else if major_num == 18 {
-        format!("[LTS]      (~95% pkg compat) [Maintenance]")
+        "[LTS]      (~95% pkg compat) [Maintenance]".to_string()
     } else if major_num <= 16 {
-        format!("[DEPRECATED] (<80% pkg compat)")
+        "[DEPRECATED] (<80% pkg compat)".to_string()
     } else {
-        format!("[INSTALLED]")
+        "[INSTALLED]".to_string()
     }
 }
 
