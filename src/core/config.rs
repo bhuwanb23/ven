@@ -174,7 +174,26 @@ PORT = "3000"
         let file_path = dir.path().join("ven.toml");
         let mut file = File::create(&file_path).unwrap();
         
-        // Missing runtime section which is required
+        // Invalid TOML syntax (not just missing sections)
+        let toml_content = r#"
+[packages
+express = "^4.18.2"  # Missing closing bracket above
+        "#;
+        
+        file.write_all(toml_content.as_bytes()).unwrap();
+        
+        let result = parse_ven_toml(&file_path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_minimal_toml() {
+        // Test that ven.toml with missing sections works (uses defaults)
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("ven.toml");
+        let mut file = File::create(&file_path).unwrap();
+        
+        // Only packages section, no runtime
         let toml_content = r#"
 [packages]
 express = "^4.18.2"
@@ -182,8 +201,9 @@ express = "^4.18.2"
         
         file.write_all(toml_content.as_bytes()).unwrap();
         
-        let result = parse_ven_toml(&file_path);
-        assert!(result.is_err());
+        let config = parse_ven_toml(&file_path).unwrap();
+        assert_eq!(config.runtime.node, "");  // Default empty string
+        assert_eq!(config.packages.get("express").unwrap(), "^4.18.2");
     }
 
     #[test]
