@@ -320,17 +320,17 @@ fn get_version_info(version: &str) -> String {
 
     // Determine version status and compatibility
     if major_num >= 23 {
-        format!("🔥 Current  (~85% pkg compat)")
+        "🔥 Current  (~85% pkg compat)".to_string()
     } else if major_num == 22 {
-        format!("✅ Current  (~95% pkg compat)")
+        "✅ Current  (~95% pkg compat)".to_string()
     } else if major_num == 20 {
-        format!("⭐ LTS     (~98% pkg compat) [Recommended]")
+        "⭐ LTS     (~98% pkg compat) [Recommended]".to_string()
     } else if major_num == 18 {
-        format!("🔧 LTS     (~95% pkg compat) [Maintenance]")
+        "🔧 LTS     (~95% pkg compat) [Maintenance]".to_string()
     } else if major_num <= 16 {
-        format!("⚠️  Deprecated (<80% pkg compat)")
+        "⚠️  Deprecated (<80% pkg compat)".to_string()
     } else {
-        format!("✅ Installed")
+        "✅ Installed".to_string()
     }
 }
 

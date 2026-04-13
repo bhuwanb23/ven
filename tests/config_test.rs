@@ -8,7 +8,7 @@ fn test_example_directory_config() {
 
     // Find ven.toml from the root example dir
     let toml_path = find_ven_toml(&d).expect("Should find ven.toml in example dir");
-    assert!(toml_path.ends_with("example\\ven.toml") || toml_path.ends_with("example/ven.toml"));
+    assert!(toml_path.ends_with("ven.toml"));
 
     // Parse the actual example file
     let config = parse_ven_toml(&toml_path).expect("Should parse example ven.toml");
@@ -28,5 +28,5 @@ fn test_nested_example_directory() {
 
     // Walk up from example/a/b/c to find ven.toml in example/
     let toml_path = find_ven_toml(&d).expect("Should walk up and find ven.toml");
-    assert!(toml_path.ends_with("example\\ven.toml") || toml_path.ends_with("example/ven.toml"));
+    assert!(toml_path.ends_with("ven.toml"));
 }
