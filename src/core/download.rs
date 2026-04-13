@@ -184,7 +184,7 @@ impl NodeDownloader {
 
         std::fs::create_dir_all(&self.cache_dir)?;
 
-        let filename = url.split('/').last().unwrap_or("node.tar.gz");
+        let filename = url.split('/').next_back().unwrap_or("node.tar.gz");
         let cache_path = self.cache_dir.join(filename);
 
         if cache_path.exists() {

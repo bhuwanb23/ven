@@ -124,9 +124,9 @@ fn display_versions_with_metadata(
 
         // Determine status color and tag
         let status_tag = match status {
-            "LTS" => format!("[LTS] ⭐"),
-            "CURRENT" => format!("[CURRENT]"),
-            "DEPRECATED" => format!("[DEPRECATED]"),
+            "LTS" => "[LTS] ⭐".to_string(),
+            "CURRENT" => "[CURRENT]".to_string(),
+            "DEPRECATED" => "[DEPRECATED]".to_string(),
             _ => format!("[{}] ", status),
         };
 
@@ -284,9 +284,9 @@ fn display_verbose_mode(
 
         // Status tag
         let status_tag = match status {
-            "LTS" => format!("[LTS] ⭐"),
-            "CURRENT" => format!("[CURRENT]"),
-            "DEPRECATED" => format!("[DEPRECATED]"),
+            "LTS" => "[LTS] ⭐".to_string(),
+            "CURRENT" => "[CURRENT]".to_string(),
+            "DEPRECATED" => "[DEPRECATED]".to_string(),
             _ => format!("[{}] ", status),
         };
 

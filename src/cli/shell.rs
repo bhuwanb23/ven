@@ -12,9 +12,8 @@ pub fn cmd_shell_hook(shell: &str) -> Result<()> {
 #[allow(non_snake_case)]
 pub fn cmd_shell_activate(dir: &str) -> Result<()> {
     let path = std::path::Path::new(dir);
-    match compute_exports(path)? {
-        Some(exports) => print!("{}", exports),
-        None => {} // no ven.toml = print nothing = no eval
+    if let Some(exports) = compute_exports(path)? {
+        print!("{}", exports)
     }
     Ok(())
 }
