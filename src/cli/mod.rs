@@ -1,15 +1,15 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 // Command modules
+pub mod add;
+pub mod init;
 pub mod install;
 pub mod list;
-pub mod status;
+pub mod remove;
 pub mod setup;
 pub mod shell;
-pub mod init;
-pub mod add;
-pub mod remove;
+pub mod status;
 pub mod upgrade;
 
 /// ven — Node.js version manager
@@ -36,11 +36,11 @@ pub enum Commands {
     List {
         /// Language: node (optional)
         language: Option<String>,
-        
+
         /// Show detailed info (installation date, disk size)
         #[arg(short, long)]
         verbose: bool,
-        
+
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
@@ -54,15 +54,15 @@ pub enum Commands {
         /// Use interactive template selection
         #[arg(long)]
         template: bool,
-        
+
         /// Add popular packages interactively
         #[arg(long)]
         with_packages: bool,
-        
+
         /// Validate setup after creation
         #[arg(long)]
         validate: bool,
-        
+
         /// Node.js version to use (legacy, kept for backward compatibility)
         #[arg(short, long)]
         node: Option<String>,
@@ -99,7 +99,7 @@ pub enum Commands {
     Setup,
 
     /// Shell integration (internal — called by shell hook)
-    #[command(hide = true)]  // hides from --help
+    #[command(hide = true)] // hides from --help
     Shell {
         #[command(subcommand)]
         action: ShellCommands,
@@ -138,27 +138,25 @@ pub fn run(cli: Cli) -> Result<()> {
                 }
             }
         }
-        Commands::List { language, verbose, json } => {
-            list::cmd_list(language.as_deref(), verbose, json)
-        }
-        Commands::Status => {
-            status::cmd_status()
-        }
-        Commands::Init { node, template, with_packages, validate } => {
-            init::cmd_init(node.as_deref(), template, with_packages, validate)
-        }
-        Commands::Add { package, skip_check } => {
-            add::cmd_add(&package, skip_check)
-        }
-        Commands::Remove { package, force } => {
-            remove::cmd_remove(&package, force)
-        }
-        Commands::Upgrade { package, apply } => {
-            upgrade::cmd_upgrade(&package, apply)
-        }
-        Commands::Setup => {
-            setup::cmd_setup()
-        }
+        Commands::List {
+            language,
+            verbose,
+            json,
+        } => list::cmd_list(language.as_deref(), verbose, json),
+        Commands::Status => status::cmd_status(),
+        Commands::Init {
+            node,
+            template,
+            with_packages,
+            validate,
+        } => init::cmd_init(node.as_deref(), template, with_packages, validate),
+        Commands::Add {
+            package,
+            skip_check,
+        } => add::cmd_add(&package, skip_check),
+        Commands::Remove { package, force } => remove::cmd_remove(&package, force),
+        Commands::Upgrade { package, apply } => upgrade::cmd_upgrade(&package, apply),
+        Commands::Setup => setup::cmd_setup(),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),
@@ -176,4 +174,3 @@ pub fn run(cli: Cli) -> Result<()> {
 // - src/cli/add.rs
 // - src/cli/remove.rs
 // - src/cli/upgrade.rs
-

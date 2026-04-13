@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 
 use super::LanguagePlugin;
@@ -6,12 +6,14 @@ use super::LanguagePlugin;
 pub struct NodePlugin;
 
 impl LanguagePlugin for NodePlugin {
-    fn name(&self) -> &str { "node" }
+    fn name(&self) -> &str {
+        "node"
+    }
 
     // ── Install ────────────────────────────────────────────────────
     fn install_version(&self, version: &str) -> Result<()> {
-        use crate::core::{NodeDownloader, install_node_native};
-        
+        use crate::core::{install_node_native, NodeDownloader};
+
         let downloader = NodeDownloader::new()?;
         install_node_native(&downloader, version)
     }
@@ -19,7 +21,7 @@ impl LanguagePlugin for NodePlugin {
     // ── List installed ─────────────────────────────────────────────
     fn list_installed(&self) -> Result<Vec<String>> {
         use crate::core::NodeDownloader;
-        
+
         let downloader = NodeDownloader::new()?;
         downloader.list_installed()
     }
@@ -27,7 +29,7 @@ impl LanguagePlugin for NodePlugin {
     // ── Bin path ───────────────────────────────────────────────────
     fn bin_path(&self, version: &str) -> Result<PathBuf> {
         use crate::core::NodeDownloader;
-        
+
         let downloader = NodeDownloader::new()?;
         downloader.get_bin_path(version)
     }
@@ -37,7 +39,7 @@ impl LanguagePlugin for NodePlugin {
         // Fetch latest LTS from Node.js directly
         let response = reqwest::blocking::get("https://nodejs.org/dist/index.json")?;
         let releases: Vec<serde_json::Value> = response.json()?;
-        
+
         // Find latest LTS version
         for release in releases {
             if let Some(lts) = release.get("lts") {
@@ -48,7 +50,7 @@ impl LanguagePlugin for NodePlugin {
                 }
             }
         }
-        
+
         Err(anyhow!("Could not determine latest LTS version"))
     }
 }

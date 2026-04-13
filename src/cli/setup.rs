@@ -1,7 +1,7 @@
+use crate::shell::detect_shell;
 use anyhow::Result;
 use colored::Colorize;
 use std::io::Write;
-use crate::shell::{detect_shell};
 
 // ── ven setup ─────────────────────────────────────────────────────
 pub fn cmd_setup() -> Result<()> {
@@ -11,8 +11,7 @@ pub fn cmd_setup() -> Result<()> {
     println!("\n  {} ven setup", "→".cyan());
     println!("  Detected shell: {}", shell_name.bold());
 
-    let home = dirs::home_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?;
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?;
 
     // FIXED: Windows writes to PowerShell $PROFILE, not ~/.bashrc
     let (rc_file, hook_line) = if cfg!(target_os = "windows") {
@@ -21,23 +20,32 @@ pub fn cmd_setup() -> Result<()> {
             .join("Documents")
             .join("PowerShell")
             .join("Microsoft.PowerShell_profile.ps1");
-        let line = "\n# ven shell hook\nInvoke-Expression (& ven shell hook powershell | Out-String)".to_string();
+        let line =
+            "\n# ven shell hook\nInvoke-Expression (& ven shell hook powershell | Out-String)"
+                .to_string();
         (profile, line)
     } else {
         // Unix — bash/zsh/fish
         let rc = match shell_name.as_str() {
-            "zsh"  => home.join(".zshrc"),
+            "zsh" => home.join(".zshrc"),
             "fish" => home.join(".config").join("fish").join("config.fish"),
-            _      => home.join(".bashrc"),
+            _ => home.join(".bashrc"),
         };
-        let line = format!("\n# ven shell hook\neval \"$(ven shell hook {})\""  , shell_name);
+        let line = format!(
+            "\n# ven shell hook\neval \"$(ven shell hook {})\"",
+            shell_name
+        );
         (rc, line)
     };
 
     // Check if already installed
     let existing = std::fs::read_to_string(&rc_file).unwrap_or_default();
     if existing.contains("ven shell hook") {
-        println!("  {} Shell hook already installed in {}", "✓".green(), rc_file.display());
+        println!(
+            "  {} Shell hook already installed in {}",
+            "✓".green(),
+            rc_file.display()
+        );
         return Ok(());
     }
 

@@ -1,6 +1,6 @@
+use crate::core::packages::*;
 use anyhow::Result;
 use colored::Colorize;
-use crate::core::packages::*;
 
 /// Remove a package with dependency checking
 pub fn cmd_remove(package: &str, force: bool) -> Result<()> {
@@ -26,7 +26,10 @@ pub fn cmd_remove(package: &str, force: bool) -> Result<()> {
             print!("  Remove anyway? [y/N]: ");
             use std::io::{self, BufRead};
             let stdin = io::stdin();
-            let answer = stdin.lock().lines().next()
+            let answer = stdin
+                .lock()
+                .lines()
+                .next()
                 .and_then(|l| l.ok())
                 .unwrap_or_default();
             if answer.trim().to_lowercase() != "y" {

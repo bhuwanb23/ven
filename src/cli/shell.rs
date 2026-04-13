@@ -1,5 +1,5 @@
+use crate::shell::{compute_exports, generate_hook};
 use anyhow::Result;
-use crate::shell::{generate_hook, compute_exports};
 
 // ── ven shell hook <shell> ────────────────────────────────────────
 pub fn cmd_shell_hook(shell: &str) -> Result<()> {
@@ -14,7 +14,7 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
     let path = std::path::Path::new(dir);
     match compute_exports(path)? {
         Some(exports) => print!("{}", exports),
-        None          => {}  // no ven.toml = print nothing = no eval
+        None => {} // no ven.toml = print nothing = no eval
     }
     Ok(())
 }

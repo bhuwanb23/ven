@@ -35,9 +35,9 @@ pub fn detect_shell() -> String {
 
 pub fn generate_hook(shell: &str) -> String {
     match shell {
-        "bash" | "zsh"             => bash_zsh_hook(),
-        "fish"                     => fish_hook(),
-        "powershell" | "pwsh"      => powershell_hook(),
+        "bash" | "zsh" => bash_zsh_hook(),
+        "fish" => fish_hook(),
+        "powershell" | "pwsh" => powershell_hook(),
         other => format!("echo 'ven: unknown shell: {}' >&2\n", other),
     }
 }
@@ -103,7 +103,7 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     // Find nearest ven.toml (walks up from dir)
     let toml_path = match find_ven_toml(dir) {
         Some(p) => p,
-        None    => return Ok(None), // no ven.toml — print nothing
+        None => return Ok(None), // no ven.toml — print nothing
     };
 
     let config = parse_ven_toml(&toml_path)?;

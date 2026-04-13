@@ -1,15 +1,15 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Node.js downloader - handles downloading from nodejs.org with checksum verification
 pub struct NodeDownloader {
-    storage_root: PathBuf,  // ~/.ven  (or %USERPROFILE%\.ven on Windows)
-    cache_dir: PathBuf,     // ~/.ven/.cache
+    storage_root: PathBuf, // ~/.ven  (or %USERPROFILE%\.ven on Windows)
+    cache_dir: PathBuf,    // ~/.ven/.cache
 }
 
 impl NodeDownloader {
@@ -53,7 +53,11 @@ impl NodeDownloader {
         };
 
         // Windows uses .zip, everything else uses .tar.gz
-        let ext = if cfg!(target_os = "windows") { "zip" } else { "tar.gz" };
+        let ext = if cfg!(target_os = "windows") {
+            "zip"
+        } else {
+            "tar.gz"
+        };
 
         Ok((os, arch, ext))
     }
@@ -169,7 +173,11 @@ impl NodeDownloader {
 
     /// Download a Node.js version archive — returns path to the cached archive file
     pub fn download(&self, version: &str) -> Result<PathBuf> {
-        println!("{} Preparing to download Node {}...", "[ARROW]".cyan(), version.bold());
+        println!(
+            "{} Preparing to download Node {}...",
+            "[ARROW]".cyan(),
+            version.bold()
+        );
 
         let url = Self::build_download_url(version)?;
         println!("{} URL: {}", "•".blue(), url);
@@ -194,7 +202,9 @@ impl NodeDownloader {
                 } else {
                     // Remove corrupted file so next run re-downloads
                     let _ = std::fs::remove_file(&cache_path);
-                    return Err(anyhow!("Checksum mismatch! Corrupted download removed. Try again."));
+                    return Err(anyhow!(
+                        "Checksum mismatch! Corrupted download removed. Try again."
+                    ));
                 }
             }
             Err(e) => {
@@ -222,7 +232,8 @@ impl NodeDownloader {
         if !install_dir.exists() {
             return Err(anyhow!(
                 "Node {} is not installed. Run: ven install node {}",
-                version, version
+                version,
+                version
             ));
         }
 
@@ -231,7 +242,11 @@ impl NodeDownloader {
             if install_dir.join("node.exe").exists() {
                 Ok(install_dir)
             } else {
-                Err(anyhow!("Node {} binaries not found at {}", version, install_dir.display()))
+                Err(anyhow!(
+                    "Node {} binaries not found at {}",
+                    version,
+                    install_dir.display()
+                ))
             }
         } else {
             // On Unix: node is inside bin/
@@ -239,7 +254,11 @@ impl NodeDownloader {
             if bin_dir.exists() {
                 Ok(bin_dir)
             } else {
-                Err(anyhow!("Node {} bin/ not found at {}", version, install_dir.display()))
+                Err(anyhow!(
+                    "Node {} bin/ not found at {}",
+                    version,
+                    install_dir.display()
+                ))
             }
         }
     }
@@ -263,7 +282,12 @@ impl NodeDownloader {
                     let name_str = name.to_string_lossy();
                     // Folder names are like "20.11.0" (no v prefix)
                     // Quick sanity check: starts with a digit
-                    if name_str.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                    if name_str
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                    {
                         versions.push(name_str.to_string());
                     }
                 }
@@ -272,9 +296,8 @@ impl NodeDownloader {
 
         // Sort newest first
         versions.sort_by(|a, b| {
-            let parse = |v: &str| -> Vec<u32> {
-                v.split('.').filter_map(|n| n.parse().ok()).collect()
-            };
+            let parse =
+                |v: &str| -> Vec<u32> { v.split('.').filter_map(|n| n.parse().ok()).collect() };
             parse(b).cmp(&parse(a))
         });
 

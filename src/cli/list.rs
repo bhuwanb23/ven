@@ -1,15 +1,15 @@
+use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version};
+use crate::plugins::PluginRegistry;
 use anyhow::Result;
 use colored::Colorize;
 use serde::Serialize;
-use crate::plugins::PluginRegistry;
-use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version};
 
 // ── ven list [language] ───────────────────────────────────────────────
 pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()> {
     let lang = language.unwrap_or("node");
     let registry = PluginRegistry::new();
     let plugin = registry.require(lang)?;
-    
+
     // Get installed versions
     let versions = plugin.list_installed()?;
 
@@ -18,9 +18,10 @@ pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()>
             // Output empty JSON array
             println!("[]");
         } else {
-            println!("{} No {} versions installed. Run: ven install {} latest", 
-                "[WARN]".yellow(), 
-                lang.bold(), 
+            println!(
+                "{} No {} versions installed. Run: ven install {} latest",
+                "[WARN]".yellow(),
+                lang.bold(),
                 lang.bold()
             );
         }
@@ -40,7 +41,7 @@ pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()>
         // Normal mode with metadata
         display_versions_with_metadata(lang, &versions, &active_version)?;
     }
-    
+
     Ok(())
 }
 
@@ -61,7 +62,7 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
     // Parse config
     let config = parse_ven_toml(&toml_path)?;
     let node_spec = &config.runtime.node;
-    
+
     if node_spec.is_empty() {
         return Ok(None);
     }
@@ -70,7 +71,7 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
     let registry = PluginRegistry::new();
     let plugin = registry.require(language)?;
     let installed = plugin.list_installed().unwrap_or_default();
-    
+
     // Resolve version spec to actual version
     match resolve_node_version(node_spec, &installed) {
         Ok(resolved) => Ok(Some(resolved)),
@@ -82,7 +83,7 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
 fn get_version_status(version: &str) -> (&'static str, &'static str) {
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
-    
+
     match major_num {
         0..=14 => ("DEPRECATED", "End-of-life"),
         15..=16 => ("DEPRECATED", "Maintenance ended"),
@@ -102,13 +103,17 @@ fn display_versions_with_metadata(
     active_version: &Option<String>,
 ) -> Result<()> {
     let count = versions.len();
-    
-    println!("\n  {} ({} versions installed)", language.bold().cyan(), count.to_string().bold());
+
+    println!(
+        "\n  {} ({} versions installed)",
+        language.bold().cyan(),
+        count.to_string().bold()
+    );
     println!();
-    
+
     for version in versions {
         let (status, description) = get_version_status(version);
-        
+
         // Determine marker
         let is_active = active_version.as_ref() == Some(version);
         let marker = if is_active {
@@ -116,7 +121,7 @@ fn display_versions_with_metadata(
         } else {
             "•".dimmed()
         };
-        
+
         // Determine status color and tag
         let status_tag = match status {
             "LTS" => format!("[LTS] ⭐"),
@@ -124,7 +129,7 @@ fn display_versions_with_metadata(
             "DEPRECATED" => format!("[DEPRECATED]"),
             _ => format!("[{}] ", status),
         };
-        
+
         // Print version line
         if is_active {
             println!(
@@ -144,25 +149,31 @@ fn display_versions_with_metadata(
             );
         }
     }
-    
+
     // Show helpful tips
     println!();
     if let Some(active) = active_version {
-        println!("  {} Currently active: {}", "[ACTIVE]".green().bold(), active.bold());
+        println!(
+            "  {} Currently active: {}",
+            "[ACTIVE]".green().bold(),
+            active.bold()
+        );
     }
-    
+
     // Check for deprecated versions
-    let deprecated_count = versions.iter()
+    let deprecated_count = versions
+        .iter()
         .filter(|v| get_version_status(v).0 == "DEPRECATED")
         .count();
-    
+
     if deprecated_count > 0 {
-        println!("  {} {} deprecated version(s) - consider removing to free space", 
-            "[TIP]".yellow(), 
+        println!(
+            "  {} {} deprecated version(s) - consider removing to free space",
+            "[TIP]".yellow(),
             deprecated_count
         );
     }
-    
+
     println!();
     Ok(())
 }
@@ -170,12 +181,12 @@ fn display_versions_with_metadata(
 /// Calculate directory size recursively
 fn calculate_dir_size(path: &std::path::Path) -> Result<u64> {
     let mut total_size = 0;
-    
+
     if path.is_dir() {
         for entry in std::fs::read_dir(path)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.is_file() {
                 total_size += entry.metadata()?.len();
             } else if path.is_dir() {
@@ -183,7 +194,7 @@ fn calculate_dir_size(path: &std::path::Path) -> Result<u64> {
             }
         }
     }
-    
+
     Ok(total_size)
 }
 
@@ -205,16 +216,18 @@ fn get_installation_date(version_path: &std::path::Path) -> String {
     if let Ok(metadata) = std::fs::metadata(version_path) {
         if let Ok(created) = metadata.created() {
             // Convert to seconds since epoch and format manually
-            let duration = created.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+            let duration = created
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
             let secs = duration.as_secs();
-            
+
             // Simple date calculation (approximate, but good enough)
             let days = secs / 86400;
             let year = 1970 + (days / 365);
             let remaining_days = days % 365;
             let month = (remaining_days / 30) + 1;
             let day = (remaining_days % 30) + 1;
-            
+
             return format!("{:04}-{:02}-{:02}", year, month, day);
         }
     }
@@ -230,7 +243,7 @@ fn get_version_path(language: &str, version: &str) -> Result<std::path::PathBuf>
                 .expect("Cannot find home directory")
                 .join(".ven")
         });
-    
+
     Ok(storage_root.join(language).join(version))
 }
 
@@ -242,21 +255,25 @@ fn display_verbose_mode(
 ) -> Result<()> {
     let count = versions.len();
     let mut total_size: u64 = 0;
-    
-    println!("\n  {} ({} versions installed)", language.bold().cyan(), count.to_string().bold());
+
+    println!(
+        "\n  {} ({} versions installed)",
+        language.bold().cyan(),
+        count.to_string().bold()
+    );
     println!();
-    
+
     for version in versions {
         let (status, _description) = get_version_status(version);
         let version_path = get_version_path(language, version)?;
-        
+
         // Calculate size
         let size = calculate_dir_size(&version_path).unwrap_or(0);
         total_size += size;
-        
+
         // Get installation date
         let install_date = get_installation_date(&version_path);
-        
+
         // Determine marker
         let is_active = active_version.as_ref() == Some(version);
         let marker = if is_active {
@@ -264,7 +281,7 @@ fn display_verbose_mode(
         } else {
             "•".dimmed()
         };
-        
+
         // Status tag
         let status_tag = match status {
             "LTS" => format!("[LTS] ⭐"),
@@ -272,7 +289,7 @@ fn display_verbose_mode(
             "DEPRECATED" => format!("[DEPRECATED]"),
             _ => format!("[{}] ", status),
         };
-        
+
         // Print verbose line
         if is_active {
             println!(
@@ -294,26 +311,36 @@ fn display_verbose_mode(
             );
         }
     }
-    
+
     // Show summary
     println!();
     if let Some(active) = active_version {
-        println!("  {} Currently active: {}", "[ACTIVE]".green().bold(), active.bold());
+        println!(
+            "  {} Currently active: {}",
+            "[ACTIVE]".green().bold(),
+            active.bold()
+        );
     }
-    println!("  {} Total disk space: {}", "[DISK]".cyan().bold(), format_bytes(total_size).bold());
-    
+    println!(
+        "  {} Total disk space: {}",
+        "[DISK]".cyan().bold(),
+        format_bytes(total_size).bold()
+    );
+
     // Check for deprecated versions
-    let deprecated_count = versions.iter()
+    let deprecated_count = versions
+        .iter()
         .filter(|v| get_version_status(v).0 == "DEPRECATED")
         .count();
-    
+
     if deprecated_count > 0 {
-        println!("  {} {} deprecated version(s) - consider removing to free space", 
-            "[TIP]".yellow(), 
+        println!(
+            "  {} {} deprecated version(s) - consider removing to free space",
+            "[TIP]".yellow(),
             deprecated_count
         );
     }
-    
+
     println!();
     Ok(())
 }
@@ -352,11 +379,11 @@ fn output_json(
 ) -> Result<()> {
     let mut version_infos = Vec::new();
     let mut total_size: u64 = 0;
-    
+
     for version in versions {
         let (status, description) = get_version_status(version);
         let is_active = active_version.as_ref() == Some(version);
-        
+
         let mut info = VersionInfo {
             version: version.clone(),
             status: status.to_string(),
@@ -366,31 +393,35 @@ fn output_json(
             size_human: None,
             installed_date: None,
         };
-        
+
         if verbose {
             let version_path = get_version_path(language, version)?;
             let size = calculate_dir_size(&version_path).unwrap_or(0);
             total_size += size;
-            
+
             info.size_bytes = Some(size);
             info.size_human = Some(format_bytes(size));
             info.installed_date = Some(get_installation_date(&version_path));
         }
-        
+
         version_infos.push(info);
     }
-    
+
     let output = ListOutput {
         language: language.to_string(),
         count: versions.len(),
         active_version: active_version.clone(),
         total_size_bytes: if verbose { Some(total_size) } else { None },
-        total_size_human: if verbose { Some(format_bytes(total_size)) } else { None },
+        total_size_human: if verbose {
+            Some(format_bytes(total_size))
+        } else {
+            None
+        },
         versions: version_infos,
     };
-    
+
     let json_string = serde_json::to_string_pretty(&output)?;
     println!("{}", json_string);
-    
+
     Ok(())
 }
