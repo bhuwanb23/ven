@@ -47,7 +47,19 @@ pub enum Commands {
     },
 
     /// Show current active versions
-    Status,
+    Status {
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+        
+        /// Show detailed info (disk usage, compatibility)
+        #[arg(short, long)]
+        verbose: bool,
+        
+        /// Fix all detected issues automatically
+        #[arg(long)]
+        fix: bool,
+    },
 
     /// Initialize a new ven.toml file
     Init {
@@ -142,8 +154,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::List { language, verbose, json } => {
             list::cmd_list(language.as_deref(), verbose, json)
         }
-        Commands::Status => {
-            status::cmd_status()
+        Commands::Status { json, verbose, fix } => {
+            status::cmd_status(json, verbose, fix)
         }
         Commands::Init { node, template, with_packages, validate } => {
             init::cmd_init(node.as_deref(), template, with_packages, validate)
