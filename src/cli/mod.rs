@@ -90,13 +90,30 @@ pub enum Commands {
         skip_check: bool,
     },
 
-    /// Remove a package from this project
+    /// Remove packages (single or batch)
     Remove {
-        /// Package name
-        package: String,
+        /// Package names to remove (supports multiple)
+        packages: Vec<String>,
+        
         /// Skip dependency check
         #[arg(long)]
         force: bool,
+        
+        /// Preview removal without executing
+        #[arg(long)]
+        dry_run: bool,
+        
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+        
+        /// Show detailed analysis (disk space, transitive deps)
+        #[arg(short, long)]
+        verbose: bool,
+        
+        /// Find and remove orphaned/unused dependencies
+        #[arg(long)]
+        cleanup: bool,
     },
 
     /// Upgrade a package (preview or apply)
@@ -163,8 +180,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Add { packages, skip_check } => {
             add::cmd_add(&packages, skip_check)
         }
-        Commands::Remove { package, force } => {
-            remove::cmd_remove(&package, force)
+        Commands::Remove { packages, force, dry_run, json, verbose, cleanup } => {
+            remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup)
         }
         Commands::Upgrade { package, apply } => {
             upgrade::cmd_upgrade(&package, apply)
