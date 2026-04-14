@@ -116,13 +116,34 @@ pub enum Commands {
         cleanup: bool,
     },
 
-    /// Upgrade a package (preview or apply)
+    /// Upgrade packages (single, batch, or all)
     Upgrade {
-        /// Package name
-        package: String,
+        /// Package names to upgrade (supports multiple)
+        packages: Vec<String>,
+        
         /// Actually apply the upgrade (default: preview only)
         #[arg(long)]
         apply: bool,
+        
+        /// Preview upgrades without executing
+        #[arg(long)]
+        dry_run: bool,
+        
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+        
+        /// Show detailed analysis (changelog, disk space)
+        #[arg(short, long)]
+        verbose: bool,
+        
+        /// Upgrade all packages declared in ven.toml
+        #[arg(long)]
+        all: bool,
+        
+        /// Skip prompts and force apply (CI/CD mode)
+        #[arg(long)]
+        force: bool,
     },
 
     /// One-time setup: install shell hook
@@ -183,8 +204,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Remove { packages, force, dry_run, json, verbose, cleanup } => {
             remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup)
         }
-        Commands::Upgrade { package, apply } => {
-            upgrade::cmd_upgrade(&package, apply)
+        Commands::Upgrade { packages, apply, dry_run, json, verbose, all, force } => {
+            upgrade::cmd_upgrade(&packages, apply, dry_run, json, verbose, all, force)
         }
         Commands::Setup => {
             setup::cmd_setup()
