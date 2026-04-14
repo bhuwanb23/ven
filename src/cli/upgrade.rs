@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use crate::core::{load_config, packages::*};
-use crate::cli::add::update_ven_toml_package;
+use crate::cli::add::update_ven_toml_packages;
 
 /// Upgrade a package to latest compatible version
 pub fn cmd_upgrade(package: &str, apply: bool) -> Result<()> {
@@ -37,6 +37,9 @@ pub fn cmd_upgrade(package: &str, apply: bool) -> Result<()> {
     }
 
     npm_install(package, &latest)?;
-    update_ven_toml_package(package, &latest)?;
+    
+    let packages: &[(String, String)] = &[(package.to_string(), latest.clone())];
+    update_ven_toml_packages(packages)?;
+    
     Ok(())
 }

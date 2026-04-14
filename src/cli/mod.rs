@@ -68,10 +68,11 @@ pub enum Commands {
         node: Option<String>,
     },
 
-    /// Add a package to this project
+    /// Add package(s) to this project
     Add {
-        /// Package name, e.g. express or express@4.18.2
-        package: String,
+        /// Package name(s), e.g. express or express@4.18.2
+        #[arg(required = true)]
+        packages: Vec<String>,
         /// Skip compatibility check
         #[arg(long)]
         skip_check: bool,
@@ -147,8 +148,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Init { node, template, with_packages, validate } => {
             init::cmd_init(node.as_deref(), template, with_packages, validate)
         }
-        Commands::Add { package, skip_check } => {
-            add::cmd_add(&package, skip_check)
+        Commands::Add { packages, skip_check } => {
+            add::cmd_add(&packages, skip_check)
         }
         Commands::Remove { package, force } => {
             remove::cmd_remove(&package, force)
