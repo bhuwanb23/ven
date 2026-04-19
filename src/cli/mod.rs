@@ -138,7 +138,9 @@ pub enum Commands {
     ///   ven add express@4.18.2       # Add specific version
     ///   ven add react vite           # Add multiple packages
     ///   ven add lodash --skip-check  # Skip Node.js compatibility check
-    #[command(long_about = "Add package(s) to the project with compatibility checking\n\nInstalls npm packages and automatically adds them to ven.toml.\nPerforms Node.js version compatibility checking to prevent issues.\n\nExamples:\n  ven add express              # Add latest Express\n  ven add express@4.18.2       # Add specific version\n  ven add react vite           # Add multiple packages\n  ven add lodash --skip-check  # Skip Node.js compatibility check")]
+    ///   ven add express --dry-run    # Preview before installing
+    ///   ven add socket.io --verbose  # Show full dependency tree
+    #[command(long_about = "Add package(s) to the project with compatibility checking\n\nInstalls npm packages and automatically adds them to ven.toml.\nPerforms Node.js version compatibility checking to prevent issues.\n\nExamples:\n  ven add express              # Add latest Express\n  ven add express@4.18.2       # Add specific version\n  ven add react vite           # Add multiple packages\n  ven add lodash --skip-check  # Skip Node.js compatibility check\n  ven add express --dry-run    # Preview before installing\n  ven add socket.io --verbose  # Show full dependency tree")]
     Add {
         /// Package name(s) with optional version, e.g., "express" or "express@4.18.2"
         #[arg(required = true)]
@@ -146,6 +148,12 @@ pub enum Commands {
         /// Skip Node.js compatibility checking (use with caution)
         #[arg(long)]
         skip_check: bool,
+        /// Show dependency preview without installing
+        #[arg(long)]
+        dry_run: bool,
+        /// Show full dependency tree
+        #[arg(short, long)]
+        verbose: bool,
     },
 
     /// Remove package(s) with dependency analysis and safety checks
@@ -289,8 +297,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Init { node, template, with_packages, validate } => {
             init::cmd_init(node.as_deref(), template, with_packages, validate)
         }
-        Commands::Add { packages, skip_check } => {
-            add::cmd_add(&packages, skip_check)
+        Commands::Add { packages, skip_check, dry_run, verbose } => {
+            add::cmd_add(&packages, skip_check, dry_run, verbose)
         }
         Commands::Remove { packages, force, dry_run, json, verbose, cleanup } => {
             remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup)
