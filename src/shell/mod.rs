@@ -100,13 +100,48 @@ if ($_ven_exports) { Invoke-Expression $_ven_exports }
 // The hook runs this text with eval (bash) or Invoke-Expression (PowerShell).
 
 pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
-    // Find nearest ven.toml (walks up from dir)
-    let toml_path = match find_ven_toml(dir) {
+    // Make directory absolute first
+    let absolute_dir = if dir.is_absolute() {
+        dir.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(dir))
+            .unwrap_or_else(|_| dir.to_path_buf())
+    };
+    
+    // Try to find ven.toml starting from this directory
+    let toml_path = match find_ven_toml(&absolute_dir) {
         Some(p) => p,
         None    => return Ok(None), // no ven.toml — print nothing
     };
+    
+    // Canonicalize the toml path to get clean absolute path (resolves . and ..)
+    let toml_canonical = std::fs::canonicalize(&toml_path)
+        .unwrap_or_else(|_| {
+            // If canonicalize fails, use the path as-is
+            if toml_path.is_absolute() {
+                toml_path
+            } else {
+                std::env::current_dir()
+                    .map(|cwd| cwd.join(&toml_path))
+                    .unwrap_or_else(|_| toml_path)
+            }
+        });
+    
+    // On Windows, canonicalize adds \\?\ prefix which we need to strip
+    let toml_str = toml_canonical.display().to_string();
+    let toml_absolute = if cfg!(target_os = "windows") {
+        // Strip \\?\ prefix if present
+        if toml_str.starts_with("\\\\?\\") {
+            toml_str[4..].to_string()
+        } else {
+            toml_str
+        }
+    } else {
+        toml_str
+    };
 
-    let config = parse_ven_toml(&toml_path)?;
+    let config = parse_ven_toml(std::path::Path::new(&toml_absolute))?;
     let node_spec = &config.runtime.node;
 
     // Resolve alias ("lts", "20") to installed concrete version ("20.11.0")
@@ -135,22 +170,13 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     let bin_path = plugin.bin_path(&resolved)?;
     let bin_str = bin_path.display().to_string();
     
-    // Get clean absolute path for ven.toml
-    let toml_str = if toml_path.is_absolute() {
-        toml_path.display().to_string()
-    } else {
-        // Make absolute
-        let abs = std::env::current_dir()
-            .unwrap_or_default()
-            .join(&toml_path);
-        abs.display().to_string()
-    };
-    
     // Normalize slashes for the platform
     let toml_normalized = if cfg!(target_os = "windows") {
-        toml_str.replace('/', "\\")
+        // Windows: ensure backslashes (already correct from canonicalize)
+        toml_absolute.replace('/', "\\")
     } else {
-        toml_str.replace('\\', "/")
+        // Unix: ensure forward slashes
+        toml_absolute.replace('\\', "/")
     };
 
     // FIXED: output different syntax depending on platform
