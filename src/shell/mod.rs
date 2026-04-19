@@ -112,11 +112,46 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     // Resolve alias ("lts", "20") to installed concrete version ("20.11.0")
     let plugin = NodePlugin;
     let installed = plugin.list_installed().unwrap_or_default();
-    let resolved = resolve_node_version(node_spec, &installed)?;
+    let resolved = match resolve_node_version(node_spec, &installed) {
+        Ok(version) => version,
+        Err(_) => {
+            // Check if any versions are installed at all
+            if installed.is_empty() {
+                anyhow::bail!(
+                    "No Node.js versions installed.\n\nInstall: ven install node {}", 
+                    node_spec
+                );
+            } else {
+                anyhow::bail!(
+                    "Node.js {} required but not installed.\n\nInstall: ven install node {}", 
+                    node_spec,
+                    node_spec
+                );
+            }
+        }
+    };
 
     // Get the bin/ path for this resolved version
     let bin_path = plugin.bin_path(&resolved)?;
     let bin_str = bin_path.display().to_string();
+    
+    // Get clean absolute path for ven.toml
+    let toml_str = if toml_path.is_absolute() {
+        toml_path.display().to_string()
+    } else {
+        // Make absolute
+        let abs = std::env::current_dir()
+            .unwrap_or_default()
+            .join(&toml_path);
+        abs.display().to_string()
+    };
+    
+    // Normalize slashes for the platform
+    let toml_normalized = if cfg!(target_os = "windows") {
+        toml_str.replace('/', "\\")
+    } else {
+        toml_str.replace('\\', "/")
+    };
 
     // FIXED: output different syntax depending on platform
     // PowerShell uses $env:PATH = "...;" + $env:PATH
@@ -127,7 +162,7 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
             "$env:PATH = \"{bin};\" + $env:PATH\n$env:VEN_NODE_VERSION = \"{ver}\"\n$env:VEN_TOML = \"{toml}\"\n",
             bin  = bin_str,
             ver  = resolved,
-            toml = toml_path.display(),
+            toml = toml_normalized,
         );
         // Also export [env] section variables
         for (key, val) in &config.env {
@@ -140,7 +175,7 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
             "export PATH=\"{bin}:$PATH\"\nexport VEN_NODE_VERSION=\"{ver}\"\nexport VEN_TOML=\"{toml}\"\n",
             bin  = bin_str,
             ver  = resolved,
-            toml = toml_path.display(),
+            toml = toml_normalized,
         );
         for (key, val) in &config.env {
             out.push_str(&format!("export {}=\"{}\"\n", key, val));

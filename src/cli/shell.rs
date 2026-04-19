@@ -12,9 +12,25 @@ pub fn cmd_shell_hook(shell: &str) -> Result<()> {
 #[allow(non_snake_case)]
 pub fn cmd_shell_activate(dir: &str) -> Result<()> {
     let path = std::path::Path::new(dir);
+    
+    // Check if directory exists
+    if !path.exists() {
+        anyhow::bail!("Directory not found: {}", path.display());
+    }
+    
     match compute_exports(path)? {
-        Some(exports) => print!("{}", exports),
-        None          => {}  // no ven.toml = print nothing = no eval
+        Some(exports) => {
+            // Output the exports
+            print!("{}", exports);
+        }
+        None => {
+            // No ven.toml found - show helpful error
+            eprintln!("Error: No ven.toml found in {} or parent directories", path.display());
+            eprintln!();
+            eprintln!("Initialize: ven init");
+            eprintln!("Or specify directory: ven shell activate /path/to/project");
+            std::process::exit(1);
+        }
     }
     Ok(())
 }
