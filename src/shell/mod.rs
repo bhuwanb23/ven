@@ -43,12 +43,18 @@ pub fn generate_hook(shell: &str) -> String {
 }
 
 fn bash_zsh_hook() -> String {
-    r#"
+    // Get the current executable path
+    let ven_path = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "ven".to_string());
+    
+    format!(r#"
 # ven shell hook (bash/zsh) - Auto-switches Node.js on cd
 __VEN_ORIGINAL_PATH="$PATH"
 __VEN_LAST_DIR=""
+__VEN_BIN="{ven_path}"
 
-__ven_activate() {
+__ven_activate() {{
     local current_dir="$PWD"
     
     # Only re-activate if directory changed
@@ -57,7 +63,7 @@ __ven_activate() {
         
         # Try to find and activate ven.toml
         local exports
-        exports=$(ven shell activate "$current_dir" 2>/dev/null)
+        exports=$("$__VEN_BIN" shell activate "$current_dir" 2>/dev/null)
         
         if [ -n "$exports" ]; then
             # ven.toml found - activate it
@@ -69,13 +75,12 @@ __ven_activate() {
             unset VEN_TOML 2>/dev/null
         fi
     fi
-}
+}}
 
 # Override cd command
-cd() { builtin cd "$@" && __ven_activate; }
+cd() {{ builtin cd "$@" && __ven_activate; }}
 __ven_activate  # activate for current directory on shell start
-"#
-    .to_string()
+"#)
 }
 
 fn fish_hook() -> String {
@@ -95,47 +100,52 @@ __ven_activate  # activate on shell start
 // FIXED: PowerShell hook — uses Invoke-Expression + $env:PATH syntax
 // Monitors directory changes and automatically switches Node versions
 fn powershell_hook() -> String {
-    r#"
+    // Get the current executable path
+    let ven_path = std::env::current_exe()
+        .map(|p| p.display().to_string().replace('/', "\\"))
+        .unwrap_or_else(|_| "ven".to_string());
+    
+    format!(r#"
 # ven shell hook (PowerShell) - Auto-switches Node.js on cd
 $script:VEN_LAST_PATH = $null
 $script:VEN_ORIGINAL_PATH = $env:PATH
+$script:VEN_BIN = "{ven_path}"
 
-function Set-VenLocation {
+function Set-VenLocation {{
     param([string]$Path = "")
     
     # Change directory
-    if ($Path) {
+    if ($Path) {{
         Set-Location $Path
-    }
+    }}
     
     $current_dir = $PWD.Path
     
     # Only re-activate if directory changed
-    if ($script:VEN_LAST_PATH -ne $current_dir) {
+    if ($script:VEN_LAST_PATH -ne $current_dir) {{
         $script:VEN_LAST_PATH = $current_dir
         
         # Try to find and activate ven.toml
-        $exports = ven shell activate "$current_dir" 2>$null
+        $exports = & $script:VEN_BIN shell activate "$current_dir" 2>$null
         
-        if ($exports) {
+        if ($exports) {{
             # ven.toml found - activate it
             Invoke-Expression $exports
-        } else {
+        }} else {{
             # No ven.toml - restore original PATH (remove ven paths)
             $env:PATH = $script:VEN_ORIGINAL_PATH
             Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
             Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
-        }
-    }
-}
+        }}
+    }}
+}}
 
 # Override cd command
 Set-Alias -Name cd -Value Set-VenLocation -Force -Option AllScope
 
 # Activate for current directory on shell start
 Set-VenLocation
-"#
-    .to_string()
+"#)
 }
 
 // ── Compute exports for a directory ─────────────────────────────────
