@@ -67,7 +67,21 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
-        println!("  {} {} package(s) declared", "packages".bold(), pkg_count);
+        // Count installed packages
+        let installed_count = config.packages.keys()
+            .filter(|pkg| is_package_installed(pkg))
+            .count();
+        
+        println!("  {} {} package(s) declared, {} installed", 
+            "packages".bold(), 
+            pkg_count,
+            installed_count
+        );
+        
+        // Show tip if packages are missing
+        if installed_count < pkg_count {
+            println!("    {} Install missing: ven add --sync or npm install", "[TIP]".cyan());
+        }
     } else {
         println!("  {} {}", "packages".bold(), "none".dimmed());
     }
@@ -141,16 +155,25 @@ fn display_verbose_status(cwd: &Path, toml_path: &Path, config: &VenConfig, fix:
                     // Check compatibility
                     if let Ok(compatible) = check_package_compatibility(pkg_name, &installed_ver, &config.runtime.node) {
                         if compatible {
-                            println!("    {} {}@{} {}", "✓".green(), pkg_name, pkg_version, "[compatible]".dimmed());
+                            println!("    {} {}@{} {}", "✓".green(), pkg_name, installed_ver, "[compatible]".dimmed());
                         } else {
                             incompatible_count += 1;
-                            println!("    {} {}@{} {}", "⚠".yellow(), pkg_name, pkg_version, "[incompatible]".yellow());
+                            println!("    {} {}@{} {}", "⚠".yellow(), pkg_name, installed_ver, "[incompatible]".yellow());
                         }
+                    } else {
+                        println!("    {} {}@{}", "✓".green(), pkg_name, installed_ver);
                     }
+                    
+                    // Verbose: show more details (we're already in verbose mode)
+                    let pkg_path = std::env::current_dir()
+                        .unwrap_or_default()
+                        .join("node_modules")
+                        .join(pkg_name);
+                    println!("      {} {}", "Location:".dimmed(), pkg_path.display());
                 }
             } else {
                 missing_count += 1;
-                println!("    {} {}@{} {}", "✗".red(), pkg_name, pkg_version, "[not installed]");
+                println!("    {} {}@{} {}", "✗".red(), pkg_name, pkg_version, "[not installed]".red());
                 
                 if fix {
                     auto_install_package(pkg_name, pkg_version)?;
@@ -165,6 +188,10 @@ fn display_verbose_status(cwd: &Path, toml_path: &Path, config: &VenConfig, fix:
             missing_count.to_string().red(),
             incompatible_count.to_string().yellow()
         );
+        
+        if missing_count > 0 && !fix {
+            println!("    {} Run: ven add --sync  or  npm install", "[TIP]".cyan());
+        }
     }
     
     println!();
@@ -200,67 +227,108 @@ fn display_verbose_status(cwd: &Path, toml_path: &Path, config: &VenConfig, fix:
 fn output_json_status(cwd: &Path, toml_path: &Path, config: &VenConfig, verbose: bool) -> Result<()> {
     use serde_json::json;
     
-    let mut status = json!({
-        "directory": cwd.to_string_lossy(),
-        "config_path": toml_path.to_string_lossy(),
-        "config_found": true
+    let mut runtime_info = json!({
+        "name": "node",
+        "version_required": config.runtime.node,
     });
     
-    // Node status
     if !config.runtime.node.is_empty() {
         let node_spec = &config.runtime.node;
         let resolved = resolve_version_for_display(node_spec)?;
         let installed = is_version_installed(node_spec);
         
-        let mut node_info = json!({
-            "specified": node_spec,
-            "resolved": resolved,
-            "installed": installed
-        });
+        runtime_info["version_resolved"] = json!(resolved);
+        runtime_info["installed"] = json!(installed);
         
         if verbose && installed {
             if let Ok(bin_path) = get_bin_path_for_version(node_spec) {
+                runtime_info["binary_path"] = json!(bin_path.to_string_lossy());
+                
                 if let Ok(size) = calculate_dir_size(&bin_path.parent().unwrap()) {
-                    node_info["binary_path"] = json!(bin_path.to_string_lossy());
-                    node_info["size_bytes"] = json!(size);
+                    runtime_info["size_bytes"] = json!(size);
+                }
+                
+                // Check if active
+                let is_active = check_if_version_active(node_spec).unwrap_or(false);
+                runtime_info["active"] = json!(is_active);
+            }
+        }
+    }
+    
+    // Build package list
+    let mut pkg_list = Vec::new();
+    let mut installed_count = 0;
+    
+    for (name, version) in &config.packages {
+        let is_installed = is_package_installed(name);
+        let mut pkg_info = json!({
+            "name": name,
+            "version_declared": version,
+            "installed": is_installed
+        });
+        
+        if is_installed {
+            installed_count += 1;
+            if let Ok(installed_ver) = get_installed_package_version(name) {
+                pkg_info["version_installed"] = json!(installed_ver);
+                
+                if verbose {
+                    // Get package location
+                    let pkg_location = std::env::current_dir()
+                        .unwrap_or_default()
+                        .join("node_modules")
+                        .join(name)
+                        .to_string_lossy()
+                        .to_string();
+                    pkg_info["location"] = json!(pkg_location);
+                    
+                    // Check compatibility
+                    if let Ok(compatible) = check_package_compatibility(name, &installed_ver, &config.runtime.node) {
+                        pkg_info["compatible"] = json!(compatible);
+                    }
                 }
             }
+        } else {
+            pkg_info["version_installed"] = serde_json::Value::Null;
         }
         
-        status["node"] = node_info;
+        pkg_list.push(pkg_info);
     }
     
-    // Packages status
-    let mut packages = json!({
-        "declared": config.packages.len()
+    let packages_info = json!({
+        "declared": config.packages.len(),
+        "installed": installed_count,
+        "list": pkg_list
     });
     
+    let mut status = json!({
+        "project_root": cwd.to_string_lossy(),
+        "config_path": toml_path.to_string_lossy(),
+        "runtime": runtime_info,
+        "packages": packages_info
+    });
+    
+    // Add lock file info in verbose mode
     if verbose {
-        let mut pkg_list = Vec::new();
-        for (name, version) in &config.packages {
-            let is_installed = is_package_installed(name);
-            let mut pkg_info = json!({
-                "name": name,
-                "version": version,
-                "installed": is_installed
-            });
-            
-            if is_installed {
-                if let Ok(installed_ver) = get_installed_package_version(name) {
-                    pkg_info["installed_version"] = json!(installed_ver);
-                }
-            }
-            
-            pkg_list.push(pkg_info);
-        }
-        packages["packages"] = json!(pkg_list);
+        let lock_file = cwd.join("ven.lock");
+        status["lock_file"] = json!({
+            "exists": lock_file.exists(),
+            "path": lock_file.to_string_lossy()
+        });
     }
     
-    status["packages"] = packages;
-    
-    // Environment variables
+    // Add env vars if present
     if !config.env.is_empty() {
-        status["env"] = json!(config.env);
+        let mut env_list = Vec::new();
+        for (key, value) in &config.env {
+            let current = std::env::var(key).ok();
+            env_list.push(json!({
+                "key": key,
+                "required": value,
+                "active": current.as_deref() == Some(value.as_str())
+            }));
+        }
+        status["environment"] = json!(env_list);
     }
     
     println!("{}", serde_json::to_string_pretty(&status)?);
