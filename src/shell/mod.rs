@@ -239,7 +239,7 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     let exports = if cfg!(target_os = "windows") {
         // PowerShell syntax — semicolon separator on Windows
         let mut out = format!(
-            "$env:PATH = \"{bin};\" + $env:PATH\n$env:VEN_NODE_VERSION = \"{ver}\"\n$env:VEN_TOML = \"{toml}\"\n",
+            "$env:PATH = \"{bin};\" + $env:PATH\n$env:NODE_PATH = \"{bin}\"\n$env:VEN_NODE_VERSION = \"{ver}\"\n$env:VEN_TOML = \"{toml}\"\n",
             bin  = bin_str,
             ver  = resolved,
             toml = toml_normalized,
@@ -252,7 +252,7 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     } else {
         // bash/zsh/fish syntax — colon separator on Unix
         let mut out = format!(
-            "export PATH=\"{bin}:$PATH\"\nexport VEN_NODE_VERSION=\"{ver}\"\nexport VEN_TOML=\"{toml}\"\n",
+            "export PATH=\"{bin}:$PATH\"\nexport NODE_PATH=\"{bin}\"\nexport VEN_NODE_VERSION=\"{ver}\"\nexport VEN_TOML=\"{toml}\"\n",
             bin  = bin_str,
             ver  = resolved,
             toml = toml_normalized,
