@@ -500,7 +500,7 @@ fn auto_install_package(pkg_name: &str, pkg_version: &str) -> Result<()> {
     println!("  {} Installing {}@{}...", "[AUTO-FIX]".cyan(), pkg_name, pkg_version);
     
     let packages = vec![format!("{}@{}", pkg_name, pkg_version)];
-    crate::cli::add::cmd_add(&packages, false)?;
+    crate::cli::add::cmd_add(&packages, false, false, false)?;
     
     println!("  {} {}@{} installed", "✓".green(), pkg_name, pkg_version);
     Ok(())

@@ -151,18 +151,18 @@ impl DependencyGraph {
 
             // Add edge
             self.edges.push(GraphEdge {
-                from: edge_from,
+                from: edge_from.clone(),
                 to: edge_to.clone(),
                 constraint: dep_constraint.clone(),
             });
 
             // Check if node already exists
-            if self.nodes.contains_key(&dep_name) {
+            if self.nodes.contains_key(dep_name) {
                 // Check for version conflict
-                let existing = self.nodes.get(&dep_name).unwrap();
+                let existing = self.nodes.get(dep_name).unwrap();
                 if existing.version != dep_version {
                     // Version mismatch - add to required_by but flag as potential conflict
-                    if let Some(node) = self.nodes.get_mut(&dep_name) {
+                    if let Some(node) = self.nodes.get_mut(dep_name) {
                         node.required_by.push(edge_from);
                     }
                 }
@@ -171,7 +171,7 @@ impl DependencyGraph {
                 self.add_node(dep_name, &dep_version, &dep_metadata, depth + 1, Some(&edge_from))?;
 
                 // Recurse into this dependency's dependencies
-                self.fetch_dependencies(dep_name, &dep_version, depth + 1).await?;
+                Box::pin(self.fetch_dependencies(dep_name, &dep_version, depth + 1)).await?;
             }
         }
 
@@ -305,7 +305,7 @@ impl DependencyGraph {
     fn check_node_compatibility(&mut self) {
         for (name, node) in &self.nodes {
             if let Some(ref engine_req) = node.engines {
-                if !self.node_version_satisfies(&self.node_version, engine_req) {
+                if !DependencyGraph::node_version_satisfies(&self.node_version, engine_req) {
                     self.incompatibilities.push(NodeIncompatibility {
                         package: name.clone(),
                         version: node.version.clone(),

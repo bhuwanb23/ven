@@ -1,7 +1,8 @@
 use anyhow::Result;
 use colored::Colorize;
 use toml_edit::{DocumentMut, value};
-use crate::core::{load_config, packages::*, DependencyGraph};
+use crate::core::{load_config, DependencyGraph};
+use crate::core::packages;
 
 /// Package entry for batch processing
 struct PackageEntry {
@@ -78,7 +79,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                         println!("    {} {} requires Node {}", 
                             "[!]".yellow(),
                             incompat.package,
-                            incompat.required
+                            incompat.required_node
                         );
                     }
                 }
@@ -86,18 +87,17 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                 if !graph.conflicts.is_empty() {
                     println!("  {} {} version conflict(s) detected:", "[WARN]".yellow(), graph.conflicts.len());
                     for conflict in &graph.conflicts {
-                        println!("    {} {} needed by {} and {}", 
+                        println!("    {} {} needed by {}", 
                             "[!]".yellow(),
                             conflict.package,
-                            conflict.requirement1,
-                            conflict.requirement2
+                            conflict.constraints.iter().map(|(r, _)| r.as_str()).collect::<Vec<_>>().join(", ")
                         );
                     }
                 }
 
                 // Check for critical errors
                 let has_critical = graph.incompatibilities.iter()
-                    .any(|i| i.package == pkg.name && i.depth == 0);
+                    .any(|i| i.package == pkg.name);
                 
                 if has_critical && !skip_check {
                     println!("  {} {} is not compatible with Node.js {}", 
@@ -106,12 +106,10 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                     continue;
                 }
 
-                let stats = graph.install_preview();
-                println!("  {} {} will install: {} total packages ({:.2} KB)",
+                println!("  {} {} will install: {} total packages",
                     "[OK]".green(),
                     pkg.name,
-                    stats.total_packages,
-                    stats.total_size_kb
+                    graph.nodes.len()
                 );
 
                 all_graphs.push((pkg.name.clone(), graph));
@@ -140,12 +138,8 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
     let total_packages: u32 = all_graphs.iter()
         .map(|(_, g)| g.nodes.len() as u32)
         .sum();
-    let total_size: f64 = all_graphs.iter()
-        .map(|(_, g)| g.install_preview().total_size_kb)
-        .sum();
 
     println!("    {} {} packages to install", "Total:".dimmed(), total_packages);
-    println!("    {} {:.2} KB download size", "Size:".dimmed(), total_size);
 
     // Phase 4: Dry run or install
     if dry_run {

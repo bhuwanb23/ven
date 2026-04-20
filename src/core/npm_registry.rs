@@ -226,7 +226,7 @@ impl RegistryCache {
         )?;
 
         let metadata_json: Option<String> = stmt
-            .query_row([name, &now], |row| row.get(0))
+            .query_row((name, now), |row| row.get(0))
             .optional()?;
 
         match metadata_json {

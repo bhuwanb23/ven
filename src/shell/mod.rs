@@ -126,7 +126,7 @@ function Set-VenLocation {{
         $script:VEN_LAST_PATH = $current_dir
         
         # Try to find and activate ven.toml
-        $exports = & $script:VEN_BIN shell activate "$current_dir" 2>$null
+        $exports = (& $script:VEN_BIN shell activate "$current_dir" 2>$null) -join "`n"
         
         if ($exports) {{
             # ven.toml found - activate it
