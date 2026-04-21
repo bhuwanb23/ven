@@ -262,6 +262,8 @@ pub enum ShellCommands {
     Hook { shell: String },
     /// Compute and print PATH exports for current directory
     Activate { dir: String },
+    /// Install hook into shell profile for auto-loading
+    Install,
 }
 
 pub fn run(cli: Cli) -> Result<()> {
@@ -312,7 +314,9 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),
+            ShellCommands::Install => shell::cmd_shell_install(),
         },
+
     }
 }
 
