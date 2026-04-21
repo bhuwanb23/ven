@@ -134,6 +134,7 @@ function Set-VenLocation {{
         }} else {{
             # No ven.toml - restore original PATH (remove ven paths)
             $env:PATH = $script:VEN_ORIGINAL_PATH
+            Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue
             Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
             Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
         }}
