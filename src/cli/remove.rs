@@ -100,21 +100,23 @@ fn execute_batch_removal(packages: &[String], force: bool) -> Result<()> {
         }
         
         // Execute removal
-        match npm_uninstall(package) {
+        let npm_result = npm_uninstall(package);
+        
+        // Always remove from ven.toml (regardless of npm success)
+        if let Err(e) = remove_from_ven_toml(package) {
+            println!("  {} Warning: Failed to remove {} from ven.toml: {}", "[WARN]".yellow(), package, e);
+        }
+        
+        match npm_result {
             Ok(_) => {
-                // Also remove from ven.toml
-                if let Err(e) = remove_from_ven_toml(package) {
-                    println!("  {} Warning: Failed to remove {} from ven.toml: {}", "[WARN]".yellow(), package, e);
-                }
-                
                 println!("  {} {}", "[OK]".green(), format!("Removed {}", package.bold()));
                 success_count += 1;
                 results.push((package.clone(), "removed".to_string(), true));
             }
             Err(e) => {
-                println!("  {} {}", "[ERROR]".red(), e.to_string().red());
+                println!("  {} {} (but removed from ven.toml)", "[WARN]".yellow(), e.to_string());
                 fail_count += 1;
-                results.push((package.clone(), e.to_string(), false));
+                results.push((package.clone(), format!("{} (ven.toml updated)", e), false));
             }
         }
     }

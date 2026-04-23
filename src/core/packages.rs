@@ -185,10 +185,24 @@ pub fn find_dependents(package: &str) -> Result<Vec<(String, String)>> {
 // ── Run npm uninstall ────────────────────────────────────────────────
 
 pub fn npm_uninstall(package: &str) -> Result<()> {
-    let status = Command::new("npm")
-        .args(["uninstall", package])
-        .status()
-        .map_err(|_| anyhow!("npm not found"))?;
+    // Try to find npm in .ven directory first, then system PATH
+    let npm_path = if let Ok(ven_node) = std::env::var("VEN_NODE_VERSION") {
+        format!("C:\\Users\\Bhuwan\\.ven\\node\\{}\\npm.cmd", ven_node)
+    } else {
+        "npm".to_string()
+    };
+    
+    let status = if std::path::Path::new(&npm_path).exists() {
+        Command::new(&npm_path)
+            .args(["uninstall", package])
+            .status()
+            .map_err(|e| anyhow!("npm execution failed: {}", e))?
+    } else {
+        Command::new("npm")
+            .args(["uninstall", package])
+            .status()
+            .map_err(|_| anyhow!("npm not found"))?
+    };
 
     if !status.success() {
         return Err(anyhow!("npm uninstall failed for {}", package));
