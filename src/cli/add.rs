@@ -80,7 +80,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
         };
 
         match analyze_package(&pkg.name, &version_spec, &node_version, &existing_packages, skip_check) {
-            Ok(mut graph) => {
+            Ok(graph) => {
                 // Print dependency tree
                 if verbose {
                     println!();
@@ -344,7 +344,7 @@ fn analyze_package(
     version_spec: &str,
     node_version: &str,
     existing_packages: &HashMap<String, String>,
-    skip_check: bool,
+    _skip_check: bool,
 ) -> Result<DependencyGraph> {
     use tokio::runtime::Runtime;
 

@@ -64,6 +64,7 @@ pub struct Engines {
 }
 
 /// SQLite cache for npm metadata
+#[allow(dead_code)]
 struct RegistryCache {
     db_path: PathBuf,
     conn: Connection,
@@ -149,6 +150,7 @@ impl NpmRegistry {
     }
 
     /// Check if package exists (without downloading full metadata)
+    #[allow(dead_code)]
     pub async fn package_exists(&self, name: &str) -> Result<bool> {
         match self.fetch_package_metadata(name).await {
             Ok(_) => Ok(true),
@@ -158,6 +160,7 @@ impl NpmRegistry {
     }
 
     /// Get latest version of a package
+    #[allow(dead_code)]
     pub async fn get_latest_version(&self, name: &str) -> Result<String> {
         let metadata = self.fetch_package_metadata(name).await?;
         
@@ -167,17 +170,20 @@ impl NpmRegistry {
     }
 
     /// Clear expired cache entries
+    #[allow(dead_code)]
     pub fn cleanup_cache(&self) -> Result<()> {
         self.cache.cleanup_expired()
     }
 
     /// Get cache statistics
+    #[allow(dead_code)]
     pub fn cache_stats(&self) -> Result<CacheStats> {
         self.cache.stats()
     }
 }
 
 /// Cache statistics
+#[allow(dead_code)]
 pub struct CacheStats {
     pub total_packages: usize,
     pub expired_packages: usize,
@@ -287,6 +293,7 @@ impl RegistryCache {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn stats(&self) -> Result<CacheStats> {
         let mut total_stmt = self.conn.prepare("SELECT COUNT(*) FROM packages")?;
         let total_packages: usize = total_stmt.query_row([], |row| row.get(0))?;

@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use colored::Colorize;
-use crate::core::npm_registry::{NpmRegistry, PackageMetadata, VersionMetadata};
+use crate::core::npm_registry::{NpmRegistry, PackageMetadata};
 
 /// Dependency graph for analyzing package relationships
 pub struct DependencyGraph {
@@ -39,6 +39,7 @@ pub struct GraphEdge {
 
 /// A version conflict detected in the graph
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Conflict {
     pub package: String,
     pub constraints: Vec<(String, String)>, // (requirer, constraint)
@@ -47,6 +48,7 @@ pub struct Conflict {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ConflictSeverity {
     Warning, // Different versions but can coexist
     Error,   // Incompatible versions
@@ -54,6 +56,7 @@ pub enum ConflictSeverity {
 
 /// Node.js version incompatibility
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct NodeIncompatibility {
     pub package: String,
     pub version: String,
@@ -68,6 +71,7 @@ pub struct ConflictResolution {
     pub impact: String,
 }
 
+#[allow(dead_code)]
 pub enum ResolutionSuggestion {
     Upgrade(String),       // "Upgrade to version X"
     Downgrade(String),     // "Downgrade to version X"
@@ -76,6 +80,7 @@ pub enum ResolutionSuggestion {
 }
 
 /// Transitive dependency analysis results
+#[allow(dead_code)]
 pub struct TransitiveAnalysis {
     pub direct_deps: Vec<String>,
     pub transitive_deps: Vec<String>,
@@ -86,6 +91,7 @@ pub struct TransitiveAnalysis {
 }
 
 /// Preview information for installation
+#[allow(dead_code)]
 pub struct InstallPreview {
     pub total_packages: usize,
     pub total_size_bytes: u64,
@@ -314,6 +320,7 @@ impl DependencyGraph {
     }
 
     /// Detect version conflicts in the graph
+    #[allow(dead_code)]
     fn detect_conflicts(&mut self) {
         // Group edges by target package
         let mut package_constraints: HashMap<String, Vec<(String, String)>> = HashMap::new();
@@ -383,6 +390,7 @@ impl DependencyGraph {
     }
 
     /// Generate install preview
+    #[allow(dead_code)]
     pub fn generate_preview(&self) -> InstallPreview {
         let new_packages: Vec<String> = self.nodes.keys().cloned().collect();
         
@@ -448,7 +456,7 @@ impl DependencyGraph {
     /// Suggest resolution for a single conflict
     fn suggest_resolution(&self, conflict: &Conflict) -> Option<ConflictResolution> {
         // Try to find a common version that satisfies all constraints
-        let package_name = &conflict.package;
+        let _package_name = &conflict.package;
         
         // Fetch package metadata to get available versions
         // For now, use a simpler heuristic based on the constraints
@@ -664,10 +672,6 @@ impl DependencyGraph {
 
     /// Analyze transitive dependencies
     pub fn analyze_transitive(&self) -> TransitiveAnalysis {
-        let root_nodes: Vec<&GraphNode> = self.nodes.values()
-            .filter(|n| n.depth == 0)
-            .collect();
-
         // Classify direct vs transitive
         let mut direct_deps = Vec::new();
         let mut transitive_deps = Vec::new();

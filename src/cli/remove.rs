@@ -572,7 +572,6 @@ fn output_json_cleanup(
 
 /// Remove a package from ven.toml
 fn remove_from_ven_toml(package: &str) -> Result<()> {
-    use crate::core::find_ven_toml;
     use std::fs;
     
     let cwd = std::env::current_dir()?;
