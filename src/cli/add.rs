@@ -1,8 +1,19 @@
 use anyhow::Result;
 use colored::Colorize;
+use std::collections::HashMap;
 use toml_edit::{DocumentMut, value};
 use crate::core::{load_config, DependencyGraph};
 use crate::core::packages;
+
+/// Load existing packages from ven.toml [packages] section
+fn load_existing_packages() -> Result<HashMap<String, String>> {
+    let cwd = std::env::current_dir()?;
+    
+    match load_config(&cwd)? {
+        Some(config) => Ok(config.packages),
+        None => Ok(HashMap::new()), // No ven.toml found, no existing packages
+    }
+}
 
 /// Package entry for batch processing
 struct PackageEntry {
@@ -37,6 +48,12 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
     let node_version = load_config(&cwd)?
         .map(|c| c.runtime.node)
         .unwrap_or_else(|| "0".to_string());
+    
+    // Load existing packages from ven.toml
+    let existing_packages = load_existing_packages()?;
+    if !existing_packages.is_empty() {
+        println!("  {} {} existing package(s) in ven.toml", "[EXISTING]".cyan(), existing_packages.len());
+    }
 
     println!("\n{}", "ven add".bold().cyan());
     println!("  {} {} package(s)", "[PLAN]".cyan(), packages.len());
@@ -62,7 +79,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
             "latest".to_string()
         };
 
-        match analyze_package(&pkg.name, &version_spec, &node_version, skip_check) {
+        match analyze_package(&pkg.name, &version_spec, &node_version, &existing_packages, skip_check) {
             Ok(mut graph) => {
                 // Print dependency tree
                 if verbose {
@@ -85,14 +102,27 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                 }
 
                 if !graph.conflicts.is_empty() {
-                    println!("  {} {} version conflict(s) detected:", "[WARN]".yellow(), graph.conflicts.len());
+                    println!("\n  {} {} version conflict(s) detected:", "[WARN]".yellow().bold(), graph.conflicts.len());
                     for conflict in &graph.conflicts {
-                        println!("    {} {} needed by {}", 
-                            "[!]".yellow(),
-                            conflict.package,
-                            conflict.constraints.iter().map(|(r, _)| r.as_str()).collect::<Vec<_>>().join(", ")
-                        );
+                        println!("\n    {} {}", "⚠".yellow(), conflict.package.bold());
+                        println!("      {} Required by:", "├".yellow());
+                        
+                        for (i, (requirer, constraint)) in conflict.constraints.iter().enumerate() {
+                            let connector = if i == conflict.constraints.len() - 1 { "└" } else { "├" };
+                            println!("        {} {} ({})", connector.yellow(), requirer, constraint);
+                        }
+                        
+                        println!("      {} Versions: {}", "├".yellow(), conflict.versions.join(", ").bold());
+                        
+                        // Show recommendation
+                        if conflict.versions.len() == 2 {
+                            println!("      {} Recommendation: Use {} (satisfies all constraints)", 
+                                "💡".cyan(), 
+                                conflict.versions[0].bold()
+                            );
+                        }
                     }
+                    println!();
                 }
 
                 // Check for critical errors
@@ -140,6 +170,53 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
         .sum();
 
     println!("    {} {} packages to install", "Total:".dimmed(), total_packages);
+    
+    // NEW: Show detailed preview for each package
+    if !all_graphs.is_empty() {
+        println!("\n  {}", "Installation Preview".bold().cyan());
+        
+        for (pkg_name, graph) in &all_graphs {
+            let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
+            let resolved_version = graph.nodes.get(pkg_name)
+                .map(|n| n.version.clone())
+                .unwrap_or_else(|| "unknown".to_string());
+            
+            println!("\n    {} {}@{}", "📦".cyan(), pkg_name.bold(), resolved_version.bold());
+            
+            // Count transitive dependencies (exclude root)
+            let transitive_deps = graph.nodes.len().saturating_sub(1);
+            println!("      {} {} direct + {} transitive dependencies", 
+                "├".dimmed(),
+                graph.nodes.get(pkg_name).map(|n| n.dependencies.len()).unwrap_or(0),
+                transitive_deps
+            );
+            
+            // Compatibility status
+            let has_conflicts = !graph.conflicts.is_empty();
+            let has_incompatibilities = !graph.incompatibilities.is_empty();
+            
+            if has_conflicts || has_incompatibilities {
+                println!("      {} {}", "├".dimmed(), "⚠ Has conflicts or incompatibilities".yellow());
+            } else {
+                println!("      {} {}", "├".dimmed(), "✅ No conflicts detected".green());
+            }
+            
+            // Show ven.toml changes
+            let version_to_add = if let Some(ref v) = pkg.pinned_version {
+                v.clone()
+            } else {
+                format!("^{}", resolved_version.split('.').next().unwrap_or("0"))
+            };
+            
+            println!("      {} {} {} = \"{}\"", 
+                "└".dimmed(),
+                "📝".cyan(),
+                pkg_name,
+                version_to_add
+            );
+        }
+        println!();
+    }
 
     // Phase 4: Dry run or install
     if dry_run {
@@ -176,16 +253,24 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
     println!();
     let mut installed = Vec::new();
 
-    for (pkg_name, _) in &all_graphs {
+    for (pkg_name, graph) in &all_graphs {
         let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
         
         println!("{} Installing {}...", "→".cyan(), pkg_name.bold());
         
-        let version_to_install = if let Some(ref v) = pkg.pinned_version {
-            v.clone()
-        } else {
-            "latest".to_string()
-        };
+        // FIXED: Use resolved version from dependency graph analysis
+        // Instead of using "latest" or user's pinned version, use the version
+        // that was resolved during graph building (compatible with Node.js & existing packages)
+        let version_to_install = graph.nodes.get(pkg_name)
+            .map(|node| node.version.clone())
+            .unwrap_or_else(|| {
+                // Fallback: use pinned version or latest if graph doesn't have it
+                if let Some(ref v) = pkg.pinned_version {
+                    v.clone()
+                } else {
+                    "latest".to_string()
+                }
+            });
 
         // Run npm install
         match packages::npm_install(&pkg.name, &version_to_install) {
@@ -214,17 +299,49 @@ fn analyze_package(
     pkg_name: &str,
     version_spec: &str,
     node_version: &str,
+    existing_packages: &HashMap<String, String>,
     skip_check: bool,
 ) -> Result<DependencyGraph> {
     use tokio::runtime::Runtime;
 
-    let rt = Runtime::new()?;
-    
-    rt.block_on(async {
-        let mut graph = DependencyGraph::new(node_version.to_string());
-        graph.build(pkg_name, version_spec).await?;
-        Ok(graph)
-    })
+    // Try to use existing runtime if we're in one, otherwise create new
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        // We're already in a Tokio runtime, use it
+        tokio::task::block_in_place(|| {
+            handle.block_on(async {
+                let mut graph = DependencyGraph::new(node_version.to_string());
+                graph.build(pkg_name, version_spec).await?;
+                
+                // Check for conflicts with existing packages
+                let existing_conflicts = graph.check_existing_compatibility(existing_packages);
+                
+                // Merge conflicts into graph
+                for conflict in existing_conflicts {
+                    graph.conflicts.push(conflict);
+                }
+                
+                Ok(graph)
+            })
+        })
+    } else {
+        // No existing runtime, create one
+        let rt = Runtime::new()?;
+        
+        rt.block_on(async {
+            let mut graph = DependencyGraph::new(node_version.to_string());
+            graph.build(pkg_name, version_spec).await?;
+            
+            // Check for conflicts with existing packages
+            let existing_conflicts = graph.check_existing_compatibility(existing_packages);
+            
+            // Merge conflicts into graph
+            for conflict in existing_conflicts {
+                graph.conflicts.push(conflict);
+            }
+            
+            Ok(graph)
+        })
+    }
 }
 
 /// Update ven.toml with multiple packages using proper TOML parsing

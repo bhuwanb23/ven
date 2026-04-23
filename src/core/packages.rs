@@ -133,7 +133,10 @@ pub fn npm_install(package: &str, version: &str) -> Result<()> {
     let pkg_spec = format!("{}@{}", package, version);
     println!("{} Installing {}...", "[DOWNLOAD]".cyan(), pkg_spec.bold());
 
-    let status = Command::new("npm")
+    // On Windows, use npm.cmd instead of npm
+    let npm_cmd = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+    
+    let status = Command::new(npm_cmd)
         .args(["install", &pkg_spec])
         .status()
         .map_err(|_| anyhow!("npm not found. Is Node installed and active?"))?;

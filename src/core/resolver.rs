@@ -84,7 +84,7 @@ impl DependencyGraph {
         println!("  {} Building dependency graph...", "🔍".cyan());
 
         // Fetch root package metadata
-        let metadata = self.registry.fetch_package_metadata(root_package)?;
+        let metadata = self.registry.fetch_package_metadata(root_package).await?;
 
         // Resolve version (handle "latest", "^4.0.0", etc.)
         let resolved_version = self.resolve_version(&metadata, root_version)?;
@@ -115,7 +115,7 @@ impl DependencyGraph {
         }
 
         // Fetch version metadata
-        let version_meta = match self.registry.fetch_version_metadata(package, version) {
+        let version_meta = match self.registry.fetch_version_metadata(package, version).await {
             Ok(meta) => meta,
             Err(e) => {
                 eprintln!("  {} Warning: Failed to fetch {}@{}: {}", "⚠".yellow(), package, version, e);
@@ -128,7 +128,7 @@ impl DependencyGraph {
 
         for (dep_name, dep_constraint) in &dependencies {
             // Fetch dependency metadata
-            let dep_metadata = match self.registry.fetch_package_metadata(dep_name) {
+            let dep_metadata = match self.registry.fetch_package_metadata(dep_name).await {
                 Ok(meta) => meta,
                 Err(e) => {
                     eprintln!("  {} Warning: Failed to fetch {}: {}", "⚠".yellow(), dep_name, e);

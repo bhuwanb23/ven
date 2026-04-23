@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// npm Registry client with SQLite caching
 pub struct NpmRegistry {
     cache: RegistryCache,
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 /// Package metadata from npm registry
@@ -60,7 +60,7 @@ struct RegistryCache {
 impl NpmRegistry {
     pub fn new() -> Result<Self> {
         let cache = RegistryCache::new()?;
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .user_agent("ven/0.1.0 (Node.js Version Manager)")
             .build()?;
@@ -69,7 +69,7 @@ impl NpmRegistry {
     }
 
     /// Fetch complete package metadata (all versions)
-    pub fn fetch_package_metadata(&self, name: &str) -> Result<PackageMetadata> {
+    pub async fn fetch_package_metadata(&self, name: &str) -> Result<PackageMetadata> {
         // Check cache first
         if let Some(cached) = self.cache.get(name)? {
             return Ok(cached);
@@ -79,7 +79,7 @@ impl NpmRegistry {
         let url = format!("https://registry.npmjs.org/{}", name);
         println!("  {} Fetching {} from npm registry...", "🌐".cyan(), name);
 
-        let response = self.client.get(&url).send()?;
+        let response = self.client.get(&url).send().await?;
 
         if response.status().as_u16() == 404 {
             return Err(anyhow!("Package '{}' not found on npm", name));
@@ -93,7 +93,7 @@ impl NpmRegistry {
             ));
         }
 
-        let metadata: PackageMetadata = response.json()?;
+        let metadata: PackageMetadata = response.json().await?;
 
         // Cache the result
         self.cache.set(name, &metadata)?;
@@ -102,7 +102,7 @@ impl NpmRegistry {
     }
 
     /// Fetch metadata for a specific version
-    pub fn fetch_version_metadata(&self, name: &str, version: &str) -> Result<VersionMetadata> {
+    pub async fn fetch_version_metadata(&self, name: &str, version: &str) -> Result<VersionMetadata> {
         // First try to get from cached package metadata
         if let Some(package) = self.cache.get(name)? {
             if let Some(version_meta) = package.versions.get(version) {
@@ -112,7 +112,7 @@ impl NpmRegistry {
 
         // Fetch specific version from npm
         let url = format!("https://registry.npmjs.org/{}/{}", name, version);
-        let response = self.client.get(&url).send()?;
+        let response = self.client.get(&url).send().await?;
 
         if response.status().as_u16() == 404 {
             return Err(anyhow!(
@@ -131,13 +131,13 @@ impl NpmRegistry {
             ));
         }
 
-        let metadata: VersionMetadata = response.json()?;
+        let metadata: VersionMetadata = response.json().await?;
         Ok(metadata)
     }
 
     /// Check if package exists (without downloading full metadata)
-    pub fn package_exists(&self, name: &str) -> Result<bool> {
-        match self.fetch_package_metadata(name) {
+    pub async fn package_exists(&self, name: &str) -> Result<bool> {
+        match self.fetch_package_metadata(name).await {
             Ok(_) => Ok(true),
             Err(e) if e.to_string().contains("not found") => Ok(false),
             Err(e) => Err(e),
@@ -145,8 +145,8 @@ impl NpmRegistry {
     }
 
     /// Get latest version of a package
-    pub fn get_latest_version(&self, name: &str) -> Result<String> {
-        let metadata = self.fetch_package_metadata(name)?;
+    pub async fn get_latest_version(&self, name: &str) -> Result<String> {
+        let metadata = self.fetch_package_metadata(name).await?;
         
         metadata.dist_tags.get("latest")
             .cloned()
