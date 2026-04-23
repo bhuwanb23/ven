@@ -50,7 +50,7 @@ fn execute_batch_removal(packages: &[String], force: bool) -> Result<()> {
     let mut results: Vec<(String, String, bool)> = Vec::new();
     
     for package in packages {
-        println!("{} Processing {}...", "→".cyan(), package.bold());
+        println!("[INFO] Processing {}...", package.bold());
         
         // Check if package is installed
         if !is_package_installed_locally(package) {
@@ -102,7 +102,12 @@ fn execute_batch_removal(packages: &[String], force: bool) -> Result<()> {
         // Execute removal
         match npm_uninstall(package) {
             Ok(_) => {
-                println!("  {} Removed {}", "✓".green(), package.bold());
+                // Also remove from ven.toml
+                if let Err(e) = remove_from_ven_toml(package) {
+                    println!("  {} Warning: Failed to remove {} from ven.toml: {}", "[WARN]".yellow(), package, e);
+                }
+                
+                println!("  {} {}", "[OK]".green(), format!("Removed {}", package.bold()));
                 success_count += 1;
                 results.push((package.clone(), "removed".to_string(), true));
             }
@@ -164,14 +169,14 @@ fn display_dry_run(packages: &[String], force: bool) -> Result<()> {
     
     // Display what would be removed
     if !would_remove.is_empty() {
-        println!("  {} Packages that would be removed:", "→".green().bold());
+        println!("  {} Packages that would be removed:", "[REMOVE]".green().bold());
         for (pkg, version, dependents) in &would_remove {
             if dependents.is_empty() {
-                println!("    {} {} ({})", "✓".green(), pkg.bold(), version.dimmed());
+                println!("    {} {} ({})", "[OK]".green(), pkg.bold(), version.dimmed());
             } else {
                 println!(
                     "    {} {} ({}) {} {}",
-                    "⚠".yellow(),
+                    "[WARN]".yellow(),
                     pkg.bold(),
                     version.dimmed(),
                     format!("[{} dependents]", dependents.len()).yellow(),
@@ -183,9 +188,9 @@ fn display_dry_run(packages: &[String], force: bool) -> Result<()> {
     
     if !would_skip.is_empty() {
         println!();
-        println!("  {} Packages that would be skipped:", "○".yellow().bold());
+        println!("  {} Packages that would be skipped:", "[SKIP]".yellow().bold());
         for (pkg, reason) in &would_skip {
-            println!("    {} {} ({})", "✗".red(), pkg, reason);
+            println!("    {} {} ({})", "[FAIL]".red(), pkg, reason);
         }
     }
     
@@ -221,7 +226,7 @@ fn display_verbose_removal(packages: &[String], force: bool, dry_run: bool) -> R
     let mut removal_details = Vec::new();
     
     for package in packages {
-        println!("{} Analyzing {}...", "→".cyan(), package.bold());
+        println!("{} Analyzing {}...", "[INFO]".cyan(), package.bold());
         
         if !is_package_installed_locally(package) {
             println!("  {} {} not installed, skipping\n", "[SKIP]".yellow(), package);
@@ -263,7 +268,7 @@ fn display_verbose_removal(packages: &[String], force: bool, dry_run: bool) -> R
         if dry_run {
             println!("  {} Would remove (dry run)", "[DRY RUN]".yellow());
         } else {
-            println!("  {} Ready to remove", "[READY]".green());
+            println!("  {} Ready to remove", "[OK]".green());
         }
         
         removal_details.push((package.clone(), installed_version, pkg_size, dependents.len()));
@@ -378,7 +383,7 @@ fn cmd_cleanup(json: bool, verbose: bool, dry_run: bool, force: bool) -> Result<
         if json {
             println!("{{\"orphans_found\": 0, \"message\": \"No orphaned packages found\"}}");
         } else {
-            println!("  {} No orphaned packages found", "✓".green());
+            println!("  {} No orphaned packages found", "[OK]".green());
             println!("  {} All installed packages are required by dependencies", "[OK]".green());
             println!();
         }
@@ -462,13 +467,13 @@ fn display_cleanup_results(
     dry_run: bool,
     force: bool,
 ) -> Result<()> {
-    println!("  {} Found {} orphaned package(s):\n", "→".yellow().bold(), orphans.len());
+    println!("  {} Found {} orphaned package(s):\n", "[FOUND]".yellow().bold(), orphans.len());
     
     let mut total_size = 0u64;
     
     for (pkg, version, size) in orphans {
         total_size += size;
-        println!("    {} {}@{} ({})", "○".yellow(), pkg.bold(), version, format_bytes(*size));
+        println!("    {} {}@{} ({})", "[ORPHAN]".yellow(), pkg.bold(), version, format_bytes(*size));
     }
     
     println!();
@@ -499,7 +504,7 @@ fn display_cleanup_results(
         for (pkg, _, _) in orphans {
             match npm_uninstall(pkg) {
                 Ok(_) => {
-                    println!("  {} Removed {}", "✓".green(), pkg);
+                    println!("  {} Removed {}", "[OK]".green(), pkg);
                     success_count += 1;
                 }
                 Err(e) => {
@@ -509,7 +514,7 @@ fn display_cleanup_results(
         }
         
         println!();
-        println!("  {} {}/{} orphaned packages removed", "✓".green(), success_count, orphans.len());
+        println!("  {} {}/{} orphaned packages removed", "[OK]".green(), success_count, orphans.len());
     }
     
     println!();
@@ -562,6 +567,39 @@ fn output_json_cleanup(
 }
 
 // ── Helper Functions ─────────────────────────────────────────────────
+
+/// Remove a package from ven.toml
+fn remove_from_ven_toml(package: &str) -> Result<()> {
+    use crate::core::find_ven_toml;
+    use std::fs;
+    
+    let cwd = std::env::current_dir()?;
+    
+    // Find ven.toml in current directory (don't search parents)
+    let ven_toml_path = cwd.join("ven.toml");
+    
+    if !ven_toml_path.exists() {
+        return Ok(()); // No ven.toml, nothing to update
+    }
+    
+    // Read and parse the TOML file
+    let content = fs::read_to_string(&ven_toml_path)?;
+    let mut doc = content.parse::<toml_edit::DocumentMut>()?;
+    
+    // Check if package exists in [packages] section
+    if let Some(packages) = doc.get_mut("packages") {
+        if let Some(packages_table) = packages.as_table_mut() {
+            if packages_table.contains_key(package) {
+                packages_table.remove(package);
+                
+                // Write back to file
+                fs::write(&ven_toml_path, doc.to_string())?;
+            }
+        }
+    }
+    
+    Ok(())
+}
 
 /// Check if a package is installed locally
 fn is_package_installed_locally(package: &str) -> bool {
