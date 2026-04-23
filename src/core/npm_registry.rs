@@ -39,6 +39,19 @@ pub struct VersionMetadata {
     pub deprecated: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub dist: Option<DistInfo>,
+}
+
+/// Distribution information (size, integrity, etc.)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DistInfo {
+    #[serde(rename = "unpackedSize", default)]
+    pub unpacked_size: Option<u64>,
+    #[serde(default)]
+    pub integrity: Option<String>,
 }
 
 /// Engine requirements

@@ -75,6 +75,16 @@ pub enum ResolutionSuggestion {
     ForceInstall,          // "Use --force to override"
 }
 
+/// Transitive dependency analysis results
+pub struct TransitiveAnalysis {
+    pub direct_deps: Vec<String>,
+    pub transitive_deps: Vec<String>,
+    pub dependency_chains: HashMap<String, Vec<Vec<String>>>,
+    pub circular_deps: Vec<Vec<String>>,
+    pub phantom_deps: Vec<String>,  // In node_modules but not in ven.toml
+    pub orphan_deps: Vec<String>,   // In ven.toml but not used
+}
+
 /// Preview information for installation
 pub struct InstallPreview {
     pub total_packages: usize,
@@ -216,6 +226,12 @@ impl DependencyGraph {
             .and_then(|e| e.node);
 
         let deprecated = version_meta.and_then(|v| v.deprecated.clone());
+        
+        // Extract license and size metadata
+        let license = version_meta.and_then(|v| v.license.clone());
+        let size_bytes = version_meta
+            .and_then(|v| v.dist.clone())
+            .and_then(|d| d.unpacked_size);
 
         let node = GraphNode {
             name: name.to_string(),
@@ -225,6 +241,9 @@ impl DependencyGraph {
             depth,
             required_by: required_by.map(|s| vec![s.to_string()]).unwrap_or_default(),
             deprecated,
+            license,
+            size_bytes,
+            is_duplicate: false, // Will be set during duplicate detection
         };
 
         self.nodes.insert(name.to_string(), node);
@@ -500,6 +519,19 @@ impl DependencyGraph {
         println!();
     }
 
+    /// Format bytes to human-readable size
+    fn format_size(bytes: u64) -> String {
+        if bytes < 1024 {
+            format!("{} B", bytes)
+        } else if bytes < 1024 * 1024 {
+            format!("{:.1} KB", bytes as f64 / 1024.0)
+        } else if bytes < 1024 * 1024 * 1024 {
+            format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+        } else {
+            format!("{:.1} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+        }
+    }
+
     /// Print dependency tree
     pub fn print_tree(&self) {
         // Find root node (depth 0)
@@ -523,24 +555,40 @@ impl DependencyGraph {
 
         let name_version = format!("{}@{}", node.name, node.version);
         
+        // Build metadata annotations
+        let mut annotations = Vec::new();
+        
         // Check if deprecated
-        let deprecated_marker = if node.deprecated.is_some() {
-            " ⚠️ DEPRECATED".yellow().to_string()
-        } else {
-            "".to_string()
-        };
+        if node.deprecated.is_some() {
+            annotations.push("⚠️ DEPRECATED".yellow().to_string());
+        }
 
         // Check if has conflicts
-        let conflict_marker = if self.conflicts.iter().any(|c| c.package == node.name) {
-            " ⚠ CONFLICT".red().to_string()
-        } else {
+        if self.conflicts.iter().any(|c| c.package == node.name) {
+            annotations.push("⚠ CONFLICT".red().to_string());
+        }
+        
+        // Show license if available
+        if let Some(ref license) = node.license {
+            annotations.push(format!("[{}]", license).dimmed().to_string());
+        }
+        
+        // Show size if available
+        if let Some(size) = node.size_bytes {
+            annotations.push(format!("({})", Self::format_size(size)).dimmed().to_string());
+        }
+
+        // Combine all parts
+        let annotation_str = if annotations.is_empty() {
             "".to_string()
+        } else {
+            format!("  {}", annotations.join(" "))
         };
 
         if depth == 0 {
-            println!("{}{}", name_version.bold().cyan(), deprecated_marker);
+            println!("{}{}{}", name_version.bold().cyan(), annotation_str, "".dimmed());
         } else {
-            println!("{}{}{}{}{}", indent, connector, name_version, deprecated_marker, conflict_marker);
+            println!("{}{}{}{}", indent, connector, name_version, annotation_str);
         }
 
         // Print children
@@ -554,6 +602,269 @@ impl DependencyGraph {
             
             if let Some(child_node) = self.nodes.get(child_name) {
                 self.print_node(child_node, depth + 1, is_last_child);
+            }
+        }
+    }
+
+    /// Print comprehensive dependency tree summary
+    pub fn print_tree_summary(&self) {
+        println!("\n  {}", "Dependency Tree Summary".bold().cyan());
+        
+        // Total packages
+        println!("    {} Total packages: {}", "├".dimmed(), self.nodes.len());
+        
+        // Total size
+        let total_size: u64 = self.nodes.values()
+            .filter_map(|n| n.size_bytes)
+            .sum();
+        println!("    {} Total size: {}", "├".dimmed(), Self::format_size(total_size));
+        
+        // License breakdown
+        let mut license_counts: HashMap<String, u32> = HashMap::new();
+        for node in self.nodes.values() {
+            if let Some(ref license) = node.license {
+                *license_counts.entry(license.clone()).or_insert(0) += 1;
+            }
+        }
+        
+        if !license_counts.is_empty() {
+            let license_str: Vec<String> = license_counts.iter()
+                .map(|(license, count)| format!("{} ({})", license, count))
+                .collect();
+            println!("    {} Licenses: {}", "├".dimmed(), license_str.join(", "));
+        }
+        
+        // Max depth
+        let max_depth = self.nodes.values()
+            .map(|n| n.depth)
+            .max()
+            .unwrap_or(0);
+        println!("    {} Max depth: {} levels", "├".dimmed(), max_depth);
+        
+        // Conflict count
+        if !self.conflicts.is_empty() {
+            println!("    {} Conflicts: {}", "├".dimmed(), format!("{} detected", self.conflicts.len()).yellow());
+        } else {
+            println!("    {} Conflicts: {}", "├".dimmed(), "None".green());
+        }
+        
+        // Deprecated packages
+        let deprecated_count = self.nodes.values()
+            .filter(|n| n.deprecated.is_some())
+            .count();
+        if deprecated_count > 0 {
+            println!("    {} Deprecated: {}", "└".dimmed(), format!("{} packages", deprecated_count).yellow());
+        } else {
+            println!("    {} Deprecated: {}", "└".dimmed(), "None".green());
+        }
+    }
+
+    /// Analyze transitive dependencies
+    pub fn analyze_transitive(&self) -> TransitiveAnalysis {
+        let root_nodes: Vec<&GraphNode> = self.nodes.values()
+            .filter(|n| n.depth == 0)
+            .collect();
+
+        // Classify direct vs transitive
+        let mut direct_deps = Vec::new();
+        let mut transitive_deps = Vec::new();
+
+        for node in self.nodes.values() {
+            if node.depth == 1 {
+                direct_deps.push(node.name.clone());
+            } else if node.depth > 1 {
+                transitive_deps.push(node.name.clone());
+            }
+        }
+
+        direct_deps.sort();
+        transitive_deps.sort();
+
+        // Build dependency chains
+        let dependency_chains = self.build_dependency_chains();
+
+        // Detect circular dependencies
+        let circular_deps = self.detect_circular_dependencies();
+
+        TransitiveAnalysis {
+            direct_deps,
+            transitive_deps,
+            dependency_chains,
+            circular_deps,
+            phantom_deps: Vec::new(),  // Would require reading node_modules
+            orphan_deps: Vec::new(),   // Would require reading ven.toml packages
+        }
+    }
+
+    /// Build dependency chains from root to each package
+    fn build_dependency_chains(&self) -> HashMap<String, Vec<Vec<String>>> {
+        let mut chains: HashMap<String, Vec<Vec<String>>> = HashMap::new();
+
+        // Find root nodes
+        let roots: Vec<String> = self.nodes.keys()
+            .filter(|name| {
+                self.nodes.get(*name).map(|n| n.depth == 0).unwrap_or(false)
+            })
+            .cloned()
+            .collect();
+
+        for root_name in roots {
+            let root_clone = root_name.clone();
+            self.dfs_build_chains(root_name, vec![root_clone], &mut chains);
+        }
+
+        chains
+    }
+
+    /// DFS to build all paths from root to each node
+    fn dfs_build_chains(
+        &self,
+        current: String,
+        path: Vec<String>,
+        chains: &mut HashMap<String, Vec<Vec<String>>>,
+    ) {
+        // Record chain to current node
+        chains.entry(current.clone())
+            .or_insert_with(Vec::new)
+            .push(path.clone());
+
+        // Find children
+        let children: Vec<String> = self.edges.iter()
+            .filter(|e| e.from.starts_with(&format!("{}@", current)))
+            .map(|e| e.to.split('@').next().unwrap_or("").to_string())
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        for child in children {
+            // Avoid infinite loops in circular deps
+            if !path.contains(&child) {
+                let mut new_path = path.clone();
+                new_path.push(child.clone());
+                self.dfs_build_chains(child, new_path, chains);
+            }
+        }
+    }
+
+    /// Detect circular dependencies using DFS
+    fn detect_circular_dependencies(&self) -> Vec<Vec<String>> {
+        let mut circular = Vec::new();
+        let mut visited = HashSet::new();
+        let mut rec_stack = HashSet::new();
+        let mut path = Vec::new();
+
+        for node_name in self.nodes.keys() {
+            if !visited.contains(node_name) {
+                self.dfs_detect_cycles(
+                    node_name,
+                    &mut visited,
+                    &mut rec_stack,
+                    &mut path,
+                    &mut circular,
+                );
+            }
+        }
+
+        circular
+    }
+
+    /// DFS to detect cycles
+    fn dfs_detect_cycles(
+        &self,
+        node: &String,
+        visited: &mut HashSet<String>,
+        rec_stack: &mut HashSet<String>,
+        path: &mut Vec<String>,
+        circular: &mut Vec<Vec<String>>,
+    ) {
+        visited.insert(node.clone());
+        rec_stack.insert(node.clone());
+        path.push(node.clone());
+
+        // Get children
+        let children: Vec<String> = self.edges.iter()
+            .filter(|e| e.from.starts_with(&format!("{}@", node)))
+            .map(|e| e.to.split('@').next().unwrap_or("").to_string())
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        for child in children {
+            if !visited.contains(&child) {
+                self.dfs_detect_cycles(&child, visited, rec_stack, path, circular);
+            } else if rec_stack.contains(&child) {
+                // Found a cycle
+                let cycle_start = path.iter().position(|n| n == &child).unwrap_or(0);
+                let cycle = path[cycle_start..].to_vec();
+                circular.push(cycle);
+            }
+        }
+
+        path.pop();
+        rec_stack.remove(node);
+    }
+
+    /// Print transitive dependency analysis
+    pub fn print_transitive_analysis(&self) {
+        let analysis = self.analyze_transitive();
+
+        println!("\n  {}", "Transitive Dependency Analysis".bold().cyan());
+
+        // Direct dependencies
+        println!("\n    {} Direct dependencies ({}):", "📦".cyan(), analysis.direct_deps.len());
+        for (i, dep) in analysis.direct_deps.iter().enumerate() {
+            let connector = if i == analysis.direct_deps.len() - 1 { "└" } else { "├" };
+            let node = self.nodes.get(dep).unwrap();
+            println!("      {} {}@{}", connector.dimmed(), dep, node.version);
+        }
+
+        // Transitive dependencies
+        println!("\n    {} Transitive dependencies ({}):", "🔗".cyan(), analysis.transitive_deps.len());
+        for (i, dep) in analysis.transitive_deps.iter().take(10).enumerate() {
+            let connector = if i == 9 || i == analysis.transitive_deps.len() - 1 {
+                "└"
+            } else {
+                "├"
+            };
+            
+            // Show why this dep is installed (first chain)
+            if let Some(chains) = analysis.dependency_chains.get(dep) {
+                if let Some(chain) = chains.first() {
+                    if chain.len() >= 2 {
+                        let via = chain[1..].join(" → ");
+                        println!("      {} {} (via {})", connector.dimmed(), dep.dimmed(), via.dimmed());
+                    } else {
+                        println!("      {} {}", connector.dimmed(), dep.dimmed());
+                    }
+                }
+            } else {
+                println!("      {} {}", connector.dimmed(), dep.dimmed());
+            }
+        }
+        if analysis.transitive_deps.len() > 10 {
+            println!("      {} ... and {} more", "└".dimmed(), analysis.transitive_deps.len() - 10);
+        }
+
+        // Dependency chains example
+        if !analysis.dependency_chains.is_empty() {
+            println!("\n    {} Example dependency chains:", "🔍".cyan());
+            let sample_dep = analysis.transitive_deps.first()
+                .or_else(|| analysis.direct_deps.first());
+            
+            if let Some(dep) = sample_dep {
+                if let Some(chains) = analysis.dependency_chains.get(dep) {
+                    for (i, chain) in chains.iter().take(3).enumerate() {
+                        println!("      {}. {}", i + 1, chain.join(" → ").dimmed());
+                    }
+                }
+            }
+        }
+
+        // Circular dependencies
+        if analysis.circular_deps.is_empty() {
+            println!("\n    {} No circular dependencies detected", "✅".green());
+        } else {
+            println!("\n    {} {} circular dependency chain(s) detected:", "⚠".yellow().bold(), analysis.circular_deps.len());
+            for (i, cycle) in analysis.circular_deps.iter().enumerate() {
+                println!("      {}. {}", i + 1, cycle.join(" → ").yellow());
             }
         }
     }

@@ -86,6 +86,8 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                     println!();
                     println!("    {}", "Dependency Tree:".dimmed());
                     graph.print_tree();
+                    graph.print_tree_summary();
+                    graph.print_transitive_analysis();
                     println!();
                 }
 
