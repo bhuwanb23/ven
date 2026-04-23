@@ -2,7 +2,7 @@ use anyhow::Result;
 use colored::Colorize;
 use std::collections::HashMap;
 use toml_edit::{DocumentMut, value};
-use crate::core::{load_config, DependencyGraph};
+use crate::core::{load_config, DependencyGraph, SecurityScanner};
 use crate::core::packages;
 
 /// Load existing packages from ven.toml [packages] section
@@ -113,15 +113,10 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                         }
                         
                         println!("      {} Versions: {}", "├".yellow(), conflict.versions.join(", ").bold());
-                        
-                        // Show recommendation
-                        if conflict.versions.len() == 2 {
-                            println!("      {} Recommendation: Use {} (satisfies all constraints)", 
-                                "💡".cyan(), 
-                                conflict.versions[0].bold()
-                            );
-                        }
                     }
+                    
+                    // Show resolution suggestions
+                    graph.print_resolution_suggestions();
                     println!();
                 }
 
@@ -216,6 +211,53 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
             );
         }
         println!();
+    }
+
+    // Phase 3.5: Security Vulnerability Scanning
+    println!("\n  {}", "Security Audit".bold().cyan());
+    
+    // Collect all unique packages from all graphs
+    let mut all_packages: HashMap<String, String> = HashMap::new();
+    for (_, graph) in &all_graphs {
+        for (name, node) in &graph.nodes {
+            all_packages.insert(name.clone(), node.version.clone());
+        }
+    }
+    
+    // Scan for vulnerabilities (async operation)
+    println!("  {} Scanning {} packages for known vulnerabilities...", "🔒".cyan(), all_packages.len());
+    
+    let vulnerabilities = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        tokio::task::block_in_place(|| {
+            handle.block_on(async {
+                let scanner = SecurityScanner::new()?;
+                scanner.scan_packages(&all_packages).await
+            })
+        })
+    } else {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let scanner = SecurityScanner::new()?;
+            scanner.scan_packages(&all_packages).await
+        })
+    };
+    
+    let vulnerabilities = match vulnerabilities {
+        Ok(advisories) => advisories,
+        Err(e) => {
+            eprintln!("  {} Warning: Security scan failed: {}", "⚠".yellow(), e);
+            Vec::new()
+        }
+    };
+    
+    // Display results
+    let scanner = SecurityScanner::new()?;
+    scanner.print_audit(&vulnerabilities);
+    
+    // Warn if critical vulnerabilities found
+    if scanner.has_critical_vulnerabilities(&vulnerabilities) {
+        println!("\n  {} Critical/High vulnerabilities detected!", "🚨".red().bold());
+        println!("  {} Consider updating to patched versions", "⚠".yellow());
     }
 
     // Phase 4: Dry run or install

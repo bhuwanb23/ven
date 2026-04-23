@@ -24,6 +24,9 @@ pub struct GraphNode {
     pub depth: u32,
     pub required_by: Vec<String>,
     pub deprecated: Option<String>,
+    pub license: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub is_duplicate: bool,
 }
 
 /// An edge in the dependency graph (a dependency relationship)
@@ -56,6 +59,20 @@ pub struct NodeIncompatibility {
     pub version: String,
     pub required_node: String,
     pub current_node: String,
+}
+
+/// Conflict resolution suggestion
+pub struct ConflictResolution {
+    pub conflict: Conflict,
+    pub suggestion: ResolutionSuggestion,
+    pub impact: String,
+}
+
+pub enum ResolutionSuggestion {
+    Upgrade(String),       // "Upgrade to version X"
+    Downgrade(String),     // "Downgrade to version X"
+    UseAlternative(String), // "Use package X instead"
+    ForceInstall,          // "Use --force to override"
 }
 
 /// Preview information for installation
@@ -391,6 +408,96 @@ impl DependencyGraph {
         }
 
         conflicts
+    }
+
+    /// Suggest resolutions for all detected conflicts
+    pub fn suggest_resolutions(&self) -> Vec<ConflictResolution> {
+        let mut resolutions = Vec::new();
+
+        for conflict in &self.conflicts {
+            if let Some(resolution) = self.suggest_resolution(conflict) {
+                resolutions.push(resolution);
+            }
+        }
+
+        resolutions
+    }
+
+    /// Suggest resolution for a single conflict
+    fn suggest_resolution(&self, conflict: &Conflict) -> Option<ConflictResolution> {
+        // Try to find a common version that satisfies all constraints
+        let package_name = &conflict.package;
+        
+        // Fetch package metadata to get available versions
+        // For now, use a simpler heuristic based on the constraints
+        
+        if conflict.versions.len() == 2 {
+            // Simple case: two versions in conflict
+            // Suggest using the higher version (usually backwards compatible)
+            let suggested = conflict.versions.iter().max()?.clone();
+            
+            Some(ConflictResolution {
+                conflict: conflict.clone(),
+                suggestion: ResolutionSuggestion::Upgrade(suggested.clone()),
+                impact: format!("Resolves {} constraint(s)", conflict.constraints.len()),
+            })
+        } else if conflict.versions.len() > 2 {
+            // Complex case: multiple versions
+            // Suggest finding a common version or upgrading all
+            Some(ConflictResolution {
+                conflict: conflict.clone(),
+                suggestion: ResolutionSuggestion::Upgrade("latest compatible".to_string()),
+                impact: format!("Will update {} packages", conflict.constraints.len()),
+            })
+        } else {
+            // Fallback: suggest force install
+            Some(ConflictResolution {
+                conflict: conflict.clone(),
+                suggestion: ResolutionSuggestion::ForceInstall,
+                impact: "May cause runtime issues".to_string(),
+            })
+        }
+    }
+
+    /// Print conflict resolution suggestions
+    pub fn print_resolution_suggestions(&self) {
+        let resolutions = self.suggest_resolutions();
+        
+        if resolutions.is_empty() {
+            return;
+        }
+
+        println!("\n  {}", "Conflict Resolution Suggestions".bold().cyan());
+        
+        for (i, resolution) in resolutions.iter().enumerate() {
+            println!("\n    {}. {} version conflict", 
+                i + 1, 
+                resolution.conflict.package.bold()
+            );
+            
+            println!("       Required by:");
+            for (requirer, constraint) in &resolution.conflict.constraints {
+                println!("         - {} ({})", requirer, constraint);
+            }
+            
+            match &resolution.suggestion {
+                ResolutionSuggestion::Upgrade(version) => {
+                    println!("       {} Upgrade to {}@{}", "💡".cyan(), resolution.conflict.package, version.bold());
+                }
+                ResolutionSuggestion::Downgrade(version) => {
+                    println!("       {} Downgrade to {}@{}", "💡".cyan(), resolution.conflict.package, version.bold());
+                }
+                ResolutionSuggestion::UseAlternative(alternative) => {
+                    println!("       {} Use {} instead", "💡".cyan(), alternative.bold());
+                }
+                ResolutionSuggestion::ForceInstall => {
+                    println!("       {} Use --force to override", "⚠".yellow());
+                }
+            }
+            
+            println!("       Impact: {}", resolution.impact.dimmed());
+        }
+        println!();
     }
 
     /// Print dependency tree
