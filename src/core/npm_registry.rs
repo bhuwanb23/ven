@@ -90,7 +90,7 @@ impl NpmRegistry {
 
         // Fetch from npm registry
         let url = format!("https://registry.npmjs.org/{}", name);
-        println!("  {} Fetching {} from npm registry...", "🌐".cyan(), name);
+        println!("  {} Fetching {} from npm registry...", "[HTTP]".cyan(), name);
 
         let response = self.client.get(&url).send().await?;
 

@@ -116,7 +116,7 @@ impl SecurityScanner {
     /// Print security audit results
     pub fn print_audit(&self, advisories: &[Advisory]) {
         if advisories.is_empty() {
-            println!("\n  {} No known vulnerabilities found", "✅".green());
+            println!("\n  {} No known vulnerabilities found", "[OK]".green());
             return;
         }
 
@@ -127,7 +127,7 @@ impl SecurityScanner {
             *severity_counts.entry(level).or_insert(0) += 1;
         }
 
-        println!("\n  {} {} vulnerability(ies) found:", "⚠".yellow().bold(), advisories.len());
+        println!("\n  {} {} vulnerability(ies) found:", "[WARN]".yellow().bold(), advisories.len());
 
         for advisory in advisories {
             let severity = SeverityLevel::from_str(&advisory.severity);
@@ -135,11 +135,11 @@ impl SecurityScanner {
             
             println!("\n    {} {}: {}", 
                 match severity {
-                    SeverityLevel::Critical => "🚨".to_string(),
-                    SeverityLevel::High => "🔴".to_string(),
-                    SeverityLevel::Moderate => "🟡".to_string(),
-                    SeverityLevel::Low => "🔵".to_string(),
-                    SeverityLevel::Info => "ℹ️".to_string(),
+                    SeverityLevel::Critical => "[CRIT]".to_string(),
+                    SeverityLevel::High => "[HIGH]".to_string(),
+                    SeverityLevel::Moderate => "[MOD]".to_string(),
+                    SeverityLevel::Low => "[LOW]".to_string(),
+                    SeverityLevel::Info => "[INFO]".to_string(),
                 },
                 severity.display_color().bold(),
                 package.bold()
@@ -158,7 +158,7 @@ impl SecurityScanner {
         }
 
         // Summary
-        println!("\n  {} Severity Summary:", "📊".cyan());
+        println!("\n  {} Severity Summary:", "[SUMMARY]".cyan());
         for (severity, count) in severity_counts.iter() {
             println!("    {} {}", severity.display_color(), format!("{} vulnerability(ies)", count).dimmed());
         }

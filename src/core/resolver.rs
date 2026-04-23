@@ -108,7 +108,7 @@ impl DependencyGraph {
 
     /// Build complete dependency graph for a package
     pub async fn build(&mut self, root_package: &str, root_version: &str, existing_packages: &HashMap<String, String>) -> Result<()> {
-        println!("  {} Building dependency graph...", "🔍".cyan());
+        println!("  {} Building dependency graph...", "[SEARCH]".cyan());
 
         // Fetch root package metadata
         let metadata = self.registry.fetch_package_metadata(root_package).await?;
@@ -130,7 +130,7 @@ impl DependencyGraph {
         self.check_node_compatibility();
 
         println!("  {} Graph built: {} packages, {} edges", 
-            "✓".green(), 
+            "[OK]".green(), 
             self.nodes.len(), 
             self.edges.len()
         );
@@ -148,7 +148,7 @@ impl DependencyGraph {
         let version_meta = match self.registry.fetch_version_metadata(package, version).await {
             Ok(meta) => meta,
             Err(e) => {
-                eprintln!("  {} Warning: Failed to fetch {}@{}: {}", "⚠".yellow(), package, version, e);
+                eprintln!("  {} Warning: Failed to fetch {}@{}: {}", "[WARN]".yellow(), package, version, e);
                 return Ok(()); // Continue with other deps
             }
         };
@@ -161,7 +161,7 @@ impl DependencyGraph {
             let dep_metadata = match self.registry.fetch_package_metadata(dep_name).await {
                 Ok(meta) => meta,
                 Err(e) => {
-                    eprintln!("  {} Warning: Failed to fetch {}: {}", "⚠".yellow(), dep_name, e);
+                    eprintln!("  {} Warning: Failed to fetch {}: {}", "[WARN]".yellow(), dep_name, e);
                     continue;
                 }
             };
@@ -171,7 +171,7 @@ impl DependencyGraph {
                 Ok(v) => v,
                 Err(e) => {
                     eprintln!("  {} Warning: Cannot resolve {} for {}: {}", 
-                        "⚠".yellow(), dep_constraint, dep_name, e);
+                        "[WARN]".yellow(), dep_constraint, dep_name, e);
                     continue;
                 }
             };
@@ -504,16 +504,16 @@ impl DependencyGraph {
             
             match &resolution.suggestion {
                 ResolutionSuggestion::Upgrade(version) => {
-                    println!("       {} Upgrade to {}@{}", "💡".cyan(), resolution.conflict.package, version.bold());
+                    println!("       {} Upgrade to {}@{}", "[TIP]".cyan(), resolution.conflict.package, version.bold());
                 }
                 ResolutionSuggestion::Downgrade(version) => {
-                    println!("       {} Downgrade to {}@{}", "💡".cyan(), resolution.conflict.package, version.bold());
+                    println!("       {} Downgrade to {}@{}", "[TIP]".cyan(), resolution.conflict.package, version.bold());
                 }
                 ResolutionSuggestion::UseAlternative(alternative) => {
-                    println!("       {} Use {} instead", "💡".cyan(), alternative.bold());
+                    println!("       {} Use {} instead", "[TIP]".cyan(), alternative.bold());
                 }
                 ResolutionSuggestion::ForceInstall => {
-                    println!("       {} Use --force to override", "⚠".yellow());
+                    println!("       {} Use --force to override", "[WARN]".yellow());
                 }
             }
             
@@ -563,12 +563,12 @@ impl DependencyGraph {
         
         // Check if deprecated
         if node.deprecated.is_some() {
-            annotations.push("⚠️ DEPRECATED".yellow().to_string());
+            annotations.push("[DEPRECATED]".yellow().to_string());
         }
 
         // Check if has conflicts
         if self.conflicts.iter().any(|c| c.package == node.name) {
-            annotations.push("⚠ CONFLICT".red().to_string());
+            annotations.push("[CONFLICT]".red().to_string());
         }
         
         // Show license if available
@@ -812,7 +812,7 @@ impl DependencyGraph {
         println!("\n  {}", "Transitive Dependency Analysis".bold().cyan());
 
         // Direct dependencies
-        println!("\n    {} Direct dependencies ({}):", "📦".cyan(), analysis.direct_deps.len());
+        println!("\n    {} Direct dependencies ({}):", "[DEPS]".cyan(), analysis.direct_deps.len());
         for (i, dep) in analysis.direct_deps.iter().enumerate() {
             let connector = if i == analysis.direct_deps.len() - 1 { "└" } else { "├" };
             let node = self.nodes.get(dep).unwrap();
@@ -820,7 +820,7 @@ impl DependencyGraph {
         }
 
         // Transitive dependencies
-        println!("\n    {} Transitive dependencies ({}):", "🔗".cyan(), analysis.transitive_deps.len());
+        println!("\n    {} Transitive dependencies ({}):", "[LINK]".cyan(), analysis.transitive_deps.len());
         for (i, dep) in analysis.transitive_deps.iter().take(10).enumerate() {
             let connector = if i == 9 || i == analysis.transitive_deps.len() - 1 {
                 "└"
@@ -848,7 +848,7 @@ impl DependencyGraph {
 
         // Dependency chains example
         if !analysis.dependency_chains.is_empty() {
-            println!("\n    {} Example dependency chains:", "🔍".cyan());
+            println!("\n    {} Example dependency chains:", "[CHAIN]".cyan());
             let sample_dep = analysis.transitive_deps.first()
                 .or_else(|| analysis.direct_deps.first());
             
@@ -863,7 +863,7 @@ impl DependencyGraph {
 
         // Circular dependencies
         if analysis.circular_deps.is_empty() {
-            println!("\n    {} No circular dependencies detected", "✅".green());
+            println!("\n    {} No circular dependencies detected", "[OK]".green());
         } else {
             println!("\n    {} {} circular dependency chain(s) detected:", "⚠".yellow().bold(), analysis.circular_deps.len());
             for (i, cycle) in analysis.circular_deps.iter().enumerate() {

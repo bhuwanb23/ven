@@ -70,7 +70,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
     let mut all_graphs: Vec<(String, DependencyGraph)> = Vec::new();
 
     for pkg in &packages {
-        println!("{} Analyzing {}...", "→".cyan(), pkg.name.bold());
+        println!("[INFO] Analyzing {}...", pkg.name.bold());
 
         // Build dependency graph with pre-flight analysis
         let version_spec = if let Some(ref v) = pkg.pinned_version {
@@ -106,7 +106,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                 if !graph.conflicts.is_empty() {
                     println!("\n  {} {} version conflict(s) detected:", "[WARN]".yellow().bold(), graph.conflicts.len());
                     for conflict in &graph.conflicts {
-                        println!("\n    {} {}", "⚠".yellow(), conflict.package.bold());
+                        println!("\n    {} {}", "[WARN]".yellow(), conflict.package.bold());
                         println!("      {} Required by:", "├".yellow());
                         
                         for (i, (requirer, constraint)) in conflict.constraints.iter().enumerate() {
@@ -178,7 +178,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
                 .map(|n| n.version.clone())
                 .unwrap_or_else(|| "unknown".to_string());
             
-            println!("\n    {} {}@{}", "📦".cyan(), pkg_name.bold(), resolved_version.bold());
+            println!("\n    {} {}@{}", "[PKG]".cyan(), pkg_name.bold(), resolved_version.bold());
             
             // Count transitive dependencies (exclude root)
             let transitive_deps = graph.nodes.len().saturating_sub(1);
@@ -193,9 +193,9 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
             let has_incompatibilities = !graph.incompatibilities.is_empty();
             
             if has_conflicts || has_incompatibilities {
-                println!("      {} {}", "├".dimmed(), "⚠ Has conflicts or incompatibilities".yellow());
+                println!("      {} {}", "├".dimmed(), "[WARN] Has conflicts or incompatibilities".yellow());
             } else {
-                println!("      {} {}", "├".dimmed(), "✅ No conflicts detected".green());
+                println!("      {} {}", "├".dimmed(), "[OK] No conflicts detected".green());
             }
             
             // Show ven.toml changes
@@ -300,7 +300,7 @@ pub fn cmd_add(package_specs: &[String], skip_check: bool, dry_run: bool, verbos
     for (pkg_name, graph) in &all_graphs {
         let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
         
-        println!("{} Installing {}...", "→".cyan(), pkg_name.bold());
+        println!("[INFO] Installing {}...", pkg_name.bold());
         
         // FIXED: Use resolved version from dependency graph analysis
         // Instead of using "latest" or user's pinned version, use the version
