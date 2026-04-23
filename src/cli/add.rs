@@ -354,16 +354,7 @@ fn analyze_package(
         tokio::task::block_in_place(|| {
             handle.block_on(async {
                 let mut graph = DependencyGraph::new(node_version.to_string());
-                graph.build(pkg_name, version_spec).await?;
-                
-                // Check for conflicts with existing packages
-                let existing_conflicts = graph.check_existing_compatibility(existing_packages);
-                
-                // Merge conflicts into graph
-                for conflict in existing_conflicts {
-                    graph.conflicts.push(conflict);
-                }
-                
+                graph.build(pkg_name, version_spec, existing_packages).await?;
                 Ok(graph)
             })
         })
@@ -373,16 +364,7 @@ fn analyze_package(
         
         rt.block_on(async {
             let mut graph = DependencyGraph::new(node_version.to_string());
-            graph.build(pkg_name, version_spec).await?;
-            
-            // Check for conflicts with existing packages
-            let existing_conflicts = graph.check_existing_compatibility(existing_packages);
-            
-            // Merge conflicts into graph
-            for conflict in existing_conflicts {
-                graph.conflicts.push(conflict);
-            }
-            
+            graph.build(pkg_name, version_spec, existing_packages).await?;
             Ok(graph)
         })
     }

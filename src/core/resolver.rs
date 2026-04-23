@@ -107,7 +107,7 @@ impl DependencyGraph {
     }
 
     /// Build complete dependency graph for a package
-    pub async fn build(&mut self, root_package: &str, root_version: &str) -> Result<()> {
+    pub async fn build(&mut self, root_package: &str, root_version: &str, existing_packages: &HashMap<String, String>) -> Result<()> {
         println!("  {} Building dependency graph...", "🔍".cyan());
 
         // Fetch root package metadata
@@ -122,8 +122,11 @@ impl DependencyGraph {
         // Recursively fetch dependencies
         self.fetch_dependencies(root_package, &resolved_version, 0).await?;
 
-        // Analyze graph
-        self.detect_conflicts();
+        // Only detect conflicts with existing packages from ven.toml
+        // (NOT internal npm dependency variations - those are handled by npm automatically)
+        let existing_conflicts = self.check_existing_compatibility(existing_packages);
+        self.conflicts.extend(existing_conflicts);
+        
         self.check_node_compatibility();
 
         println!("  {} Graph built: {} packages, {} edges", 
