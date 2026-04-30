@@ -136,14 +136,16 @@ function global:__ven_activate {{
     }}
 }}
 
-# Override cd to auto-activate
-function global:cd {{
-    param([string]$Path = "")
+# Override Set-Location (cd calls this internally)
+$global:__ven_original_setlocation = $function:Set-Location
+
+function global:Set-Location {{
+    param(
+        [string]$Path = ".",
+        [string]$PassThru
+    )
     
-    if ($Path) {{
-        Microsoft.PowerShell.Management\Set-Location $Path
-    }}
-    
+    & $global:__ven_original_setlocation @PSBoundParameters
     __ven_activate
 }}
 
