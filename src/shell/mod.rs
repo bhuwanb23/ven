@@ -141,14 +141,11 @@ function global:cd {{
     param([string]$Path = "")
     
     if ($Path) {{
-        Set-Location $Path
+        Microsoft.PowerShell.Management\Set-Location $Path
     }}
     
     __ven_activate
 }}
-
-# Set alias for cd
-Set-Alias -Name cd -Value global:cd -Force -Scope Global
 
 # Activate on terminal start
 __ven_activate
