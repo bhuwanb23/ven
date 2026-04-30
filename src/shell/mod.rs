@@ -107,45 +107,51 @@ fn powershell_hook() -> String {
     
     format!(r#"
 # ven shell hook (PowerShell) - Auto-switches Node.js on cd
-$script:VEN_LAST_PATH = $null
-$script:VEN_ORIGINAL_PATH = $env:PATH
-$script:VEN_BIN = "{ven_path}"
+$global:VEN_ORIGINAL_PATH = $env:PATH
+$global:VEN_BIN = "{ven_path}"
+$global:VEN_LAST_DIR = $null
 
-function Set-VenLocation {{
+function global:__ven_activate {{
+    $current_dir = $PWD.Path
+    
+    # Skip if same directory
+    if ($global:VEN_LAST_DIR -eq $current_dir) {{ return }}
+    $global:VEN_LAST_DIR = $current_dir
+    
+    # Try to activate ven.toml
+    try {{
+        $exports = (& $global:VEN_BIN shell activate $current_dir 2>$null) -join "`n"
+        
+        if ($exports) {{
+            # ven.toml found
+            Invoke-Expression $exports
+        }} else {{
+            # No ven.toml - restore original PATH
+            $env:PATH = $global:VEN_ORIGINAL_PATH
+            if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
+            if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
+        }}
+    }} catch {{
+        # Ignore errors
+    }}
+}}
+
+# Override cd to auto-activate
+function global:cd {{
     param([string]$Path = "")
     
-    # Change directory
     if ($Path) {{
         Set-Location $Path
     }}
     
-    $current_dir = $PWD.Path
-    
-    # Only re-activate if directory changed
-    if ($script:VEN_LAST_PATH -ne $current_dir) {{
-        $script:VEN_LAST_PATH = $current_dir
-        
-        # Try to find and activate ven.toml
-        $exports = (& $script:VEN_BIN shell activate "$current_dir" 2>$null) -join "`n"
-        
-        if ($exports) {{
-            # ven.toml found - activate it
-            Invoke-Expression $exports
-        }} else {{
-            # No ven.toml - restore original PATH (remove ven paths)
-            $env:PATH = $script:VEN_ORIGINAL_PATH
-            Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue
-            Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
-            Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
-        }}
-    }}
+    __ven_activate
 }}
 
-# Override cd command
-Set-Alias -Name cd -Value Set-VenLocation -Force -Option AllScope
+# Set alias for cd
+Set-Alias -Name cd -Value global:cd -Force -Scope Global
 
-# Activate for current directory on shell start
-Set-VenLocation
+# Activate on terminal start
+__ven_activate
 "#)
 }
 
