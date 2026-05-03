@@ -189,8 +189,8 @@ function global:__ven_toml_sig {{
             $i = Get-Item -LiteralPath $p
             return "$($i.FullName)|$($i.LastWriteTimeUtc.Ticks)"
         }}
-        $parent = Split-Path -LiteralPath $d -Parent
-        if ($parent -eq $d) {{ break }}
+        $parent = [System.IO.Path]::GetDirectoryName($d)
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $d) {{ break }}
         $d = $parent
     }}
     return ""
