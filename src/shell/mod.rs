@@ -534,11 +534,25 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         .collect::<Vec<_>>()
         .join(sep);
 
+    // Reset PATH from the hook baseline — not `$PATH` — so switching from python child → node-only parent
+    // drops ~/.ven/python, ./venv Scripts, sibling prepends instead of accumulating them.
     let exports = if cfg!(target_os = "windows") {
-        let mut out = format!(
-            "$env:PATH = \"{pj};\" + $env:PATH\n",
-            pj = path_joined
+        let mut out = String::from(
+            r#"if (Test-Path Env:VEN_NODE_VERSION) { Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:VEN_PYTHON_VERSION) { Remove-Item Env:VEN_PYTHON_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:NODE_PATH) { Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue }
+if (Test-Path Env:VIRTUAL_ENV) { Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue }
+
+"#,
         );
+        if path_joined.is_empty() {
+            out.push_str("$env:PATH = $global:VEN_ORIGINAL_PATH\n");
+        } else {
+            out.push_str(&format!(
+                "$env:PATH = \"{};\" + $global:VEN_ORIGINAL_PATH\n",
+                path_joined
+            ));
+        }
         if let Some(ref dir) = node_bin_for_path {
             out.push_str(&format!("$env:NODE_PATH = \"{}\"\n", dir.display()));
         }
@@ -560,7 +574,22 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         }
         out
     } else {
-        let mut out = format!("export PATH=\"{pj}:$PATH\"\n", pj = path_joined);
+        let mut out = String::from(
+            r#"unset VEN_NODE_VERSION 2>/dev/null || true
+unset VEN_PYTHON_VERSION 2>/dev/null || true
+unset NODE_PATH 2>/dev/null || true
+unset VIRTUAL_ENV 2>/dev/null || true
+
+"#,
+        );
+        if path_joined.is_empty() {
+            out.push_str("export PATH=\"$__VEN_ORIGINAL_PATH\"\n");
+        } else {
+            out.push_str(&format!(
+                "export PATH=\"{}:$__VEN_ORIGINAL_PATH\"\n",
+                path_joined
+            ));
+        }
         if let Some(ref dir) = node_bin_for_path {
             out.push_str(&format!("export NODE_PATH=\"{}\"\n", dir.display()));
         }
