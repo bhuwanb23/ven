@@ -52,7 +52,25 @@ fn bash_zsh_hook() -> String {
 # ven shell hook (bash/zsh) - Auto-switches Node.js on cd
 __VEN_ORIGINAL_PATH="$PATH"
 __VEN_LAST_DIR=""
+__VEN_LAST_TOML_SIG=""
 __VEN_BIN="{ven_path}"
+
+__ven_toml_sig() {{
+    local d="$1"
+    while [ -n "$d" ]; do
+        if [ -f "$d/ven.toml" ]; then
+            local mt
+            mt=$(stat -c %Y "$d/ven.toml" 2>/dev/null || stat -f %m "$d/ven.toml" 2>/dev/null || echo 0)
+            printf '%s|%s\n' "$d/ven.toml" "$mt"
+            return
+        fi
+        local parent
+        parent=$(dirname "$d")
+        if [ "$parent" = "$d" ]; then break; fi
+        d="$parent"
+    done
+    echo ""
+}}
 
 ven-use() {{
     local d="${{1:-$PWD}}"
@@ -63,24 +81,23 @@ ven-use() {{
 
 __ven_activate() {{
     local current_dir="$PWD"
-    
-    # Only re-activate if directory changed
-    if [ "$__VEN_LAST_DIR" != "$current_dir" ]; then
-        __VEN_LAST_DIR="$current_dir"
-        
-        # Try to find and activate ven.toml
-        local exports
-        exports=$("$__VEN_BIN" shell activate "$current_dir" 2>/dev/null)
-        
-        if [ -n "$exports" ]; then
-            # ven.toml found - activate it
-            eval "$exports"
-        else
-            # No ven.toml - restore original PATH
-            export PATH="$__VEN_ORIGINAL_PATH"
-            unset VEN_NODE_VERSION 2>/dev/null
-            unset VEN_TOML 2>/dev/null
-        fi
+    local sig
+    sig=$(__ven_toml_sig "$current_dir")
+    if [ "$__VEN_LAST_DIR" = "$current_dir" ] && [ "$__VEN_LAST_TOML_SIG" = "$sig" ]; then
+        return
+    fi
+    __VEN_LAST_DIR="$current_dir"
+    __VEN_LAST_TOML_SIG="$sig"
+
+    local exports
+    exports=$("$__VEN_BIN" shell activate "$current_dir" 2>/dev/null)
+
+    if [ -n "$exports" ]; then
+        eval "$exports"
+    else
+        export PATH="$__VEN_ORIGINAL_PATH"
+        unset VEN_NODE_VERSION 2>/dev/null
+        unset VEN_TOML 2>/dev/null
     fi
 }}
 
@@ -92,7 +109,28 @@ __ven_activate  # activate for current directory on shell start
 
 fn fish_hook() -> String {
     r#"
-# ven shell hook (fish)
+# ven shell hook (fish) — re-check on each prompt so new ven.toml in same dir is picked up
+set -g __VEN_ORIGINAL_PATH $PATH
+set -g __VEN_LAST_SIG ""
+
+function __ven_fish_toml_sig --argument-names start
+    set -l d $start
+    while test -n "$d"
+        set -l p "$d/ven.toml"
+        if test -f $p
+            set mt (stat -c %Y $p 2>/dev/null; or stat -f %m $p 2>/dev/null; or echo 0)
+            echo "$p|$mt"
+            return
+        end
+        set -l parent (dirname $d)
+        if test "$parent" = "$d"
+            break
+        end
+        set d $parent
+    end
+    echo ""
+end
+
 function ven-use
     set -l d $argv[1]
     if test -z "$d"
@@ -104,13 +142,21 @@ function ven-use
     end
 end
 
-function __ven_activate --on-variable PWD
+function __ven_on_prompt --on-event fish_prompt
+    set -l sig (__ven_fish_toml_sig $PWD)
+    if test "$sig" = "$__VEN_LAST_SIG"
+        return
+    end
+    set -g __VEN_LAST_SIG $sig
     set exports (ven shell activate "$PWD" 2>/dev/null)
     if test -n "$exports"
         eval $exports
+    else
+        set -gx PATH $__VEN_ORIGINAL_PATH
+        set -e VEN_NODE_VERSION 2>/dev/null
+        set -e VEN_TOML 2>/dev/null
     end
 end
-__ven_activate  # activate on shell start
 "#
     .to_string()
 }
@@ -130,7 +176,25 @@ if (-not $global:VEN_ORIGINAL_PATH) {{
 }}
 $global:VEN_BIN = "{ven_path}"
 $global:VEN_LAST_DIR = $null
+$global:VEN_LAST_TOML_SIG = $null
 $global:VEN_LAST_ACTIVATE_WARN = $null
+
+function global:__ven_toml_sig {{
+    param([string]$StartDir)
+    $d = $StartDir
+    while ($true) {{
+        if ([string]::IsNullOrEmpty($d)) {{ return "" }}
+        $p = Join-Path $d 'ven.toml'
+        if (Test-Path -LiteralPath $p) {{
+            $i = Get-Item -LiteralPath $p
+            return "$($i.FullName)|$($i.LastWriteTimeUtc.Ticks)"
+        }}
+        $parent = Split-Path -LiteralPath $d -Parent
+        if ($parent -eq $d) {{ break }}
+        $d = $parent
+    }}
+    return ""
+}}
 
 # Manual apply (ven shell activate only prints; this runs those lines in-process)
 if (-not $global:__ven_use_defined) {{
@@ -145,9 +209,11 @@ if (-not $global:__ven_use_defined) {{
 
 function global:__ven_activate {{
     $current_dir = $PWD.Path
+    $sig = __ven_toml_sig $current_dir
 
-    if ($global:VEN_LAST_DIR -eq $current_dir) {{ return }}
+    if ($global:VEN_LAST_DIR -eq $current_dir -and $global:VEN_LAST_TOML_SIG -eq $sig) {{ return }}
     $global:VEN_LAST_DIR = $current_dir
+    $global:VEN_LAST_TOML_SIG = $sig
 
     try {{
         $lines = & $global:VEN_BIN shell activate $current_dir 2>$null
