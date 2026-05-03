@@ -22,7 +22,7 @@ pub mod upgrade;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven install node 20          # Install Node.js 20.x\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages to project\n  ven status --verbose         # Show detailed project status\n  ven upgrade --all --apply    # Upgrade all packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js 20.x (Python: not yet enabled)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite          # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -84,6 +84,23 @@ pub enum Commands {
     ///   ven status --verbose       # Show detailed info with disk usage
     ///   ven status --json          # JSON output for CI/CD
     ///   ven status --fix           # Auto-fix detected issues
+    /// Apply nearest ven.toml runtime to your shell session (prints exports; see stderr hint).
+    ///
+    /// Same behavior as `ven shell activate`; after `ven setup` / hooks, interactive shells can run `ven-use` instead.
+    #[command(long_about = "Apply nearest ven.toml Node version for a directory.\n\nPrints PATH/env assignments for your shell — they must be evaluated in-process\n(Run `ven-use` once hooks are installed, or pipe to Invoke-Expression / eval).\n\nExamples:\n  ven use .\n  ven use ~/my-app")]
+    Use {
+        /// Directory (default: current folder)
+        #[arg(default_value = ".")]
+        dir: String,
+    },
+
+    /// Print commands to revert ven's PATH overlay in this terminal (same session as hooks).
+    #[command(
+        visible_alias = "d",
+        long_about = "Print shell code to undo ven's PATH/environment overlay.\n\nRequires the shell hook globals (e.g. VEN_ORIGINAL_PATH). Evaluate in-process:\n\n  PowerShell:  iex ((ven deactivate) -join \"`n\")\n  bash/zsh:    eval \"$(ven deactivate)\"\n\nExamples:\n  ven deactivate"
+    )]
+    Deactivate,
+
     #[command(long_about = "Show current project status and configuration\n\nDisplays ven.toml configuration, installed Node.js versions,\npackage status, environment variables, and project health information.\n\nExamples:\n  ven status                 # Show basic status\n  ven status --verbose       # Show detailed info with disk usage\n  ven status --json          # JSON output for CI/CD\n  ven status --fix           # Auto-fix detected issues")]
     Status {
         /// Output as JSON for scripting and CI/CD pipelines
@@ -262,6 +279,8 @@ pub enum ShellCommands {
     Hook { shell: String },
     /// Compute and print PATH exports for current directory
     Activate { dir: String },
+    /// Print commands to clear ven PATH overlay (same as `ven deactivate`)
+    Deactivate,
     /// Install hook into shell profile for auto-loading
     Install,
 }
@@ -293,6 +312,12 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::List { language, verbose, json } => {
             list::cmd_list(language.as_deref(), verbose, json)
         }
+        Commands::Use { dir } => {
+            shell::cmd_use(&dir)
+        }
+        Commands::Deactivate => {
+            shell::cmd_shell_deactivate()
+        }
         Commands::Status { json, verbose, fix } => {
             status::cmd_status(json, verbose, fix)
         }
@@ -314,6 +339,7 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),
+            ShellCommands::Deactivate => shell::cmd_shell_deactivate(),
             ShellCommands::Install => shell::cmd_shell_install(),
         },
 

@@ -172,6 +172,59 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
 
 /// `ven shell activate` only **prints** shell code; the parent process cannot apply it.
 /// When the user runs it directly (TTY → TTY), explain; when piped to `iex`/`eval`, no hint.
+/// Print snippets to revert PATH overlay from hooks (evaluate in same terminal session).
+pub fn cmd_shell_deactivate() -> Result<()> {
+    #[cfg(target_os = "windows")]
+    print!(
+        r#"if ($null -ne $global:VEN_ORIGINAL_PATH) {{
+    $env:PATH = $global:VEN_ORIGINAL_PATH
+}}
+Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
+Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
+
+"#
+    );
+    #[cfg(not(target_os = "windows"))]
+    print!(
+        r#"if test -n "$__VEN_ORIGINAL_PATH"; then export PATH="$__VEN_ORIGINAL_PATH"; fi
+unset VEN_NODE_VERSION 2>/dev/null || true
+unset VEN_TOML 2>/dev/null || true
+
+"#
+    );
+    hint_shell_deactivate_apply_if_tty();
+    Ok(())
+}
+
+/// Same as [`cmd_shell_activate`]; alias for workflows that expect top-level `ven use`.
+#[allow(non_snake_case)]
+pub fn cmd_use(dir: &str) -> Result<()> {
+    cmd_shell_activate(dir)
+}
+
+fn hint_shell_deactivate_apply_if_tty() {
+    if !(io::stdout().is_terminal() && io::stderr().is_terminal()) {
+        return;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = writeln!(
+            io::stderr(),
+            "{}",
+            r##"ven: Printed lines above are not executed automatically. Apply with:  iex ((ven deactivate) -join "`n")"##
+                .dimmed()
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = writeln!(
+            io::stderr(),
+            "{}",
+            "ven: Printed lines above are not executed automatically. Apply with:  eval \"$(ven deactivate)\"".dimmed()
+        );
+    }
+}
+
 fn hint_shell_activate_apply_if_tty() {
     if !(io::stdout().is_terminal() && io::stderr().is_terminal()) {
         return;

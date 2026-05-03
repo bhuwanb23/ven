@@ -173,17 +173,28 @@ PORT = "3000"
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("ven.toml");
         let mut file = File::create(&file_path).unwrap();
-        
-        // Missing runtime section which is required
-        let toml_content = r#"
-[packages]
-express = "^4.18.2"
-        "#;
-        
-        file.write_all(toml_content.as_bytes()).unwrap();
-        
+        // Broken TOML syntax (parse must fail)
+        file.write_all(b"[[[not-valid-toml.\n").unwrap();
+
         let result = parse_ven_toml(&file_path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_packages_only_ven_toml() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("ven.toml");
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(
+            br#"[packages]
+express = "^4.18.2"
+"#,
+        )
+        .unwrap();
+
+        let config = parse_ven_toml(&file_path).unwrap();
+        assert!(config.runtime.node.is_empty());
+        assert_eq!(config.packages.get("express").map(String::as_str), Some("^4.18.2"));
     }
 
     #[test]
