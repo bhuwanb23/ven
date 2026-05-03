@@ -321,90 +321,44 @@ fn print_installed_runtimes_banner() -> Result<()> {
     Ok(())
 }
 
-/// Interactive Node.js version selection with compatibility matrix
+/// Interactive Node.js version selection — **only** versions already installed under ven.
 fn select_node_version() -> Result<String> {
-    use crate::plugins::{NodePlugin, LanguagePlugin};
-    
+    use crate::plugins::{LanguagePlugin, NodePlugin};
+
     let theme = ColorfulTheme::default();
     let plugin = NodePlugin;
-    
-    // Get installed versions
     let installed = plugin.list_installed().unwrap_or_default();
-    
-    // Build version options with metadata
+
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No Node.js versions installed under ven.\n\
+             Install one first, e.g.:  ven install node latest\n\
+             Then run  ven init  again."
+        );
+    }
+
     struct VersionOption {
         value: String,
         display: String,
     }
-    
-    let mut options: Vec<VersionOption> = Vec::new();
-    
-    // Add installed versions with compatibility info
-    for version in &installed {
-        let info = get_version_info(version);
-        options.push(VersionOption {
+
+    let options: Vec<VersionOption> = installed
+        .iter()
+        .map(|version| VersionOption {
             value: version.clone(),
-            display: format!("{}  {}", version, info),
-        });
-    }
-    
-    // Add separator if there are installed versions
-    if !installed.is_empty() {
-        options.push(VersionOption {
-            value: "".to_string(),
-            display: "─── Version Aliases ───".to_string(),
-        });
-    }
-    
-    // Add aliases with descriptions
-    options.push(VersionOption {
-        value: "latest".to_string(),
-        display: "latest              Latest stable release".to_string(),
-    });
-    options.push(VersionOption {
-        value: "lts".to_string(),
-        display: "lts                 Latest LTS (recommended)".to_string(),
-    });
-    options.push(VersionOption {
-        value: "22".to_string(),
-        display: "22                  Current release line".to_string(),
-    });
-    options.push(VersionOption {
-        value: "20".to_string(),
-        display: "20                  Active LTS (best compatibility)".to_string(),
-    });
-    options.push(VersionOption {
-        value: "18".to_string(),
-        display: "18                  Maintenance LTS".to_string(),
-    });
-    
-    // If no installed versions, show informative message
-    if installed.is_empty() {
-        options.insert(0, VersionOption {
-            value: "".to_string(),
-            display: "⚠️  No versions installed - select an alias to install".to_string(),
-        });
-    }
-    
-    // Extract display items
-    let display_items: Vec<String> = options.iter()
-        .map(|opt| opt.display.clone())
+            display: format!("{}  {}", version, get_version_info(version)),
+        })
         .collect();
-    
+
+    let display_items: Vec<String> = options.iter().map(|o| o.display.clone()).collect();
+
     let version_idx = Select::with_theme(&theme)
-        .with_prompt("Select Node.js version")
+        .with_prompt("Select Node.js version (installed)")
         .items(&display_items)
-        .default(if installed.is_empty() { 2 } else { 0 })
+        .default(0)
         .interact()?;
-    
-    let selected = &options[version_idx];
-    
-    // Skip separator and warning
-    if selected.value.is_empty() || selected.value.starts_with("⚠️") {
-        return Err(anyhow::anyhow!("Please select a valid version"));
-    }
-    
-    Ok(selected.value.clone())
+
+    Ok(options[version_idx].value.clone())
 }
 
 /// Get version compatibility and status information
@@ -428,18 +382,61 @@ fn get_version_info(version: &str) -> String {
     }
 }
 
-/// Interactive Python version selection (stub - future implementation)
+/// Interactive Python version selection — **only** versions already installed under ven.
 fn select_python_version() -> Result<String> {
+    use crate::plugins::{LanguagePlugin, PythonPlugin};
+
     let theme = ColorfulTheme::default();
-    let versions = vec!["3.12.2", "3.11.8", "3.10.14", "latest"];
-    
+    let plugin = PythonPlugin;
+    let installed = plugin.list_installed().unwrap_or_default();
+
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No Python versions installed under ven.\n\
+             Install one first (Windows embeddable), e.g.:  ven install python 3.12.7\n\
+             Then run  ven init  again."
+        );
+    }
+
+    struct VersionOption {
+        value: String,
+        display: String,
+    }
+
+    let options: Vec<VersionOption> = installed
+        .iter()
+        .map(|version| VersionOption {
+            value: version.clone(),
+            display: format!("{}  {}", version, get_python_version_info(version)),
+        })
+        .collect();
+
+    let display_items: Vec<String> = options.iter().map(|o| o.display.clone()).collect();
+
     let version_idx = Select::with_theme(&theme)
-        .with_prompt("Select Python version")
-        .items(&versions)
+        .with_prompt("Select Python version (installed)")
+        .items(&display_items)
         .default(0)
         .interact()?;
-    
-    Ok(versions[version_idx].to_string())
+
+    Ok(options[version_idx].value.clone())
+}
+
+/// Short hint beside each Python patch version (same lines as `ven list` semantics).
+fn get_python_version_info(version: &str) -> String {
+    let minor = version
+        .split('.')
+        .nth(1)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+    match minor {
+        0..=7 => "⚠️  EOL line".to_string(),
+        8 | 9 => "🔒 Security fixes only".to_string(),
+        10 => "🔧 Maintenance / security".to_string(),
+        11 | 12 => "✅ Stable bugfix line".to_string(),
+        13..=99 => "🔥 Newer 3.x".to_string(),
+        _ => "✅ Installed".to_string(),
+    }
 }
 
 /// Health check & validation system
