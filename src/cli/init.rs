@@ -80,7 +80,7 @@ pub fn cmd_init(
             println!("{} Configuring your empty project...", "→".cyan());
 
             // Show language selection
-            let languages = vec!["node", "python"];
+            let languages = vec!["node", "python", "go"];
             let language_idx = Select::with_theme(&theme)
                 .with_prompt("Select language")
                 .items(&languages)
@@ -93,6 +93,7 @@ pub fn cmd_init(
             selected_version = match selected_language.as_str() {
                 "node" => select_node_version()?,
                 "python" => select_python_version()?,
+                "go" => select_go_version()?,
                 _ => {
                     return Err(anyhow::anyhow!(
                         "Unsupported language: {}",
@@ -114,7 +115,7 @@ pub fn cmd_init(
         }
     } else {
         // MODE 2: Interactive language & version selection
-        let languages = vec!["node", "python"];
+        let languages = vec!["node", "python", "go"];
         let language_idx = Select::with_theme(&theme)
             .with_prompt("Select language")
             .items(&languages)
@@ -127,6 +128,7 @@ pub fn cmd_init(
         selected_version = match selected_language.as_str() {
             "node" => select_node_version()?,
             "python" => select_python_version()?,
+            "go" => select_go_version()?,
             _ => {
                 return Err(anyhow::anyhow!(
                     "Unsupported language: {}",
@@ -543,6 +545,31 @@ fn get_python_version_info(version: &str) -> String {
     }
 }
 
+/// Interactive Go version selection — only versions installed under ven.
+fn select_go_version() -> Result<String> {
+    use crate::plugins::{GoPlugin, LanguagePlugin};
+    let theme = ColorfulTheme::default();
+    let plugin = GoPlugin;
+    let installed = plugin.list_installed().unwrap_or_default();
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No Go versions installed under ven.\n\
+             Install one first, e.g.:  ven install go 1.21.5\n\
+             Then run  ven init  again."
+        );
+    }
+    let items: Vec<String> = installed
+        .iter()
+        .map(|v| format!("{}  {}", v, "Go toolchain".dimmed()))
+        .collect();
+    let idx = Select::with_theme(&theme)
+        .with_prompt("Select Go version (installed)")
+        .items(&items)
+        .default(0)
+        .interact()?;
+    Ok(installed[idx].clone())
+}
+
 /// Health check & validation system
 fn run_validation(
     language: &str,
@@ -594,6 +621,19 @@ fn run_validation(
                 version,
                 PROJECT_VENV_DIR
             );
+            all_checks_passed = false;
+        }
+    }
+
+    if language == "go" {
+        use crate::plugins::{GoPlugin, LanguagePlugin};
+        let plugin = GoPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        if installed.contains(&version.to_string()) {
+            println!("  {} Go {} installed", "✓".green(), version);
+        } else {
+            println!("  {} Go {} not installed yet", "✗".red(), version);
+            println!("    {} Run: ven install go {}", "💡".yellow(), version);
             all_checks_passed = false;
         }
     }

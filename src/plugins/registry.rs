@@ -1,3 +1,4 @@
+use super::GoPlugin;
 use super::LanguagePlugin;
 use super::NodePlugin;
 use super::PythonPlugin;
@@ -19,7 +20,7 @@ impl PluginRegistry {
 
         registry.register("node", Box::new(NodePlugin));
         registry.register("python", Box::new(PythonPlugin));
-        // Future: registry.register("go", Box::new(GoPlugin));
+        registry.register("go", Box::new(GoPlugin));
         // Future: registry.register("rust", Box::new(RustPlugin));
 
         registry

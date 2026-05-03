@@ -1,3 +1,4 @@
+use crate::core::go_install::{fetch_go_release_versions, resolve_go_version_spec};
 use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
 use crate::plugins::{LanguagePlugin, PluginRegistry};
 use anyhow::Result;
@@ -71,6 +72,11 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
         let avail = fetch_python_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))?;
         resolve_python_version_spec(version, &avail)?
+    } else if language == "go" {
+        println!("{} Resolving Go from go.dev...", "[FETCH]".cyan());
+        let avail = fetch_go_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Go releases: {}", e))?;
+        resolve_go_version_spec(version, &avail)?
     } else if version == "lts" || version == "latest" {
         println!(
             "{} Fetching {} release list...",
@@ -125,7 +131,7 @@ pub fn cmd_install_interactive() -> Result<()> {
     println!("\n[OK] Selected: {}", language.bold());
 
     // Step 2: Version selection (Python uses the same remote list UI as `ven install python`)
-    let version = if *language == "python" {
+    let version = if *language == "python" || *language == "go" {
         let versions = fetch_available_versions(language)?;
         display_version_list(&versions, language)?;
         select_from_version_list(&versions, language)?
@@ -189,6 +195,8 @@ fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
     } else if language == "python" {
         fetch_python_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))
+    } else if language == "go" {
+        fetch_go_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Go releases: {}", e))
     } else {
         Err(anyhow::anyhow!(
             "Version listing not yet supported for {}",
@@ -212,10 +220,12 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
         "    {}  - Install latest stable release",
         "latest".bold().green()
     );
-    println!(
-        "    {}    - Install latest LTS version",
-        "lts".bold().green()
-    );
+    if language == "node" {
+        println!(
+            "    {}    - Install latest LTS version",
+            "lts".bold().green()
+        );
+    }
     println!();
 
     // Show latest 10 versions
@@ -242,6 +252,8 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
     if versions.len() > 10 {
         let hint = if language == "python" {
             "3.12, 3.13, or 3"
+        } else if language == "go" {
+            "1.21, 1.22, or 1"
         } else {
             "20, 22, 18"
         };
@@ -259,6 +271,13 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
             "ven install python".dimmed(),
             "3.12".green()
         );
+    } else if language == "go" {
+        println!(
+            "\n{} Example: {} {}  (or full patch e.g. 1.21.5)",
+            "[TIP]".yellow(),
+            "ven install go".dimmed(),
+            "1.21".green()
+        );
     } else {
         println!(
             "\n{} Recommended: {} {} (LTS - Best compatibility)",
@@ -272,7 +291,7 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
 }
 
 /// Interactive selection from version list
-fn select_from_version_list(versions: &[String], _language: &str) -> Result<String> {
+fn select_from_version_list(versions: &[String], language: &str) -> Result<String> {
     use dialoguer::theme::ColorfulTheme;
     use dialoguer::Select;
 
@@ -286,8 +305,10 @@ fn select_from_version_list(versions: &[String], _language: &str) -> Result<Stri
     items.push("latest - Latest stable release".to_string());
     values.push("latest".to_string());
 
-    items.push("lts    - Latest LTS version (Recommended)".to_string());
-    values.push("lts".to_string());
+    if language == "node" {
+        items.push("lts    - Latest LTS version (Recommended)".to_string());
+        values.push("lts".to_string());
+    }
 
     items.push("--- Press ENTER to select ---".to_string()); // Separator
     values.push("".to_string());
@@ -295,16 +316,17 @@ fn select_from_version_list(versions: &[String], _language: &str) -> Result<Stri
     // Add latest 10 versions
     let display_count = std::cmp::min(10, versions.len());
     for (idx, version) in versions.iter().take(display_count).enumerate() {
-        let metadata = get_version_metadata_short(version, _language);
+        let metadata = get_version_metadata_short(version, language);
         items.push(format!("{:2}. {} ({})", idx + 1, version, metadata));
         values.push(version.clone());
     }
 
     // Show selection menu
+    let default_idx = if language == "node" { 1 } else { 0 };
     let selection = Select::with_theme(&theme)
         .with_prompt("Select version (use arrow keys)")
         .items(&items)
-        .default(1) // Default to LTS option
+        .default(default_idx)
         .interact()?;
 
     let selected = &values[selection];
@@ -321,6 +343,8 @@ fn select_from_version_list(versions: &[String], _language: &str) -> Result<Stri
 fn get_version_metadata_short(version: &str, language: &str) -> String {
     if language == "python" {
         return "CPython".to_string();
+    } else if language == "go" {
+        return "Go".to_string();
     }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
@@ -429,6 +453,9 @@ fn get_version_metadata(version: &str, language: &str) -> String {
     if language == "python" {
         return format!("[Python {}]", version);
     }
+    if language == "go" {
+        return format!("[Go {}]", version);
+    }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
 
@@ -466,6 +493,13 @@ fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &
                 "python.exe"
             } else {
                 "python3"
+            }
+        }
+        "go" => {
+            if cfg!(target_os = "windows") {
+                "go.exe"
+            } else {
+                "go"
             }
         }
         _ => {

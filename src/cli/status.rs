@@ -1,5 +1,7 @@
 use crate::core::config::VenConfig;
-use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version, resolve_python_version};
+use crate::core::{
+    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version, resolve_python_version,
+};
 use anyhow::Result;
 use colored::Colorize;
 use std::path::{Path, PathBuf};
@@ -49,6 +51,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
 
     let has_node = !config.runtime.node.is_empty();
     let has_python = !config.runtime.python.is_empty();
+    let has_go = !config.runtime.go.is_empty();
 
     // Runtime section
     if has_node {
@@ -68,7 +71,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
         if !installed {
             println!("    {} Run: ven install node {}", "[!]".yellow(), node_spec);
         }
-    } else if !has_python {
+    } else if !has_python && !has_go {
         println!("  {} node {}", "[!]".yellow(), "not specified".dimmed());
     }
     if has_python {
@@ -86,12 +89,27 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
             println!("    {} Run: ven install python {}", "[!]".yellow(), py_spec);
         }
     }
+    if has_go {
+        let go_spec = &config.runtime.go;
+        let resolved = resolve_go_for_display(go_spec)?;
+        let installed = is_go_installed(go_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} go {} {}",
+            status_icon,
+            go_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install go {}", "[!]".yellow(), go_spec);
+        }
+    }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
-        let installed_count = if has_python && !has_node {
+        let installed_count = if has_python && !has_node && !has_go {
             config
                 .packages
                 .keys()
@@ -114,7 +132,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
 
         // Show tip if packages are missing
         if installed_count < pkg_count {
-            if has_python && !has_node {
+            if has_python && !has_node && !has_go {
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
             } else {
                 println!(
@@ -209,6 +227,19 @@ fn display_verbose_status(
             );
             if fix {
                 println!("      {} Run: ven install python {}", "[!]".yellow(), spec);
+            }
+        }
+    }
+    if !config.runtime.go.is_empty() {
+        let spec = &config.runtime.go;
+        let installed = is_go_installed(spec);
+        let resolved = resolve_go_for_display(spec)?;
+        if installed {
+            println!("    {} go {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!("    {} go {} - {}", "✗".red(), spec.bold(), "not installed");
+            if fix {
+                println!("      {} Run: ven install go {}", "[!]".yellow(), spec);
             }
         }
     }
@@ -365,13 +396,26 @@ fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.go.is_empty() {
+        let go_spec = &config.runtime.go;
+        let resolved = resolve_go_for_display(go_spec)?;
+        let installed = is_go_installed(go_spec);
+        runtime_info["go"] = json!({
+            "version_required": go_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
 
     // Build package list
     let mut pkg_list = Vec::new();
     let mut installed_count = 0;
 
     for (name, version) in &config.packages {
-        let is_installed = if !config.runtime.python.is_empty() && config.runtime.node.is_empty() {
+        let is_installed = if !config.runtime.python.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.go.is_empty()
+        {
             is_python_package_installed(name)
         } else {
             is_package_installed(name)
@@ -478,6 +522,17 @@ fn resolve_python_for_display(spec: &str) -> Result<String> {
     }
 }
 
+fn resolve_go_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("go")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_go_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -496,6 +551,17 @@ fn is_python_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("python") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_python_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+fn is_go_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("go") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_go_version(spec, &installed).is_ok()
     } else {
         false
     }
@@ -621,7 +687,10 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
     let mut ok_items = Vec::new();
 
     // Check runtimes
-    if config.runtime.node.is_empty() && config.runtime.python.is_empty() {
+    if config.runtime.node.is_empty()
+        && config.runtime.python.is_empty()
+        && config.runtime.go.is_empty()
+    {
         issues.push("No runtime version specified".to_string());
     }
     if !config.runtime.node.is_empty() {
@@ -636,6 +705,13 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
             issues.push(format!("Python {} not installed", config.runtime.python));
         } else {
             ok_items.push(format!("Python {} ready", config.runtime.python));
+        }
+    }
+    if !config.runtime.go.is_empty() {
+        if !is_go_installed(&config.runtime.go) {
+            issues.push(format!("Go {} not installed", config.runtime.go));
+        } else {
+            ok_items.push(format!("Go {} ready", config.runtime.go));
         }
     }
 

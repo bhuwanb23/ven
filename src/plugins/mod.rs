@@ -21,10 +21,12 @@ pub trait LanguagePlugin: Send + Sync {
     fn latest_version(&self) -> Result<String>;
 }
 
+pub mod go;
 pub mod node;
 pub mod python;
 pub mod registry;
 
+pub use go::GoPlugin;
 pub use node::NodePlugin;
 pub use python::PythonPlugin;
 pub use registry::PluginRegistry;

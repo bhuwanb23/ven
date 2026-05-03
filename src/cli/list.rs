@@ -1,4 +1,6 @@
-use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version, resolve_python_version};
+use crate::core::{
+    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version, resolve_python_version,
+};
 use crate::plugins::PluginRegistry;
 use anyhow::Result;
 use colored::Colorize;
@@ -134,6 +136,16 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
                 Err(_) => Ok(None),
             }
         }
+        "go" => {
+            let spec = config.runtime.go.trim();
+            if spec.is_empty() {
+                return Ok(None);
+            }
+            match resolve_go_version(spec, &installed) {
+                Ok(resolved) => Ok(Some(resolved)),
+                Err(_) => Ok(None),
+            }
+        }
         _ => Ok(None),
     }
 }
@@ -142,6 +154,9 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
 fn get_version_status(language: &str, version: &str) -> (&'static str, &'static str) {
     if language == "python" {
         return get_python_version_status(version);
+    }
+    if language == "go" {
+        return get_go_version_status(version);
     }
 
     let major = version.split('.').next().unwrap_or("0");
@@ -156,6 +171,20 @@ fn get_version_status(language: &str, version: &str) -> (&'static str, &'static 
         22 => ("CURRENT", "Active development"),
         23..=99 => ("CURRENT", "Latest stable"),
         _ => ("UNKNOWN", "Unknown status"),
+    }
+}
+
+fn get_go_version_status(version: &str) -> (&'static str, &'static str) {
+    let minor = version
+        .split('.')
+        .nth(1)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+    match minor {
+        0..=18 => ("MAINT", "Older supported line"),
+        19..=21 => ("STABLE", "Stable release line"),
+        22..=99 => ("CURRENT", "Latest stable line"),
+        _ => ("GO", "Go toolchain"),
     }
 }
 

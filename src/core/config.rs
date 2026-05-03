@@ -43,6 +43,9 @@ pub struct RuntimeConfig {
     /// Python interpreter version (Windows embeddable install under ~/.ven/python)
     #[serde(default)]
     pub python: String,
+    /// Go toolchain version (installed under ~/.ven/go/<version>)
+    #[serde(default)]
+    pub go: String,
 }
 
 /// Walks up the directory tree to find the nearest `ven.toml` file.
@@ -160,6 +163,37 @@ pub fn resolve_python_version(spec: &str, installed: &[String]) -> Result<String
                 .max_by(|a, b| version_cmp(a, b))
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Python {}.z installed.", spec))
+        }
+        _ => Ok(spec.to_string()),
+    }
+}
+
+/// Resolve ven.toml `runtime.go` against versions installed under ~/.ven/go
+pub fn resolve_go_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim().trim_start_matches("go");
+    match spec {
+        "latest" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No Go versions installed. Run: ven install go latest")),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Go {}.x installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Go {}.z installed.", spec))
         }
         _ => Ok(spec.to_string()),
     }
