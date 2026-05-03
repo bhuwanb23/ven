@@ -1,8 +1,9 @@
 use crate::core::config::VenConfig;
-use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version};
+use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version, resolve_python_version};
 use anyhow::Result;
 use colored::Colorize;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 // ── ven status ────────────────────────────────────────────────────
 pub fn cmd_status(json: bool, verbose: bool, fix: bool) -> Result<()> {
@@ -46,8 +47,11 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
     println!("  {} {}", "Config".dimmed(), toml_path.display());
     println!();
 
+    let has_node = !config.runtime.node.is_empty();
+    let has_python = !config.runtime.python.is_empty();
+
     // Runtime section
-    if !config.runtime.node.is_empty() {
+    if has_node {
         let node_spec = &config.runtime.node;
         let resolved = resolve_version_for_display(node_spec)?;
         let installed = is_version_installed(node_spec);
@@ -64,19 +68,42 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
         if !installed {
             println!("    {} Run: ven install node {}", "[!]".yellow(), node_spec);
         }
-    } else {
+    } else if !has_python {
         println!("  {} node {}", "[!]".yellow(), "not specified".dimmed());
+    }
+    if has_python {
+        let py_spec = &config.runtime.python;
+        let resolved = resolve_python_for_display(py_spec)?;
+        let installed = is_python_installed(py_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} python {} {}",
+            status_icon,
+            py_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install python {}", "[!]".yellow(), py_spec);
+        }
     }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
-        let installed_count = config
-            .packages
-            .keys()
-            .filter(|pkg| is_package_installed(pkg))
-            .count();
+        let installed_count = if has_python && !has_node {
+            config
+                .packages
+                .keys()
+                .filter(|pkg| is_python_package_installed(pkg))
+                .count()
+        } else {
+            config
+                .packages
+                .keys()
+                .filter(|pkg| is_package_installed(pkg))
+                .count()
+        };
 
         println!(
             "  {} {} package(s) declared, {} installed",
@@ -87,10 +114,14 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
 
         // Show tip if packages are missing
         if installed_count < pkg_count {
-            println!(
-                "    {} Install missing: ven add --sync or npm install",
-                "[TIP]".cyan()
-            );
+            if has_python && !has_node {
+                println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
+            } else {
+                println!(
+                    "    {} Install missing: ven add --sync or npm install",
+                    "[TIP]".cyan()
+                );
+            }
         }
     } else {
         println!("  {} {}", "packages".bold(), "none".dimmed());
@@ -160,6 +191,24 @@ fn display_verbose_status(
 
             if fix {
                 auto_install_version(node_spec)?;
+            }
+        }
+    }
+    if !config.runtime.python.is_empty() {
+        let spec = &config.runtime.python;
+        let installed = is_python_installed(spec);
+        let resolved = resolve_python_for_display(spec)?;
+        if installed {
+            println!("    {} python {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!(
+                "    {} python {} - {}",
+                "✗".red(),
+                spec.bold(),
+                "not installed"
+            );
+            if fix {
+                println!("      {} Run: ven install python {}", "[!]".yellow(), spec);
             }
         }
     }
@@ -295,32 +344,26 @@ fn output_json_status(
 ) -> Result<()> {
     use serde_json::json;
 
-    let mut runtime_info = json!({
-        "name": "node",
-        "version_required": config.runtime.node,
-    });
-
+    let mut runtime_info = json!({});
     if !config.runtime.node.is_empty() {
         let node_spec = &config.runtime.node;
         let resolved = resolve_version_for_display(node_spec)?;
         let installed = is_version_installed(node_spec);
-
-        runtime_info["version_resolved"] = json!(resolved);
-        runtime_info["installed"] = json!(installed);
-
-        if verbose && installed {
-            if let Ok(bin_path) = get_bin_path_for_version(node_spec) {
-                runtime_info["binary_path"] = json!(bin_path.to_string_lossy());
-
-                if let Ok(size) = calculate_dir_size(&bin_path.parent().unwrap()) {
-                    runtime_info["size_bytes"] = json!(size);
-                }
-
-                // Check if active
-                let is_active = check_if_version_active(node_spec).unwrap_or(false);
-                runtime_info["active"] = json!(is_active);
-            }
-        }
+        runtime_info["node"] = json!({
+            "version_required": node_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
+    if !config.runtime.python.is_empty() {
+        let py_spec = &config.runtime.python;
+        let resolved = resolve_python_for_display(py_spec)?;
+        let installed = is_python_installed(py_spec);
+        runtime_info["python"] = json!({
+            "version_required": py_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
     }
 
     // Build package list
@@ -328,7 +371,11 @@ fn output_json_status(
     let mut installed_count = 0;
 
     for (name, version) in &config.packages {
-        let is_installed = is_package_installed(name);
+        let is_installed = if !config.runtime.python.is_empty() && config.runtime.node.is_empty() {
+            is_python_package_installed(name)
+        } else {
+            is_package_installed(name)
+        };
         let mut pkg_info = json!({
             "name": name,
             "version_declared": version,
@@ -420,6 +467,17 @@ fn resolve_version_for_display(spec: &str) -> Result<String> {
     }
 }
 
+fn resolve_python_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("python")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_python_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -427,6 +485,17 @@ fn is_version_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("node") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_node_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+fn is_python_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("python") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_python_version(spec, &installed).is_ok()
     } else {
         false
     }
@@ -451,6 +520,44 @@ fn is_package_installed(package: &str) -> bool {
         .join("package.json");
 
     pkg_json.exists()
+}
+
+fn is_python_package_installed(package: &str) -> bool {
+    let out = Command::new(resolve_python_cmd())
+        .args(["-m", "pip", "show", package])
+        .output();
+    matches!(out, Ok(o) if o.status.success())
+}
+
+fn resolve_python_cmd() -> std::path::PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            let p = std::path::PathBuf::from(venv)
+                .join("Scripts")
+                .join("python.exe");
+            if p.is_file() {
+                return p;
+            }
+        }
+        if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
+            if let Some(home) = dirs::home_dir() {
+                let p = home
+                    .join(".ven")
+                    .join("python")
+                    .join(ver)
+                    .join("python.exe");
+                if p.is_file() {
+                    return p;
+                }
+            }
+        }
+        std::path::PathBuf::from("python")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::path::PathBuf::from("python3")
+    }
 }
 
 fn get_installed_package_version(package: &str) -> Result<String> {
@@ -513,13 +620,23 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
     let mut warnings = Vec::new();
     let mut ok_items = Vec::new();
 
-    // Check Node.js
-    if config.runtime.node.is_empty() {
-        issues.push("No Node.js version specified".to_string());
-    } else if !is_version_installed(&config.runtime.node) {
-        issues.push(format!("Node.js {} not installed", config.runtime.node));
-    } else {
-        ok_items.push(format!("Node.js {} ready", config.runtime.node));
+    // Check runtimes
+    if config.runtime.node.is_empty() && config.runtime.python.is_empty() {
+        issues.push("No runtime version specified".to_string());
+    }
+    if !config.runtime.node.is_empty() {
+        if !is_version_installed(&config.runtime.node) {
+            issues.push(format!("Node.js {} not installed", config.runtime.node));
+        } else {
+            ok_items.push(format!("Node.js {} ready", config.runtime.node));
+        }
+    }
+    if !config.runtime.python.is_empty() {
+        if !is_python_installed(&config.runtime.python) {
+            issues.push(format!("Python {} not installed", config.runtime.python));
+        } else {
+            ok_items.push(format!("Python {} ready", config.runtime.python));
+        }
     }
 
     // Check packages

@@ -3,6 +3,8 @@ use crate::core::{load_config, DependencyGraph, SecurityScanner};
 use anyhow::Result;
 use colored::Colorize;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::process::Command;
 use toml_edit::{value, DocumentMut};
 
 /// Load existing packages from ven.toml [packages] section
@@ -54,11 +56,16 @@ pub fn cmd_add(
         })
         .collect();
 
-    // Get current Node version
     let cwd = std::env::current_dir()?;
-    let node_version = load_config(&cwd)?
-        .map(|c| c.runtime.node)
-        .unwrap_or_else(|| "0".to_string());
+    let cfg =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let node_version = cfg.runtime.node.clone();
+    let python_version = cfg.runtime.python.clone();
+    let python_mode = !python_version.is_empty() && node_version.is_empty();
+
+    if python_mode {
+        return cmd_add_python(package_specs, dry_run);
+    }
 
     // Load existing packages from ven.toml
     let existing_packages = load_existing_packages()?;
@@ -456,6 +463,90 @@ pub fn cmd_add(
 
     println!();
     Ok(())
+}
+
+fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<()> {
+    let mut installed = Vec::new();
+    println!("\n{}", "ven add (python)".bold().cyan());
+    println!("  {} {} package(s)", "[PLAN]".cyan(), package_specs.len());
+    if dry_run {
+        println!(
+            "  {} Dry run mode - no changes will be made",
+            "[DRY-RUN]".yellow()
+        );
+        println!();
+        for spec in package_specs {
+            let (name, declared) = parse_python_spec(spec);
+            println!("  {} {} => {}", "[PREVIEW]".cyan(), name.bold(), declared);
+        }
+        println!();
+        return Ok(());
+    }
+
+    for spec in package_specs {
+        let (name, declared) = parse_python_spec(spec);
+        let python = resolve_python_cmd();
+        let status = Command::new(&python)
+            .args(["-m", "pip", "install", spec])
+            .status();
+        match status {
+            Ok(s) if s.success() => {
+                println!(
+                    "  {} {}",
+                    "[OK]".green(),
+                    format!("Installed {}", spec.bold())
+                );
+                installed.push((name, declared));
+            }
+            Ok(_) => println!("  {} Failed to install {}", "[ERROR]".red(), spec),
+            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+        }
+    }
+
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
+    println!();
+    Ok(())
+}
+
+fn parse_python_spec(spec: &str) -> (String, String) {
+    let ops = ["==", ">=", "<=", "!=", "~=", ">", "<"];
+    for op in ops {
+        if let Some((name, _)) = spec.split_once(op) {
+            return (name.trim().to_string(), spec.trim().to_string());
+        }
+    }
+    (spec.trim().to_string(), "*".to_string())
+}
+
+fn resolve_python_cmd() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            let p = PathBuf::from(venv).join("Scripts").join("python.exe");
+            if p.is_file() {
+                return p;
+            }
+        }
+        if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
+            if let Some(home) = dirs::home_dir() {
+                let p = home
+                    .join(".ven")
+                    .join("python")
+                    .join(ver)
+                    .join("python.exe");
+                if p.is_file() {
+                    return p;
+                }
+            }
+        }
+        PathBuf::from("python")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        PathBuf::from("python3")
+    }
 }
 
 /// Analyze a package and build dependency graph
