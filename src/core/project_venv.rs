@@ -1,7 +1,7 @@
 //! Project-local `.venv` (standard Python virtual environment).
 
 use anyhow::{Context, Result};
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -66,13 +66,19 @@ pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Resul
             .with_context(|| format!("Could not remove partial {}", venv.display()))?;
     }
 
-    let try_stdlib_venv = Command::new(python_executable)
-        .current_dir(project_root)
-        .args(["-m", "venv", ".venv"])
+    let mut venv_cmd = Command::new(python_executable);
+    venv_cmd.current_dir(project_root).args(["-m", "venv"]);
+    // Embeddable / some Windows layouts break symlinked venvs; real files isolate site-packages.
+    #[cfg(target_os = "windows")]
+    venv_cmd.arg("--copies");
+    venv_cmd.arg(".venv");
+
+    let try_stdlib_venv = venv_cmd
         .status()
         .with_context(|| format!("Failed to run {:?}", python_executable))?;
 
     if try_stdlib_venv.success() {
+        ensure_pyvenv_no_system_site(&venv)?;
         return Ok(venv);
     }
 
@@ -104,16 +110,54 @@ pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Resul
         );
     }
 
-    let vx_st = Command::new(python_executable)
-        .current_dir(project_root)
-        .args(["-m", "virtualenv", ".venv"])
+    let mut vx = Command::new(python_executable);
+    vx.current_dir(project_root)
+        .args(["-m", "virtualenv"]);
+    #[cfg(target_os = "windows")]
+    vx.arg("--copies");
+    vx.arg(".venv");
+
+    let vx_st = vx
         .status()
         .with_context(|| format!("Failed to run virtualenv via {:?}", python_executable))?;
     if !vx_st.success() {
         anyhow::bail!("`{:?} -m virtualenv .venv` exited with {}", python_executable, vx_st);
     }
 
+    ensure_pyvenv_no_system_site(&venv)?;
     Ok(venv)
+}
+
+/// Force `include-system-site-packages = false` so installs go to `.venv` only.
+fn ensure_pyvenv_no_system_site(venv_root: &Path) -> Result<()> {
+    let path = venv_root.join("pyvenv.cfg");
+    if !path.is_file() {
+        return Ok(());
+    }
+    let s = fs::read_to_string(&path)?;
+    let mut saw_include = false;
+    let mut out = String::new();
+    let mut changed = false;
+    for line in s.lines() {
+        if line.trim_start().starts_with("include-system-site-packages") {
+            saw_include = true;
+            if line.trim() != "include-system-site-packages = false" {
+                changed = true;
+            }
+            out.push_str("include-system-site-packages = false\n");
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    if !saw_include {
+        out.push_str("include-system-site-packages = false\n");
+        changed = true;
+    }
+    if changed {
+        fs::write(&path, out)?;
+    }
+    Ok(())
 }
 
 /// Appends `.venv/` to `.gitignore` if not already ignored.

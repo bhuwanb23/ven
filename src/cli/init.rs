@@ -206,6 +206,7 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                                         "[OK]".green().bold(),
                                         venv_path.display()
                                     );
+                                    print_python_venv_usage_hints();
                                 }
                                 Err(e) => {
                                     println!(
@@ -214,7 +215,7 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                                         e
                                     );
                                     println!(
-                                        "    Try: {} -m venv .venv",
+                                        "    Try: {} -m venv .venv  (or ven will use virtualenv if venv is missing)",
                                         py_exe.display()
                                     );
                                 }
@@ -260,6 +261,7 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                             "[OK]".green().bold(),
                             venv_path.display()
                         );
+                        print_python_venv_usage_hints();
                     }
                     Err(e) => println!("  {} {}", "[!]".yellow().bold(), e),
                 }
@@ -278,15 +280,63 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
         run_validation(&selected_language, &selected_version, &selected_packages, &cwd)?;
     } else {
         println!("\nEdit this file to customize your dependencies.");
-        println!("Run: ven install {} {}   to install this version", 
-            selected_language, selected_version);
+        if selected_language != "python" {
+            println!(
+                "Run: ven install {} {}   if you still need that runtime under ven",
+                selected_language, selected_version
+            );
+        }
         println!(
-            "Then apply in this terminal: {}  (after one-time  ven setup  or  ven shell install)",
+            "Apply this folder in your shell: {}  (after one-time  ven setup  or  ven shell install)",
             "ven-use".bold()
         );
     }
 
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn print_python_venv_usage_hints() {
+    println!(
+        "  {} Project venv folder is {}",
+        "[PY]".cyan().bold(),
+        ".venv".bold()
+    );
+    println!(
+        "      PowerShell:  {}",
+        r"& .\.venv\Scripts\Activate.ps1".dimmed()
+    );
+    println!(
+        "      cmd.exe:     {}",
+        ".venv\\Scripts\\activate.bat".dimmed()
+    );
+    println!(
+        "      Or skip activate: {} in this repo (prepends `.venv\\Scripts`).",
+        "ven-use".bold()
+    );
+    println!(
+        "      {}",
+        "Note: paths use `.venv` (with a dot) and `Scripts` — not `venv` or `scripts`."
+            .dimmed()
+    );
+    println!(
+        "      {}",
+        "If you use both `deactivate` and ven shell hooks, the next prompt may put `.venv` back on PATH while you stay in this directory."
+            .dimmed()
+    );
+}
+
+#[cfg(not(target_os = "windows"))]
+fn print_python_venv_usage_hints() {
+    println!(
+        "  {} Activate:  {}",
+        "[PY]".cyan().bold(),
+        "source .venv/bin/activate".dimmed()
+    );
+    println!(
+        "      Or: {} in this repo.",
+        "ven-use".bold()
+    );
 }
 
 /// Show Node and Python versions already installed under ven before choosing a project runtime.
