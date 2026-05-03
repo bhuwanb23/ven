@@ -1,7 +1,7 @@
 //! Windows Python embeddable distribution install (~/.ven/python/<version>/).
 //! https://www.python.org/downloads/windows/ — zip layout, `pythonXY._pth`, pip bootstrap.
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
 use reqwest::blocking::Client;
 use std::fs::{self, File};
@@ -94,11 +94,7 @@ impl PythonDownloader {
         if exe.exists() {
             Ok(dir)
         } else {
-            Err(anyhow!(
-                "Python {} not found at {}",
-                version,
-                dir.display()
-            ))
+            Err(anyhow!("Python {} not found at {}", version, dir.display()))
         }
     }
 
@@ -114,7 +110,10 @@ impl PythonDownloader {
             if path.is_dir() {
                 if let Some(name) = path.file_name() {
                     let s = name.to_string_lossy();
-                    if s.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+                    if s.chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
                         && s.contains('.')
                     {
                         versions.push(s.into_owned());
@@ -143,10 +142,7 @@ impl PythonDownloader {
         fs::create_dir_all(dest)?;
         let file = File::open(zip_path)?;
         let mut archive = ZipArchive::new(file)?;
-        println!(
-            "{} Extracting embeddable Python...",
-            "[ARROW]".cyan()
-        );
+        println!("{} Extracting embeddable Python...", "[ARROW]".cyan());
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i)?;
             let outpath = dest.join(entry.mangled_name());
@@ -238,8 +234,8 @@ fn find_pth_file(install_dir: &Path) -> Result<PathBuf> {
 /// Uncomment `# import site` so pip / site-packages work.
 fn enable_embed_import_site(install_dir: &Path) -> Result<()> {
     let pth = find_pth_file(install_dir)?;
-    let mut content = fs::read_to_string(&pth)
-        .with_context(|| format!("Read {}", pth.display()))?;
+    let mut content =
+        fs::read_to_string(&pth).with_context(|| format!("Read {}", pth.display()))?;
     // Typical embed line: `# import site`
     if content.contains("# import site") {
         content = content.replace("# import site", "import site");
@@ -276,11 +272,7 @@ fn bootstrap_pip(install_dir: &Path) -> Result<()> {
         "!".yellow()
     );
     let client = Client::new();
-    let script = client
-        .get(GET_PIP_URL)
-        .send()?
-        .error_for_status()?
-        .text()?;
+    let script = client.get(GET_PIP_URL).send()?.error_for_status()?.text()?;
     let gp = install_dir.join("get-pip.py");
     fs::write(&gp, script)?;
 
@@ -290,10 +282,7 @@ fn bootstrap_pip(install_dir: &Path) -> Result<()> {
         .status()
         .with_context(|| "Could not run python get-pip.py")?;
     if !st2.success() {
-        return Err(anyhow!(
-            "get-pip.py exited with status {:?}",
-            st2.code()
-        ));
+        return Err(anyhow!("get-pip.py exited with status {:?}", st2.code()));
     }
     println!("{} pip installed via get-pip.py", "[OK]".green());
     Ok(())
@@ -354,8 +343,7 @@ pub fn fetch_python_release_versions() -> Result<Vec<String>> {
     for part in html.split("href=\"").skip(1) {
         if let Some(end) = part.find('/') {
             let seg = &part[..end];
-            if seg.chars().all(|c| c.is_ascii_digit() || c == '.')
-                && seg.matches('.').count() >= 2
+            if seg.chars().all(|c| c.is_ascii_digit() || c == '.') && seg.matches('.').count() >= 2
             {
                 out.push(seg.to_string());
             }
@@ -389,7 +377,10 @@ pub fn resolve_python_version_spec(spec: &str, available: &[String]) -> Result<S
 
     if exact.len() == 2 {
         let prefix = format!("{}.", format!("{}.{}", exact[0], exact[1]));
-        let mut hits: Vec<&String> = available.iter().filter(|a| a.starts_with(&prefix)).collect();
+        let mut hits: Vec<&String> = available
+            .iter()
+            .filter(|a| a.starts_with(&prefix))
+            .collect();
         hits.sort_by(|a, b| version_cmp_parts(b, a));
         return hits
             .first()
@@ -399,7 +390,10 @@ pub fn resolve_python_version_spec(spec: &str, available: &[String]) -> Result<S
 
     if exact.len() == 1 {
         let prefix = format!("{}.", exact[0]);
-        let mut hits: Vec<&String> = available.iter().filter(|a| a.starts_with(&prefix)).collect();
+        let mut hits: Vec<&String> = available
+            .iter()
+            .filter(|a| a.starts_with(&prefix))
+            .collect();
         hits.sort_by(|a, b| version_cmp_parts(b, a));
         return hits
             .first()

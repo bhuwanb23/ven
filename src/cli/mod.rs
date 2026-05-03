@@ -1,15 +1,15 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 // Command modules
+pub mod add;
+pub mod init;
 pub mod install;
 pub mod list;
-pub mod status;
+pub mod remove;
 pub mod setup;
 pub mod shell;
-pub mod init;
-pub mod add;
-pub mod remove;
+pub mod status;
 pub mod upgrade;
 
 /// ven — Any-first intelligent version and dependency manager
@@ -41,7 +41,10 @@ pub enum Commands {
     ///   ven install node 20.11.0   # Install specific version
     ///   ven install node           # Show available versions
     ///   ven install                # Interactive mode
-    #[command(visible_alias = "i", long_about = "Install a language version (e.g., Node.js)\n\nDownloads and installs Node.js versions from official sources.\nSupports version specs like \"20\", \"20.11.0\", \"lts\", or \"latest\".\n\nExamples:\n  ven install node 20        # Install latest Node.js 20.x\n  ven install node 20.11.0   # Install specific version\n  ven install node           # Show available versions\n  ven install                # Interactive mode")]
+    #[command(
+        visible_alias = "i",
+        long_about = "Install a language version (e.g., Node.js)\n\nDownloads and installs Node.js versions from official sources.\nSupports version specs like \"20\", \"20.11.0\", \"lts\", or \"latest\".\n\nExamples:\n  ven install node 20        # Install latest Node.js 20.x\n  ven install node 20.11.0   # Install specific version\n  ven install node           # Show available versions\n  ven install                # Interactive mode"
+    )]
     Install {
         /// Language to install (currently only "node" is supported)
         language: Option<String>,
@@ -61,15 +64,17 @@ pub enum Commands {
     ///   ven list python            # Python only
     ///   ven list --verbose         # Disk usage and install date
     ///   ven list --json            # JSON (object keyed by language if listing all)
-    #[command(long_about = "List installed runtimes managed by ven\n\nWithout a language, prints Node, Python, and any other registered languages.\nPass a language name to restrict output.\n\nExamples:\n  ven list\n  ven list node\n  ven list python\n  ven list --verbose\n  ven list --json")]
+    #[command(
+        long_about = "List installed runtimes managed by ven\n\nWithout a language, prints Node, Python, and any other registered languages.\nPass a language name to restrict output.\n\nExamples:\n  ven list\n  ven list node\n  ven list python\n  ven list --verbose\n  ven list --json"
+    )]
     List {
         /// Language to list (omit to show all languages)
         language: Option<String>,
-        
+
         /// Show detailed info (installation date, disk size)
         #[arg(short, long)]
         verbose: bool,
-        
+
         /// Output as JSON for scripting and automation
         #[arg(long)]
         json: bool,
@@ -88,7 +93,9 @@ pub enum Commands {
     /// Apply nearest ven.toml runtime to your shell session (prints exports; see stderr hint).
     ///
     /// Same behavior as `ven shell activate`; after `ven setup` / hooks, interactive shells can run `ven-use` instead.
-    #[command(long_about = "Apply nearest ven.toml Node version for a directory.\n\nPrints PATH/env assignments for your shell — they must be evaluated in-process\n(Run `ven-use` once hooks are installed, or pipe to Invoke-Expression / eval).\n\nExamples:\n  ven use .\n  ven use ~/my-app")]
+    #[command(
+        long_about = "Apply nearest ven.toml runtime settings for a directory.\n\nPrints PATH/env assignments for your shell — they must be evaluated in-process\n(Run `ven-use` once hooks are installed, or pipe to Invoke-Expression / eval).\n\nExamples:\n  ven use .\n  ven use ~/my-app"
+    )]
     Use {
         /// Directory (default: current folder)
         #[arg(default_value = ".")]
@@ -102,16 +109,18 @@ pub enum Commands {
     )]
     Deactivate,
 
-    #[command(long_about = "Show current project status and configuration\n\nDisplays ven.toml configuration, installed Node.js versions,\npackage status, environment variables, and project health information.\n\nExamples:\n  ven status                 # Show basic status\n  ven status --verbose       # Show detailed info with disk usage\n  ven status --json          # JSON output for CI/CD\n  ven status --fix           # Auto-fix detected issues")]
+    #[command(
+        long_about = "Show current project status and configuration\n\nDisplays ven.toml configuration, installed Node.js versions,\npackage status, environment variables, and project health information.\n\nExamples:\n  ven status                 # Show basic status\n  ven status --verbose       # Show detailed info with disk usage\n  ven status --json          # JSON output for CI/CD\n  ven status --fix           # Auto-fix detected issues"
+    )]
     Status {
         /// Output as JSON for scripting and CI/CD pipelines
         #[arg(long)]
         json: bool,
-        
+
         /// Show detailed info (disk usage, package compatibility, env vars)
         #[arg(short, long)]
         verbose: bool,
-        
+
         /// Fix all detected issues automatically (install missing packages)
         #[arg(long)]
         fix: bool,
@@ -127,20 +136,22 @@ pub enum Commands {
     ///   ven init --template        # Interactive template selection
     ///   ven init --with-packages   # Add packages interactively
     ///   ven init --validate        # Validate after creation
-    #[command(long_about = "Initialize a new ven.toml configuration file\n\nCreates a ven.toml file in the current directory with Node.js version\nand package declarations. This enables project-specific version management\nand dependency isolation.\n\nExamples:\n  ven init                   # Create with default settings\n  ven init --template        # Interactive template selection\n  ven init --with-packages   # Add packages interactively\n  ven init --validate        # Validate after creation")]
+    #[command(
+        long_about = "Initialize a new ven.toml configuration file\n\nCreates a ven.toml file in the current directory with Node.js version\nand package declarations. This enables project-specific version management\nand dependency isolation.\n\nExamples:\n  ven init                   # Create with default settings\n  ven init --template        # Interactive template selection\n  ven init --with-packages   # Add packages interactively\n  ven init --validate        # Validate after creation"
+    )]
     Init {
         /// Use interactive template selection (React, Vue, Next.js, etc.)
         #[arg(long)]
         template: bool,
-        
+
         /// Add popular packages interactively after creating ven.toml
         #[arg(long)]
         with_packages: bool,
-        
+
         /// Validate the setup after creation (check Node.js is installed)
         #[arg(long)]
         validate: bool,
-        
+
         /// Node.js version to use (legacy option, kept for backward compatibility)
         #[arg(short, long)]
         node: Option<String>,
@@ -158,7 +169,9 @@ pub enum Commands {
     ///   ven add lodash --skip-check  # Skip Node.js compatibility check
     ///   ven add express --dry-run    # Preview before installing
     ///   ven add socket.io --verbose  # Show full dependency tree
-    #[command(long_about = "Add package(s) to the project with compatibility checking\n\nInstalls npm packages and automatically adds them to ven.toml.\nPerforms Node.js version compatibility checking to prevent issues.\n\nExamples:\n  ven add express              # Add latest Express\n  ven add express@4.18.2       # Add specific version\n  ven add react vite           # Add multiple packages\n  ven add lodash --skip-check  # Skip Node.js compatibility check\n  ven add express --dry-run    # Preview before installing\n  ven add socket.io --verbose  # Show full dependency tree")]
+    #[command(
+        long_about = "Add package(s) to the project with compatibility checking\n\nInstalls npm packages and automatically adds them to ven.toml.\nPerforms Node.js version compatibility checking to prevent issues.\n\nExamples:\n  ven add express              # Add latest Express\n  ven add express@4.18.2       # Add specific version\n  ven add react vite           # Add multiple packages\n  ven add lodash --skip-check  # Skip Node.js compatibility check\n  ven add express --dry-run    # Preview before installing\n  ven add socket.io --verbose  # Show full dependency tree"
+    )]
     Add {
         /// Package name(s) with optional version, e.g., "express" or "express@4.18.2"
         #[arg(required = true)]
@@ -185,27 +198,29 @@ pub enum Commands {
     ///   ven remove react vite        # Remove multiple packages
     ///   ven remove --dry-run         # Preview what would be removed
     ///   ven remove --cleanup         # Find and remove orphaned packages
-    #[command(long_about = "Remove package(s) with dependency analysis and safety checks\n\nSafely removes npm packages from your project. Analyzes the dependency\ngraph to warn about packages that depend on the target before removal.\n\nExamples:\n  ven remove express           # Remove with dependency check\n  ven remove lodash --force    # Force remove without checks\n  ven remove react vite        # Remove multiple packages\n  ven remove --dry-run         # Preview what would be removed\n  ven remove --cleanup         # Find and remove orphaned packages")]
+    #[command(
+        long_about = "Remove package(s) with dependency analysis and safety checks\n\nSafely removes npm packages from your project. Analyzes the dependency\ngraph to warn about packages that depend on the target before removal.\n\nExamples:\n  ven remove express           # Remove with dependency check\n  ven remove lodash --force    # Force remove without checks\n  ven remove react vite        # Remove multiple packages\n  ven remove --dry-run         # Preview what would be removed\n  ven remove --cleanup         # Find and remove orphaned packages"
+    )]
     Remove {
         /// Package name(s) to remove (supports multiple packages)
         packages: Vec<String>,
-        
+
         /// Skip dependency checking and force removal
         #[arg(long)]
         force: bool,
-        
+
         /// Preview removal without actually removing packages
         #[arg(long)]
         dry_run: bool,
-        
+
         /// Output removal status as JSON for CI/CD automation
         #[arg(long)]
         json: bool,
-        
+
         /// Show detailed analysis (disk space freed, transitive dependencies)
         #[arg(short, long)]
         verbose: bool,
-        
+
         /// Find and remove orphaned/unused dependencies automatically
         #[arg(long)]
         cleanup: bool,
@@ -223,31 +238,33 @@ pub enum Commands {
     ///   ven upgrade --all --apply    # Upgrade all packages
     ///   ven upgrade react --dry-run  # Preview without changes
     ///   ven upgrade --all --apply --force  # CI/CD mode (no prompts)
-    #[command(long_about = "Upgrade packages to latest compatible versions\n\nChecks for available package upgrades and verifies Node.js compatibility\nbefore applying them. Shows preview by default, use --apply to upgrade.\n\nExamples:\n  ven upgrade express          # Preview Express upgrade\n  ven upgrade express --apply  # Apply the upgrade\n  ven upgrade --all            # Preview all upgrades\n  ven upgrade --all --apply    # Upgrade all packages\n  ven upgrade react --dry-run  # Preview without changes\n  ven upgrade --all --apply --force  # CI/CD mode (no prompts)")]
+    #[command(
+        long_about = "Upgrade packages to latest compatible versions\n\nChecks for available package upgrades and verifies Node.js compatibility\nbefore applying them. Shows preview by default, use --apply to upgrade.\n\nExamples:\n  ven upgrade express          # Preview Express upgrade\n  ven upgrade express --apply  # Apply the upgrade\n  ven upgrade --all            # Preview all upgrades\n  ven upgrade --all --apply    # Upgrade all packages\n  ven upgrade react --dry-run  # Preview without changes\n  ven upgrade --all --apply --force  # CI/CD mode (no prompts)"
+    )]
     Upgrade {
         /// Package name(s) to upgrade (supports multiple packages)
         packages: Vec<String>,
-        
+
         /// Actually perform the upgrade (default: preview only)
         #[arg(long)]
         apply: bool,
-        
+
         /// Preview upgrades without making any changes
         #[arg(long)]
         dry_run: bool,
-        
+
         /// Output upgrade status as JSON for CI/CD automation
         #[arg(long)]
         json: bool,
-        
+
         /// Show detailed analysis (changelog URLs, disk space, compatibility)
         #[arg(short, long)]
         verbose: bool,
-        
+
         /// Upgrade all packages declared in ven.toml
         #[arg(long)]
         all: bool,
-        
+
         /// Skip prompts and force apply (for CI/CD automation)
         #[arg(long)]
         force: bool,
@@ -256,18 +273,20 @@ pub enum Commands {
     /// One-time setup: Install shell hooks for automatic version switching
     ///
     /// Configures your shell (bash, zsh, fish, PowerShell) to automatically
-    /// switch Node.js versions when you change directories.
+    /// apply runtime settings when you change directories.
     ///
     /// Examples:
     ///   ven setup                  # Run interactive setup
     ///
     /// After setup, add to your shell rc file:
     ///   eval "$(ven shell hook <shell>)"
-    #[command(long_about = "One-time setup: Install shell hooks for automatic version switching\n\nConfigures your shell (bash, zsh, fish, PowerShell) to automatically\nswitch Node.js versions when you change directories with a ven.toml file.\n\nThis is a one-time setup that enables seamless version management.\n\nExamples:\n  ven setup                  # Run interactive setup\n\nAfter setup, the installer will show you what to add to your shell rc file:\n  eval \"$(ven shell hook <shell>)\"\n\nSupported shells: bash, zsh, fish, powershell")]
+    #[command(
+        long_about = "One-time setup: Install shell hooks for automatic runtime switching\n\nConfigures your shell (bash, zsh, fish, PowerShell) to automatically\napply runtime settings when you change directories with a ven.toml file.\n\nThis is a one-time setup that enables seamless version management.\n\nExamples:\n  ven setup                  # Run interactive setup\n\nAfter setup, the installer will show you what to add to your shell rc file:\n  eval \"$(ven shell hook <shell>)\"\n\nSupported shells: bash, zsh, fish, powershell"
+    )]
     Setup,
 
     /// Shell integration (internal — called by shell hook)
-    #[command(hide = true)]  // hides from --help
+    #[command(hide = true)] // hides from --help
     Shell {
         #[command(subcommand)]
         action: ShellCommands,
@@ -310,40 +329,50 @@ pub fn run(cli: Cli) -> Result<()> {
                 }
             }
         }
-        Commands::List { language, verbose, json } => {
-            list::cmd_list(language.as_deref(), verbose, json)
-        }
-        Commands::Use { dir } => {
-            shell::cmd_use(&dir)
-        }
-        Commands::Deactivate => {
-            shell::cmd_shell_deactivate()
-        }
-        Commands::Status { json, verbose, fix } => {
-            status::cmd_status(json, verbose, fix)
-        }
-        Commands::Init { node, template, with_packages, validate } => {
-            init::cmd_init(node.as_deref(), template, with_packages, validate)
-        }
-        Commands::Add { packages, skip_check, dry_run, verbose } => {
-            add::cmd_add(&packages, skip_check, dry_run, verbose)
-        }
-        Commands::Remove { packages, force, dry_run, json, verbose, cleanup } => {
-            remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup)
-        }
-        Commands::Upgrade { packages, apply, dry_run, json, verbose, all, force } => {
-            upgrade::cmd_upgrade(&packages, apply, dry_run, json, verbose, all, force)
-        }
-        Commands::Setup => {
-            setup::cmd_setup()
-        }
+        Commands::List {
+            language,
+            verbose,
+            json,
+        } => list::cmd_list(language.as_deref(), verbose, json),
+        Commands::Use { dir } => shell::cmd_use(&dir),
+        Commands::Deactivate => shell::cmd_shell_deactivate(),
+        Commands::Status { json, verbose, fix } => status::cmd_status(json, verbose, fix),
+        Commands::Init {
+            node,
+            template,
+            with_packages,
+            validate,
+        } => init::cmd_init(node.as_deref(), template, with_packages, validate),
+        Commands::Add {
+            packages,
+            skip_check,
+            dry_run,
+            verbose,
+        } => add::cmd_add(&packages, skip_check, dry_run, verbose),
+        Commands::Remove {
+            packages,
+            force,
+            dry_run,
+            json,
+            verbose,
+            cleanup,
+        } => remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup),
+        Commands::Upgrade {
+            packages,
+            apply,
+            dry_run,
+            json,
+            verbose,
+            all,
+            force,
+        } => upgrade::cmd_upgrade(&packages, apply, dry_run, json, verbose, all, force),
+        Commands::Setup => setup::cmd_setup(),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),
             ShellCommands::Deactivate => shell::cmd_shell_deactivate(),
             ShellCommands::Install => shell::cmd_shell_install(),
         },
-
     }
 }
 
@@ -357,4 +386,3 @@ pub fn run(cli: Cli) -> Result<()> {
 // - src/cli/add.rs
 // - src/cli/remove.rs
 // - src/cli/upgrade.rs
-

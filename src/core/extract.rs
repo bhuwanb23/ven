@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
     use std::fs::File;
     use zip::ZipArchive;
-    
+
     let file = File::open(zip_path)?;
     let mut archive = ZipArchive::new(file)?;
 
@@ -38,7 +38,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
 fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
     use flate2::read::GzDecoder;
     use tar::Archive;
-    
+
     let file = File::open(tar_path)?;
     let decoder = GzDecoder::new(file);
     let mut archive = Archive::new(decoder);
@@ -60,7 +60,7 @@ pub fn extract_archive(archive_path: &Path, dest: &Path) -> Result<()> {
     #[cfg(target_os = "windows")]
     {
         extract_zip(archive_path, dest)?;
-        
+
         // On Windows, the ZIP extracts to node-vX.Y.Z-win-x64/
         // We need to move contents to dest/
         let extracted_dir = find_extracted_dir(dest)?;
@@ -73,7 +73,7 @@ pub fn extract_archive(archive_path: &Path, dest: &Path) -> Result<()> {
     #[cfg(not(target_os = "windows"))]
     {
         extract_tar_gz(archive_path, dest)?;
-        
+
         // On Unix, tar extracts to node-vX.Y.Z-os-arch/
         // We need to move contents to dest/
         let extracted_dir = find_extracted_dir(dest)?;
@@ -92,7 +92,7 @@ fn find_extracted_dir(base: &Path) -> Result<PathBuf> {
     for entry in std::fs::read_dir(base)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         if path.is_dir() {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
             if name.starts_with("node-v") {
@@ -100,7 +100,7 @@ fn find_extracted_dir(base: &Path) -> Result<PathBuf> {
             }
         }
     }
-    
+
     // If no node-v* dir found, return base itself
     Ok(base.to_path_buf())
 }
@@ -117,12 +117,11 @@ fn move_contents(src: &Path, dest: &Path) -> Result<()> {
             move_contents(&src_path, &dest_path)?;
             std::fs::remove_dir(&src_path)?;
         } else {
-            std::fs::rename(&src_path, &dest_path)
-                .or_else(|_| -> Result<()> {
-                    std::fs::copy(&src_path, &dest_path)?;
-                    std::fs::remove_file(&src_path)?;
-                    Ok(())
-                })?;
+            std::fs::rename(&src_path, &dest_path).or_else(|_| -> Result<()> {
+                std::fs::copy(&src_path, &dest_path)?;
+                std::fs::remove_file(&src_path)?;
+                Ok(())
+            })?;
         }
     }
 
@@ -130,8 +129,15 @@ fn move_contents(src: &Path, dest: &Path) -> Result<()> {
 }
 
 /// Install Node.js - download, extract, and setup
-pub fn install_node(downloader: &crate::core::download::NodeDownloader, version: &str) -> Result<()> {
-    println!("{} Installing Node {}...", "[DOWNLOAD]".cyan(), version.bold());
+pub fn install_node(
+    downloader: &crate::core::download::NodeDownloader,
+    version: &str,
+) -> Result<()> {
+    println!(
+        "{} Installing Node {}...",
+        "[DOWNLOAD]".cyan(),
+        version.bold()
+    );
 
     // Download
     let archive_path = downloader.download(version)?;
@@ -144,15 +150,19 @@ pub fn install_node(downloader: &crate::core::download::NodeDownloader, version:
 
     // Verify installation
     let bin_path = downloader.get_bin_path(version)?;
-    
+
     #[cfg(target_os = "windows")]
     let node_binary = bin_path.join("node.exe");
-    
+
     #[cfg(not(target_os = "windows"))]
     let node_binary = bin_path.join("node");
 
     if node_binary.exists() {
-        println!("{} Node {} installed successfully", "[OK]".green(), version.bold());
+        println!(
+            "{} Node {} installed successfully",
+            "[OK]".green(),
+            version.bold()
+        );
         println!("{} Binary: {}", "•".blue(), node_binary.display());
         Ok(())
     } else {

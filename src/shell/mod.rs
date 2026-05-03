@@ -52,7 +52,7 @@ fn bash_zsh_hook() -> String {
 
     format!(
         r#"
-# ven shell hook (bash/zsh) - Auto-switches Node.js on cd
+# ven shell hook (bash/zsh) - Auto-switches runtimes on cd
 __VEN_ORIGINAL_PATH="$PATH"
 __VEN_LAST_DIR=""
 __VEN_LAST_TOML_SIG=""
@@ -192,7 +192,7 @@ fn powershell_hook() -> String {
 
     format!(
         r#"
-# ven shell hook (PowerShell) - Auto-switches Node.js on cd / Set-Location
+# ven shell hook (PowerShell) - Auto-switches runtimes on cd / Set-Location
 if (-not $global:VEN_ORIGINAL_PATH) {{
     $global:VEN_ORIGINAL_PATH = $env:PATH
 }}
@@ -259,7 +259,7 @@ function global:__ven_activate {{
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             $key = "$current_dir|$exit"
             if ($global:VEN_LAST_ACTIVATE_WARN -ne $key) {{
-                Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install the required Node version or fix ven.toml. Try: ven shell activate `"$current_dir`""
+                Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install required runtimes or fix ven.toml. Try: ven shell activate `"$current_dir`""
                 $global:VEN_LAST_ACTIVATE_WARN = $key
             }}
         }} else {{
@@ -336,7 +336,7 @@ pub fn windows_powershell_profile_paths(home: &std::path::Path) -> Vec<std::path
 
 // ── Compute exports for a directory ─────────────────────────────────
 // Called by: ven shell activate <dir>
-// Reads ven.toml, resolves Node version, returns shell assignment text.
+// Reads ven.toml, resolves runtime versions, returns shell assignment text.
 // The hook runs this text with eval (bash) or Invoke-Expression (PowerShell).
 
 #[derive(Debug)]

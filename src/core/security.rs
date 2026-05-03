@@ -1,8 +1,8 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use colored::Colorize;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use colored::Colorize;
 
 /// Security vulnerability advisory from npm
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,18 +80,11 @@ impl SecurityScanner {
 
         // Query npm Bulk Advisory API
         let url = "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk";
-        
-        let response = self.client
-            .post(url)
-            .json(&payload)
-            .send()
-            .await?;
+
+        let response = self.client.post(url).json(&payload).send().await?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "Security scan failed: HTTP {}",
-                response.status()
-            ));
+            return Err(anyhow!("Security scan failed: HTTP {}", response.status()));
         }
 
         // Parse response: { "package": [advisory1, advisory2] }
@@ -127,13 +120,18 @@ impl SecurityScanner {
             *severity_counts.entry(level).or_insert(0) += 1;
         }
 
-        println!("\n  {} {} vulnerability(ies) found:", "[WARN]".yellow().bold(), advisories.len());
+        println!(
+            "\n  {} {} vulnerability(ies) found:",
+            "[WARN]".yellow().bold(),
+            advisories.len()
+        );
 
         for advisory in advisories {
             let severity = SeverityLevel::from_str(&advisory.severity);
             let package = advisory.module_name.as_deref().unwrap_or("unknown");
-            
-            println!("\n    {} {}: {}", 
+
+            println!(
+                "\n    {} {}: {}",
                 match severity {
                     SeverityLevel::Critical => "[CRIT]".to_string(),
                     SeverityLevel::High => "[HIGH]".to_string(),
@@ -144,14 +142,14 @@ impl SecurityScanner {
                 severity.display_color().bold(),
                 package.bold()
             );
-            
+
             println!("      Title: {}", advisory.title);
             println!("      Affected: {}", advisory.vulnerable_versions);
-            
+
             if let Some(ref patched) = advisory.patched_versions {
                 println!("      Fixed in: {}", patched);
             }
-            
+
             if let Some(ref url) = advisory.url {
                 println!("      Details: {}", url);
             }
@@ -160,7 +158,11 @@ impl SecurityScanner {
         // Summary
         println!("\n  {} Severity Summary:", "[SUMMARY]".cyan());
         for (severity, count) in severity_counts.iter() {
-            println!("    {} {}", severity.display_color(), format!("{} vulnerability(ies)", count).dimmed());
+            println!(
+                "    {} {}",
+                severity.display_color(),
+                format!("{} vulnerability(ies)", count).dimmed()
+            );
         }
     }
 

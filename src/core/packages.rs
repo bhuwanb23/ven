@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use colored::Colorize;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -28,8 +28,8 @@ pub fn fetch_npm_info(package: &str) -> Result<NpmPackageInfo> {
     let url = format!("https://registry.npmjs.org/{}", package);
 
     // Use reqwest blocking client (simpler for now, async in Phase 2)
-    let response = reqwest::blocking::get(&url)
-        .map_err(|e| anyhow!("Cannot reach npm registry: {}", e))?;
+    let response =
+        reqwest::blocking::get(&url).map_err(|e| anyhow!("Cannot reach npm registry: {}", e))?;
 
     if response.status().as_u16() == 404 {
         return Err(anyhow!("Package '{}' not found on npm", package));
@@ -37,20 +37,25 @@ pub fn fetch_npm_info(package: &str) -> Result<NpmPackageInfo> {
 
     // Get response as text first for better error messages
     let status = response.status();
-    let text = response.text()
+    let text = response
+        .text()
         .map_err(|e| anyhow!("Failed to read response body: {}", e))?;
 
     // Try to parse JSON
-    let info: NpmPackageInfo = serde_json::from_str(&text)
-        .map_err(|e| {
-            // Show first 300 chars of response on error
-            let preview = if text.len() > 300 {
-                format!("{}...", &text[..300])
-            } else {
-                text.clone()
-            };
-            anyhow!("Failed to parse npm response: {}\nStatus: {}\nResponse preview: {}", e, status, preview)
-        })?;
+    let info: NpmPackageInfo = serde_json::from_str(&text).map_err(|e| {
+        // Show first 300 chars of response on error
+        let preview = if text.len() > 300 {
+            format!("{}...", &text[..300])
+        } else {
+            text.clone()
+        };
+        anyhow!(
+            "Failed to parse npm response: {}\nStatus: {}\nResponse preview: {}",
+            e,
+            status,
+            preview
+        )
+    })?;
 
     Ok(info)
 }
@@ -59,10 +64,7 @@ pub fn fetch_npm_info(package: &str) -> Result<NpmPackageInfo> {
 // Given current Node version and npm package info,
 // returns the highest compatible version of the package.
 
-pub fn find_compatible_version(
-    info: &NpmPackageInfo,
-    node_version: &str,
-) -> Option<String> {
+pub fn find_compatible_version(info: &NpmPackageInfo, node_version: &str) -> Option<String> {
     // Try latest first
     if let Some(latest) = info.dist_tags.get("latest") {
         if is_compatible(info, latest, node_version) {
@@ -74,7 +76,8 @@ pub fn find_compatible_version(
     let mut versions: Vec<&String> = info.versions.keys().collect();
     versions.sort_by(|a, b| semver_cmp(b, a)); // desc
 
-    versions.into_iter()
+    versions
+        .into_iter()
         .find(|v| is_compatible(info, v, node_version))
         .cloned()
 }
@@ -96,21 +99,25 @@ fn is_compatible(info: &NpmPackageInfo, pkg_ver: &str, node_ver: &str) -> bool {
 
 fn node_version_satisfies(node_ver: &str, requirement: &str) -> bool {
     // Parse major from node version: "20.11.0" → 20
-    let node_major = node_ver.split('.').next()
+    let node_major = node_ver
+        .split('.')
+        .next()
         .and_then(|n| n.parse::<u32>().ok())
         .unwrap_or(0);
 
     // Handle common requirement formats:
     // ">= 0.10.0"  ">= 14"  "^18"  "*"
     let req = requirement.trim();
-    if req == "*" || req.is_empty() { return true; }
+    if req == "*" || req.is_empty() {
+        return true;
+    }
 
     // Extract minimum version from requirement
-    let min_ver_str: String = req.chars()
-        .skip_while(|c| !c.is_ascii_digit())
-        .collect();
+    let min_ver_str: String = req.chars().skip_while(|c| !c.is_ascii_digit()).collect();
 
-    let min_major = min_ver_str.split('.').next()
+    let min_major = min_ver_str
+        .split('.')
+        .next()
         .and_then(|n| n.parse::<u32>().ok())
         .unwrap_or(0);
 
@@ -119,10 +126,15 @@ fn node_version_satisfies(node_ver: &str, requirement: &str) -> bool {
 
 fn semver_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     let parse = |v: &str| -> Vec<u32> {
-        v.split('.').filter_map(|n| {
-            n.chars().take_while(|c| c.is_ascii_digit())
-             .collect::<String>().parse().ok()
-        }).collect()
+        v.split('.')
+            .filter_map(|n| {
+                n.chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect::<String>()
+                    .parse()
+                    .ok()
+            })
+            .collect()
     };
     parse(a).cmp(&parse(b))
 }
@@ -134,8 +146,12 @@ pub fn npm_install(package: &str, version: &str) -> Result<()> {
     println!("{} Installing {}...", "[DOWNLOAD]".cyan(), pkg_spec.bold());
 
     // On Windows, use npm.cmd instead of npm
-    let npm_cmd = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
-    
+    let npm_cmd = if cfg!(target_os = "windows") {
+        "npm.cmd"
+    } else {
+        "npm"
+    };
+
     let status = Command::new(npm_cmd)
         .args(["install", &pkg_spec])
         .status()
@@ -168,7 +184,9 @@ pub fn find_dependents(package: &str) -> Result<Vec<(String, String)>> {
     // Walk packages in lock file, check their dependencies
     if let Some(packages) = lock["packages"].as_object() {
         for (name, info) in packages {
-            if name.is_empty() { continue; } // skip root
+            if name.is_empty() {
+                continue;
+            } // skip root
             if let Some(deps) = info["dependencies"].as_object() {
                 if deps.contains_key(package) {
                     let clean_name = name.trim_start_matches("node_modules/");
@@ -191,7 +209,7 @@ pub fn npm_uninstall(package: &str) -> Result<()> {
     } else {
         "npm".to_string()
     };
-    
+
     let status = if std::path::Path::new(&npm_path).exists() {
         Command::new(&npm_path)
             .args(["uninstall", package])
@@ -214,12 +232,16 @@ pub fn npm_uninstall(package: &str) -> Result<()> {
 
 pub fn get_installed_version(package: &str) -> Result<String> {
     let pkg_json = std::env::current_dir()?
-        .join("node_modules").join(package).join("package.json");
-    
+        .join("node_modules")
+        .join(package)
+        .join("package.json");
+
     let content = std::fs::read_to_string(&pkg_json)?;
     let v: serde_json::Value = serde_json::from_str(&content)?;
-    
-    v["version"].as_str().map(|s| s.to_string())
+
+    v["version"]
+        .as_str()
+        .map(|s| s.to_string())
         .ok_or_else(|| anyhow::anyhow!("Cannot read version"))
 }
 
@@ -230,7 +252,10 @@ pub fn fetch_release_notes(package: &str, _from_ver: &str, to_ver: &str) -> Stri
     // Fetch from npm registry's "release" or from GitHub releases API
     // For Phase 1: use npm registry "description" field as a fallback
     // Full changelog parsing comes in Phase 2
-    format!("See full changelog: npmjs.com/package/{}/v/{}", package, to_ver)
+    format!(
+        "See full changelog: npmjs.com/package/{}/v/{}",
+        package, to_ver
+    )
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -245,11 +270,11 @@ mod tests {
         assert!(node_version_satisfies("20.11.0", ">= 0.10.0"));
         assert!(node_version_satisfies("18.0.0", ">= 14"));
         assert!(node_version_satisfies("22.0.0", ">= 18"));
-        
+
         // Test incompatible versions
         assert!(!node_version_satisfies("16.0.0", ">= 18"));
         assert!(!node_version_satisfies("14.0.0", ">= 20"));
-        
+
         // Test wildcard
         assert!(node_version_satisfies("20.0.0", "*"));
         assert!(node_version_satisfies("20.0.0", ""));
@@ -258,7 +283,7 @@ mod tests {
     #[test]
     fn test_semver_cmp() {
         use std::cmp::Ordering;
-        
+
         assert_eq!(semver_cmp("4.18.2", "4.18.1"), Ordering::Greater);
         assert_eq!(semver_cmp("4.18.0", "4.17.9"), Ordering::Greater);
         assert_eq!(semver_cmp("5.0.0", "4.99.99"), Ordering::Greater);

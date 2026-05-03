@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -91,7 +91,11 @@ impl NpmRegistry {
 
         // Fetch from npm registry
         let url = format!("https://registry.npmjs.org/{}", name);
-        println!("  {} Fetching {} from npm registry...", "[HTTP]".cyan(), name);
+        println!(
+            "  {} Fetching {} from npm registry...",
+            "[HTTP]".cyan(),
+            name
+        );
 
         let response = self.client.get(&url).send().await?;
 
@@ -116,7 +120,11 @@ impl NpmRegistry {
     }
 
     /// Fetch metadata for a specific version
-    pub async fn fetch_version_metadata(&self, name: &str, version: &str) -> Result<VersionMetadata> {
+    pub async fn fetch_version_metadata(
+        &self,
+        name: &str,
+        version: &str,
+    ) -> Result<VersionMetadata> {
         // First try to get from cached package metadata
         if let Some(package) = self.cache.get(name)? {
             if let Some(version_meta) = package.versions.get(version) {
@@ -163,8 +171,10 @@ impl NpmRegistry {
     #[allow(dead_code)]
     pub async fn get_latest_version(&self, name: &str) -> Result<String> {
         let metadata = self.fetch_package_metadata(name).await?;
-        
-        metadata.dist_tags.get("latest")
+
+        metadata
+            .dist_tags
+            .get("latest")
             .cloned()
             .ok_or_else(|| anyhow!("No 'latest' tag found for {}", name))
     }
@@ -240,13 +250,12 @@ impl RegistryCache {
             .unwrap()
             .as_secs() as i64;
 
-        let mut stmt = self.conn.prepare(
-            "SELECT metadata FROM packages WHERE name = ?1 AND expires_at > ?2"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT metadata FROM packages WHERE name = ?1 AND expires_at > ?2")?;
 
-        let metadata_json: Option<String> = stmt
-            .query_row((name, now), |row| row.get(0))
-            .optional()?;
+        let metadata_json: Option<String> =
+            stmt.query_row((name, now), |row| row.get(0)).optional()?;
 
         match metadata_json {
             Some(json) => {
@@ -269,7 +278,12 @@ impl RegistryCache {
         self.conn.execute(
             "INSERT OR REPLACE INTO packages (name, metadata, fetched_at, expires_at)
              VALUES (?1, ?2, ?3, ?4)",
-            [name, &metadata_json, &now.to_string(), &expires_at.to_string()],
+            [
+                name,
+                &metadata_json,
+                &now.to_string(),
+                &expires_at.to_string(),
+            ],
         )?;
 
         Ok(())
@@ -287,7 +301,11 @@ impl RegistryCache {
         )?;
 
         if deleted > 0 {
-            println!("  {} Cleaned up {} expired cache entries", "🧹".cyan(), deleted);
+            println!(
+                "  {} Cleaned up {} expired cache entries",
+                "🧹".cyan(),
+                deleted
+            );
         }
 
         Ok(())
@@ -303,10 +321,11 @@ impl RegistryCache {
             .unwrap()
             .as_secs() as i64;
 
-        let mut expired_stmt = self.conn.prepare(
-            "SELECT COUNT(*) FROM packages WHERE expires_at <= ?1"
-        )?;
-        let expired_packages: usize = expired_stmt.query_row([&now.to_string()], |row| row.get(0))?;
+        let mut expired_stmt = self
+            .conn
+            .prepare("SELECT COUNT(*) FROM packages WHERE expires_at <= ?1")?;
+        let expired_packages: usize =
+            expired_stmt.query_row([&now.to_string()], |row| row.get(0))?;
 
         // Get file size
         let cache_size_mb = if self.db_path.exists() {

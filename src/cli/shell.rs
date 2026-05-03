@@ -1,11 +1,11 @@
-use anyhow::Result;
-use colored::Colorize;
-use dialoguer::{Confirm, theme::ColorfulTheme};
-use std::io::{self, IsTerminal, Write};
-use std::path::PathBuf;
 use crate::shell::{
     generate_hook, try_compute_exports, windows_powershell_profile_paths, ComputeExportsOutcome,
 };
+use anyhow::Result;
+use colored::Colorize;
+use dialoguer::{theme::ColorfulTheme, Confirm};
+use std::io::{self, IsTerminal, Write};
+use std::path::PathBuf;
 
 // ── ven shell hook <shell> ────────────────────────────────────────
 pub fn cmd_shell_hook(shell: &str) -> Result<()> {
@@ -53,7 +53,10 @@ pub fn cmd_shell_install() -> Result<()> {
         }
 
         if wrote.is_empty() {
-            println!("  {} ven PowerShell hook already present in known profiles", "✅".green());
+            println!(
+                "  {} ven PowerShell hook already present in known profiles",
+                "✅".green()
+            );
             for p in windows_powershell_profile_paths(&home) {
                 println!("  {} {}", "Profile:".dimmed(), p.display());
             }
@@ -64,8 +67,14 @@ pub fn cmd_shell_install() -> Result<()> {
             }
         }
         println!();
-        println!("  {} Open a NEW terminal (or run: . $PROFILE in pwsh)", "ℹ️".cyan());
-        println!("  {} Cursor/VS Code: use a terminal profile that loads the profile above.", "ℹ️".cyan());
+        println!(
+            "  {} Open a NEW terminal (or run: . $PROFILE in pwsh)",
+            "ℹ️".cyan()
+        );
+        println!(
+            "  {} Cursor/VS Code: use a terminal profile that loads the profile above.",
+            "ℹ️".cyan()
+        );
         return Ok(());
     }
 
@@ -109,10 +118,16 @@ pub fn cmd_shell_install() -> Result<()> {
     println!("  {} {}", "Profile:".dimmed(), profile_path.display());
     println!();
     println!("  {} The hook will auto-load in NEW terminals", "ℹ️".cyan());
-    println!("  {} Close and reopen your terminal to activate", "ℹ️".cyan());
+    println!(
+        "  {} Close and reopen your terminal to activate",
+        "ℹ️".cyan()
+    );
     println!();
     println!("  {} To activate in current terminal, run:", "💡".yellow());
-    println!("     {}", format!("source {}", profile_path.display()).dimmed());
+    println!(
+        "     {}",
+        format!("source {}", profile_path.display()).dimmed()
+    );
 
     Ok(())
 }

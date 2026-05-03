@@ -1,8 +1,10 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 
 use super::LanguagePlugin;
-use crate::core::python_install::{PythonDownloader, fetch_python_release_versions, install_python};
+use crate::core::python_install::{
+    fetch_python_release_versions, install_python, PythonDownloader,
+};
 
 pub struct PythonPlugin;
 

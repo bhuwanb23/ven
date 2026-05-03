@@ -1,8 +1,8 @@
-use anyhow::{Result, anyhow};
+use crate::core::npm_registry::{NpmRegistry, PackageMetadata};
+use anyhow::{anyhow, Result};
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use colored::Colorize;
-use crate::core::npm_registry::{NpmRegistry, PackageMetadata};
 
 /// Dependency graph for analyzing package relationships
 pub struct DependencyGraph {
@@ -20,7 +20,7 @@ pub struct GraphNode {
     pub name: String,
     pub version: String,
     pub dependencies: HashMap<String, String>,
-    pub engines: Option<String>,  // Node version requirement
+    pub engines: Option<String>, // Node version requirement
     pub depth: u32,
     pub required_by: Vec<String>,
     pub deprecated: Option<String>,
@@ -73,10 +73,10 @@ pub struct ConflictResolution {
 
 #[allow(dead_code)]
 pub enum ResolutionSuggestion {
-    Upgrade(String),       // "Upgrade to version X"
-    Downgrade(String),     // "Downgrade to version X"
+    Upgrade(String),        // "Upgrade to version X"
+    Downgrade(String),      // "Downgrade to version X"
     UseAlternative(String), // "Use package X instead"
-    ForceInstall,          // "Use --force to override"
+    ForceInstall,           // "Use --force to override"
 }
 
 /// Transitive dependency analysis results
@@ -86,8 +86,8 @@ pub struct TransitiveAnalysis {
     pub transitive_deps: Vec<String>,
     pub dependency_chains: HashMap<String, Vec<Vec<String>>>,
     pub circular_deps: Vec<Vec<String>>,
-    pub phantom_deps: Vec<String>,  // In node_modules but not in ven.toml
-    pub orphan_deps: Vec<String>,   // In ven.toml but not used
+    pub phantom_deps: Vec<String>, // In node_modules but not in ven.toml
+    pub orphan_deps: Vec<String>,  // In ven.toml but not used
 }
 
 /// Preview information for installation
@@ -113,7 +113,12 @@ impl DependencyGraph {
     }
 
     /// Build complete dependency graph for a package
-    pub async fn build(&mut self, root_package: &str, root_version: &str, existing_packages: &HashMap<String, String>) -> Result<()> {
+    pub async fn build(
+        &mut self,
+        root_package: &str,
+        root_version: &str,
+        existing_packages: &HashMap<String, String>,
+    ) -> Result<()> {
         println!("  {} Building dependency graph...", "[SEARCH]".cyan());
 
         // Fetch root package metadata
@@ -126,18 +131,20 @@ impl DependencyGraph {
         self.add_node(root_package, &resolved_version, &metadata, 0, None)?;
 
         // Recursively fetch dependencies
-        self.fetch_dependencies(root_package, &resolved_version, 0).await?;
+        self.fetch_dependencies(root_package, &resolved_version, 0)
+            .await?;
 
         // Only detect conflicts with existing packages from ven.toml
         // (NOT internal npm dependency variations - those are handled by npm automatically)
         let existing_conflicts = self.check_existing_compatibility(existing_packages);
         self.conflicts.extend(existing_conflicts);
-        
+
         self.check_node_compatibility();
 
-        println!("  {} Graph built: {} packages, {} edges", 
-            "[OK]".green(), 
-            self.nodes.len(), 
+        println!(
+            "  {} Graph built: {} packages, {} edges",
+            "[OK]".green(),
+            self.nodes.len(),
             self.edges.len()
         );
 
@@ -154,7 +161,13 @@ impl DependencyGraph {
         let version_meta = match self.registry.fetch_version_metadata(package, version).await {
             Ok(meta) => meta,
             Err(e) => {
-                eprintln!("  {} Warning: Failed to fetch {}@{}: {}", "[WARN]".yellow(), package, version, e);
+                eprintln!(
+                    "  {} Warning: Failed to fetch {}@{}: {}",
+                    "[WARN]".yellow(),
+                    package,
+                    version,
+                    e
+                );
                 return Ok(()); // Continue with other deps
             }
         };
@@ -167,7 +180,12 @@ impl DependencyGraph {
             let dep_metadata = match self.registry.fetch_package_metadata(dep_name).await {
                 Ok(meta) => meta,
                 Err(e) => {
-                    eprintln!("  {} Warning: Failed to fetch {}: {}", "[WARN]".yellow(), dep_name, e);
+                    eprintln!(
+                        "  {} Warning: Failed to fetch {}: {}",
+                        "[WARN]".yellow(),
+                        dep_name,
+                        e
+                    );
                     continue;
                 }
             };
@@ -176,8 +194,13 @@ impl DependencyGraph {
             let dep_version = match self.resolve_version(&dep_metadata, dep_constraint) {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!("  {} Warning: Cannot resolve {} for {}: {}", 
-                        "[WARN]".yellow(), dep_constraint, dep_name, e);
+                    eprintln!(
+                        "  {} Warning: Cannot resolve {} for {}: {}",
+                        "[WARN]".yellow(),
+                        dep_constraint,
+                        dep_name,
+                        e
+                    );
                     continue;
                 }
             };
@@ -204,7 +227,13 @@ impl DependencyGraph {
                 }
             } else {
                 // Add new node
-                self.add_node(dep_name, &dep_version, &dep_metadata, depth + 1, Some(&edge_from))?;
+                self.add_node(
+                    dep_name,
+                    &dep_version,
+                    &dep_metadata,
+                    depth + 1,
+                    Some(&edge_from),
+                )?;
 
                 // Recurse into this dependency's dependencies
                 Box::pin(self.fetch_dependencies(dep_name, &dep_version, depth + 1)).await?;
@@ -235,7 +264,7 @@ impl DependencyGraph {
             .and_then(|e| e.node);
 
         let deprecated = version_meta.and_then(|v| v.deprecated.clone());
-        
+
         // Extract license and size metadata
         let license = version_meta.and_then(|v| v.license.clone());
         let size_bytes = version_meta
@@ -263,20 +292,25 @@ impl DependencyGraph {
     fn resolve_version(&self, metadata: &PackageMetadata, constraint: &str) -> Result<String> {
         // Handle special tags
         if constraint == "latest" {
-            return metadata.dist_tags.get("latest")
+            return metadata
+                .dist_tags
+                .get("latest")
                 .cloned()
                 .ok_or_else(|| anyhow!("No 'latest' tag found"));
         }
 
         if constraint == "lts" {
             // Find latest LTS version (even major number)
-            let mut versions: Vec<semver::Version> = metadata.versions.keys()
+            let mut versions: Vec<semver::Version> = metadata
+                .versions
+                .keys()
                 .filter_map(|v| semver::Version::parse(v).ok())
                 .filter(|v| v.major % 2 == 0) // LTS = even major
                 .collect();
-            
+
             versions.sort_by(|a, b| b.cmp(a));
-            return versions.first()
+            return versions
+                .first()
                 .map(|v| v.to_string())
                 .ok_or_else(|| anyhow!("No LTS versions found"));
         }
@@ -285,14 +319,17 @@ impl DependencyGraph {
         match semver::VersionReq::parse(constraint) {
             Ok(req) => {
                 // Find highest version matching constraint
-                let mut versions: Vec<semver::Version> = metadata.versions.keys()
+                let mut versions: Vec<semver::Version> = metadata
+                    .versions
+                    .keys()
                     .filter_map(|v| semver::Version::parse(v).ok())
                     .filter(|v| req.matches(v))
                     .collect();
 
                 versions.sort_by(|a, b| b.cmp(a));
 
-                versions.first()
+                versions
+                    .first()
                     .map(|v| v.to_string())
                     .ok_or_else(|| anyhow!("No version matches '{}'", constraint))
             }
@@ -303,13 +340,16 @@ impl DependencyGraph {
                     .or_else(|_| {
                         // Try as major version (e.g., "4" -> "4.x.x")
                         if let Ok(major) = constraint.parse::<u64>() {
-                            let mut versions: Vec<semver::Version> = metadata.versions.keys()
+                            let mut versions: Vec<semver::Version> = metadata
+                                .versions
+                                .keys()
                                 .filter_map(|v| semver::Version::parse(v).ok())
                                 .filter(|v| v.major == major)
                                 .collect();
-                            
+
                             versions.sort_by(|a, b| b.cmp(a));
-                            return versions.first()
+                            return versions
+                                .first()
                                 .map(|v| v.to_string())
                                 .ok_or_else(|| anyhow!("No version {}.* found", major));
                         }
@@ -324,7 +364,7 @@ impl DependencyGraph {
     fn detect_conflicts(&mut self) {
         // Group edges by target package
         let mut package_constraints: HashMap<String, Vec<(String, String)>> = HashMap::new();
-        
+
         for edge in &self.edges {
             let dep_name = edge.to.split('@').next().unwrap_or("");
             package_constraints
@@ -371,17 +411,17 @@ impl DependencyGraph {
         }
 
         // Parse current Node major version
-        let node_major = node_version.split('.')
+        let node_major = node_version
+            .split('.')
             .next()
             .and_then(|n| n.parse::<u64>().ok())
             .unwrap_or(0);
 
         // Extract minimum version from requirement
-        let min_ver: String = req.chars()
-            .skip_while(|c| !c.is_ascii_digit())
-            .collect();
+        let min_ver: String = req.chars().skip_while(|c| !c.is_ascii_digit()).collect();
 
-        let min_major = min_ver.split('.')
+        let min_major = min_ver
+            .split('.')
             .next()
             .and_then(|n| n.parse::<u64>().ok())
             .unwrap_or(0);
@@ -393,13 +433,19 @@ impl DependencyGraph {
     #[allow(dead_code)]
     pub fn generate_preview(&self) -> InstallPreview {
         let new_packages: Vec<String> = self.nodes.keys().cloned().collect();
-        
-        let duplicate_packages: Vec<String> = self.conflicts.iter()
-            .map(|c| c.package.clone())
-            .collect();
 
-        let warnings: Vec<String> = self.incompatibilities.iter()
-            .map(|i| format!("{}@{} requires Node {}", i.package, i.version, i.required_node))
+        let duplicate_packages: Vec<String> =
+            self.conflicts.iter().map(|c| c.package.clone()).collect();
+
+        let warnings: Vec<String> = self
+            .incompatibilities
+            .iter()
+            .map(|i| {
+                format!(
+                    "{}@{} requires Node {}",
+                    i.package, i.version, i.required_node
+                )
+            })
             .collect();
 
         // Estimate size (average 50KB per package - rough estimate)
@@ -457,15 +503,15 @@ impl DependencyGraph {
     fn suggest_resolution(&self, conflict: &Conflict) -> Option<ConflictResolution> {
         // Try to find a common version that satisfies all constraints
         let _package_name = &conflict.package;
-        
+
         // Fetch package metadata to get available versions
         // For now, use a simpler heuristic based on the constraints
-        
+
         if conflict.versions.len() == 2 {
             // Simple case: two versions in conflict
             // Suggest using the higher version (usually backwards compatible)
             let suggested = conflict.versions.iter().max()?.clone();
-            
+
             Some(ConflictResolution {
                 conflict: conflict.clone(),
                 suggestion: ResolutionSuggestion::Upgrade(suggested.clone()),
@@ -492,39 +538,54 @@ impl DependencyGraph {
     /// Print conflict resolution suggestions
     pub fn print_resolution_suggestions(&self) {
         let resolutions = self.suggest_resolutions();
-        
+
         if resolutions.is_empty() {
             return;
         }
 
         println!("\n  {}", "Conflict Resolution Suggestions".bold().cyan());
-        
+
         for (i, resolution) in resolutions.iter().enumerate() {
-            println!("\n    {}. {} version conflict", 
-                i + 1, 
+            println!(
+                "\n    {}. {} version conflict",
+                i + 1,
                 resolution.conflict.package.bold()
             );
-            
+
             println!("       Required by:");
             for (requirer, constraint) in &resolution.conflict.constraints {
                 println!("         - {} ({})", requirer, constraint);
             }
-            
+
             match &resolution.suggestion {
                 ResolutionSuggestion::Upgrade(version) => {
-                    println!("       {} Upgrade to {}@{}", "[TIP]".cyan(), resolution.conflict.package, version.bold());
+                    println!(
+                        "       {} Upgrade to {}@{}",
+                        "[TIP]".cyan(),
+                        resolution.conflict.package,
+                        version.bold()
+                    );
                 }
                 ResolutionSuggestion::Downgrade(version) => {
-                    println!("       {} Downgrade to {}@{}", "[TIP]".cyan(), resolution.conflict.package, version.bold());
+                    println!(
+                        "       {} Downgrade to {}@{}",
+                        "[TIP]".cyan(),
+                        resolution.conflict.package,
+                        version.bold()
+                    );
                 }
                 ResolutionSuggestion::UseAlternative(alternative) => {
-                    println!("       {} Use {} instead", "[TIP]".cyan(), alternative.bold());
+                    println!(
+                        "       {} Use {} instead",
+                        "[TIP]".cyan(),
+                        alternative.bold()
+                    );
                 }
                 ResolutionSuggestion::ForceInstall => {
                     println!("       {} Use --force to override", "[WARN]".yellow());
                 }
             }
-            
+
             println!("       Impact: {}", resolution.impact.dimmed());
         }
         println!();
@@ -546,8 +607,7 @@ impl DependencyGraph {
     /// Print dependency tree
     pub fn print_tree(&self) {
         // Find root node (depth 0)
-        let root = self.nodes.values()
-            .find(|n| n.depth == 0);
+        let root = self.nodes.values().find(|n| n.depth == 0);
 
         if let Some(root_node) = root {
             self.print_node(root_node, 0, true);
@@ -565,10 +625,10 @@ impl DependencyGraph {
         };
 
         let name_version = format!("{}@{}", node.name, node.version);
-        
+
         // Build metadata annotations
         let mut annotations = Vec::new();
-        
+
         // Check if deprecated
         if node.deprecated.is_some() {
             annotations.push("[DEPRECATED]".yellow().to_string());
@@ -578,15 +638,19 @@ impl DependencyGraph {
         if self.conflicts.iter().any(|c| c.package == node.name) {
             annotations.push("[CONFLICT]".red().to_string());
         }
-        
+
         // Show license if available
         if let Some(ref license) = node.license {
             annotations.push(format!("[{}]", license).dimmed().to_string());
         }
-        
+
         // Show size if available
         if let Some(size) = node.size_bytes {
-            annotations.push(format!("({})", Self::format_size(size)).dimmed().to_string());
+            annotations.push(
+                format!("({})", Self::format_size(size))
+                    .dimmed()
+                    .to_string(),
+            );
         }
 
         // Combine all parts
@@ -597,20 +661,27 @@ impl DependencyGraph {
         };
 
         if depth == 0 {
-            println!("{}{}{}", name_version.bold().cyan(), annotation_str, "".dimmed());
+            println!(
+                "{}{}{}",
+                name_version.bold().cyan(),
+                annotation_str,
+                "".dimmed()
+            );
         } else {
             println!("{}{}{}{}", indent, connector, name_version, annotation_str);
         }
 
         // Print children
-        let children: Vec<&GraphEdge> = self.edges.iter()
+        let children: Vec<&GraphEdge> = self
+            .edges
+            .iter()
             .filter(|e| e.from == format!("{}@{}", node.name, node.version))
             .collect();
 
         for (i, edge) in children.iter().enumerate() {
             let is_last_child = i == children.len() - 1;
             let child_name = edge.to.split('@').next().unwrap_or("");
-            
+
             if let Some(child_node) = self.nodes.get(child_name) {
                 self.print_node(child_node, depth + 1, is_last_child);
             }
@@ -620,16 +691,18 @@ impl DependencyGraph {
     /// Print comprehensive dependency tree summary
     pub fn print_tree_summary(&self) {
         println!("\n  {}", "Dependency Tree Summary".bold().cyan());
-        
+
         // Total packages
         println!("    {} Total packages: {}", "├".dimmed(), self.nodes.len());
-        
+
         // Total size
-        let total_size: u64 = self.nodes.values()
-            .filter_map(|n| n.size_bytes)
-            .sum();
-        println!("    {} Total size: {}", "├".dimmed(), Self::format_size(total_size));
-        
+        let total_size: u64 = self.nodes.values().filter_map(|n| n.size_bytes).sum();
+        println!(
+            "    {} Total size: {}",
+            "├".dimmed(),
+            Self::format_size(total_size)
+        );
+
         // License breakdown
         let mut license_counts: HashMap<String, u32> = HashMap::new();
         for node in self.nodes.values() {
@@ -637,34 +710,42 @@ impl DependencyGraph {
                 *license_counts.entry(license.clone()).or_insert(0) += 1;
             }
         }
-        
+
         if !license_counts.is_empty() {
-            let license_str: Vec<String> = license_counts.iter()
+            let license_str: Vec<String> = license_counts
+                .iter()
                 .map(|(license, count)| format!("{} ({})", license, count))
                 .collect();
             println!("    {} Licenses: {}", "├".dimmed(), license_str.join(", "));
         }
-        
+
         // Max depth
-        let max_depth = self.nodes.values()
-            .map(|n| n.depth)
-            .max()
-            .unwrap_or(0);
+        let max_depth = self.nodes.values().map(|n| n.depth).max().unwrap_or(0);
         println!("    {} Max depth: {} levels", "├".dimmed(), max_depth);
-        
+
         // Conflict count
         if !self.conflicts.is_empty() {
-            println!("    {} Conflicts: {}", "├".dimmed(), format!("{} detected", self.conflicts.len()).yellow());
+            println!(
+                "    {} Conflicts: {}",
+                "├".dimmed(),
+                format!("{} detected", self.conflicts.len()).yellow()
+            );
         } else {
             println!("    {} Conflicts: {}", "├".dimmed(), "None".green());
         }
-        
+
         // Deprecated packages
-        let deprecated_count = self.nodes.values()
+        let deprecated_count = self
+            .nodes
+            .values()
             .filter(|n| n.deprecated.is_some())
             .count();
         if deprecated_count > 0 {
-            println!("    {} Deprecated: {}", "└".dimmed(), format!("{} packages", deprecated_count).yellow());
+            println!(
+                "    {} Deprecated: {}",
+                "└".dimmed(),
+                format!("{} packages", deprecated_count).yellow()
+            );
         } else {
             println!("    {} Deprecated: {}", "└".dimmed(), "None".green());
         }
@@ -698,8 +779,8 @@ impl DependencyGraph {
             transitive_deps,
             dependency_chains,
             circular_deps,
-            phantom_deps: Vec::new(),  // Would require reading node_modules
-            orphan_deps: Vec::new(),   // Would require reading ven.toml packages
+            phantom_deps: Vec::new(), // Would require reading node_modules
+            orphan_deps: Vec::new(),  // Would require reading ven.toml packages
         }
     }
 
@@ -708,10 +789,10 @@ impl DependencyGraph {
         let mut chains: HashMap<String, Vec<Vec<String>>> = HashMap::new();
 
         // Find root nodes
-        let roots: Vec<String> = self.nodes.keys()
-            .filter(|name| {
-                self.nodes.get(*name).map(|n| n.depth == 0).unwrap_or(false)
-            })
+        let roots: Vec<String> = self
+            .nodes
+            .keys()
+            .filter(|name| self.nodes.get(*name).map(|n| n.depth == 0).unwrap_or(false))
             .cloned()
             .collect();
 
@@ -731,12 +812,15 @@ impl DependencyGraph {
         chains: &mut HashMap<String, Vec<Vec<String>>>,
     ) {
         // Record chain to current node
-        chains.entry(current.clone())
+        chains
+            .entry(current.clone())
             .or_insert_with(Vec::new)
             .push(path.clone());
 
         // Find children
-        let children: Vec<String> = self.edges.iter()
+        let children: Vec<String> = self
+            .edges
+            .iter()
             .filter(|e| e.from.starts_with(&format!("{}@", current)))
             .map(|e| e.to.split('@').next().unwrap_or("").to_string())
             .filter(|name| !name.is_empty())
@@ -788,7 +872,9 @@ impl DependencyGraph {
         path.push(node.clone());
 
         // Get children
-        let children: Vec<String> = self.edges.iter()
+        let children: Vec<String> = self
+            .edges
+            .iter()
             .filter(|e| e.from.starts_with(&format!("{}@", node)))
             .map(|e| e.to.split('@').next().unwrap_or("").to_string())
             .filter(|name| !name.is_empty())
@@ -816,28 +902,45 @@ impl DependencyGraph {
         println!("\n  {}", "Transitive Dependency Analysis".bold().cyan());
 
         // Direct dependencies
-        println!("\n    {} Direct dependencies ({}):", "[DEPS]".cyan(), analysis.direct_deps.len());
+        println!(
+            "\n    {} Direct dependencies ({}):",
+            "[DEPS]".cyan(),
+            analysis.direct_deps.len()
+        );
         for (i, dep) in analysis.direct_deps.iter().enumerate() {
-            let connector = if i == analysis.direct_deps.len() - 1 { "└" } else { "├" };
+            let connector = if i == analysis.direct_deps.len() - 1 {
+                "└"
+            } else {
+                "├"
+            };
             let node = self.nodes.get(dep).unwrap();
             println!("      {} {}@{}", connector.dimmed(), dep, node.version);
         }
 
         // Transitive dependencies
-        println!("\n    {} Transitive dependencies ({}):", "[LINK]".cyan(), analysis.transitive_deps.len());
+        println!(
+            "\n    {} Transitive dependencies ({}):",
+            "[LINK]".cyan(),
+            analysis.transitive_deps.len()
+        );
         for (i, dep) in analysis.transitive_deps.iter().take(10).enumerate() {
             let connector = if i == 9 || i == analysis.transitive_deps.len() - 1 {
                 "└"
             } else {
                 "├"
             };
-            
+
             // Show why this dep is installed (first chain)
             if let Some(chains) = analysis.dependency_chains.get(dep) {
                 if let Some(chain) = chains.first() {
                     if chain.len() >= 2 {
                         let via = chain[1..].join(" → ");
-                        println!("      {} {} (via {})", connector.dimmed(), dep.dimmed(), via.dimmed());
+                        println!(
+                            "      {} {} (via {})",
+                            connector.dimmed(),
+                            dep.dimmed(),
+                            via.dimmed()
+                        );
                     } else {
                         println!("      {} {}", connector.dimmed(), dep.dimmed());
                     }
@@ -847,15 +950,21 @@ impl DependencyGraph {
             }
         }
         if analysis.transitive_deps.len() > 10 {
-            println!("      {} ... and {} more", "└".dimmed(), analysis.transitive_deps.len() - 10);
+            println!(
+                "      {} ... and {} more",
+                "└".dimmed(),
+                analysis.transitive_deps.len() - 10
+            );
         }
 
         // Dependency chains example
         if !analysis.dependency_chains.is_empty() {
             println!("\n    {} Example dependency chains:", "[CHAIN]".cyan());
-            let sample_dep = analysis.transitive_deps.first()
+            let sample_dep = analysis
+                .transitive_deps
+                .first()
                 .or_else(|| analysis.direct_deps.first());
-            
+
             if let Some(dep) = sample_dep {
                 if let Some(chains) = analysis.dependency_chains.get(dep) {
                     for (i, chain) in chains.iter().take(3).enumerate() {
@@ -869,7 +978,11 @@ impl DependencyGraph {
         if analysis.circular_deps.is_empty() {
             println!("\n    {} No circular dependencies detected", "[OK]".green());
         } else {
-            println!("\n    {} {} circular dependency chain(s) detected:", "⚠".yellow().bold(), analysis.circular_deps.len());
+            println!(
+                "\n    {} {} circular dependency chain(s) detected:",
+                "⚠".yellow().bold(),
+                analysis.circular_deps.len()
+            );
             for (i, cycle) in analysis.circular_deps.iter().enumerate() {
                 println!("      {}. {}", i + 1, cycle.join(" → ").yellow());
             }

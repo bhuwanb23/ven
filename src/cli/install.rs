@@ -1,8 +1,8 @@
+use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
+use crate::plugins::{LanguagePlugin, PluginRegistry};
 use anyhow::Result;
 use colored::Colorize;
-use dialoguer::{Select, theme::ColorfulTheme};
-use crate::plugins::{LanguagePlugin, PluginRegistry};
-use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
+use dialoguer::{theme::ColorfulTheme, Select};
 
 /// Resolve a major version like "20" to the latest 20.x.x by fetching nodejs.org release list
 fn resolve_major_version(_plugin: &dyn LanguagePlugin, major: &str) -> Result<String> {
@@ -23,7 +23,7 @@ fn resolve_major_version(_plugin: &dyn LanguagePlugin, major: &str) -> Result<St
 
     // Version not found - provide helpful suggestions
     let major_num: u32 = major.parse().unwrap_or(0);
-    
+
     if major_num > 0 && major_num < 18 {
         // Deprecated or very old version
         Err(anyhow::anyhow!(
@@ -72,21 +72,35 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
             .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))?;
         resolve_python_version_spec(version, &avail)?
     } else if version == "lts" || version == "latest" {
-        println!("{} Fetching {} release list...", "[FETCH]".cyan(), language.bold());
+        println!(
+            "{} Fetching {} release list...",
+            "[FETCH]".cyan(),
+            language.bold()
+        );
         plugin.latest_version()?
     } else if !version.contains('.') {
-        println!("{} Resolving {} {} to latest patch version...", "[RESOLVE]".cyan(), language.bold(), version.bold());
+        println!(
+            "{} Resolving {} {} to latest patch version...",
+            "[RESOLVE]".cyan(),
+            language.bold(),
+            version.bold()
+        );
         resolve_major_version(plugin, version)?
     } else {
         version.to_string()
     };
 
-    println!("{} Resolved to {} {}", "[OK]".green(), language.bold(), resolved.bold());
+    println!(
+        "{} Resolved to {} {}",
+        "[OK]".green(),
+        language.bold(),
+        resolved.bold()
+    );
     plugin.install_version(&resolved)?;
-    
+
     // Post-install validation
     validate_installation(plugin, language, &resolved)?;
-    
+
     Ok(())
 }
 
@@ -94,22 +108,22 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
 pub fn cmd_install_interactive() -> Result<()> {
     let theme = ColorfulTheme::default();
     let registry = PluginRegistry::new();
-    
+
     // Step 1: Language selection
     println!("\n{} Interactive Install Mode", "[WIZARD]".bold().cyan());
-    
+
     let languages = registry.list_languages();
     let lang_idx = Select::with_theme(&theme)
         .with_prompt("Select language")
         .items(&languages)
         .default(0)
         .interact()?;
-    
+
     let language = &languages[lang_idx];
     let plugin = registry.require(language)?;
-    
+
     println!("\n[OK] Selected: {}", language.bold());
-    
+
     // Step 2: Version selection (Python uses the same remote list UI as `ven install python`)
     let version = if *language == "python" {
         let versions = fetch_available_versions(language)?;
@@ -119,7 +133,12 @@ pub fn cmd_install_interactive() -> Result<()> {
         select_version_interactive(plugin, language)?
     };
 
-    println!("\n{} Installing {} {}...", "[DOWNLOAD]".bold().cyan(), language.bold(), version.bold());
+    println!(
+        "\n{} Installing {} {}...",
+        "[DOWNLOAD]".bold().cyan(),
+        language.bold(),
+        version.bold()
+    );
     cmd_install(language, &version)
 }
 
@@ -127,20 +146,29 @@ pub fn cmd_install_interactive() -> Result<()> {
 pub fn cmd_install_with_version_list(language: &str) -> Result<()> {
     let registry = PluginRegistry::new();
     let _plugin = registry.require(language)?;
-    
-    println!("\n{} Available {} Versions", "[PKG]".cyan().bold(), language.bold());
-    
+
+    println!(
+        "\n{} Available {} Versions",
+        "[PKG]".cyan().bold(),
+        language.bold()
+    );
+
     // Fetch available versions from nodejs.org
     let versions = fetch_available_versions(language)?;
-    
+
     // Display versions with metadata
     display_version_list(&versions, language)?;
-    
+
     // Interactive selection
     let selected_version = select_from_version_list(&versions, language)?;
-    
+
     // Install selected version
-    println!("\n{} Installing {} {}...", "[DOWNLOAD]".cyan().bold(), language.bold(), selected_version.bold());
+    println!(
+        "\n{} Installing {} {}...",
+        "[DOWNLOAD]".cyan().bold(),
+        language.bold(),
+        selected_version.bold()
+    );
     cmd_install(language, &selected_version)
 }
 
@@ -150,19 +178,22 @@ fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
         let response = reqwest::blocking::get("https://nodejs.org/dist/index.json")
             .map_err(|e| anyhow::anyhow!("Cannot reach nodejs.org: {}", e))?;
         let releases: Vec<serde_json::Value> = response.json()?;
-        
+
         let versions: Vec<String> = releases
             .iter()
             .filter_map(|r| r.get("version").and_then(|v| v.as_str()))
             .map(|v| v.trim_start_matches('v').to_string())
             .collect();
-        
+
         Ok(versions)
     } else if language == "python" {
         fetch_python_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))
     } else {
-        Err(anyhow::anyhow!("Version listing not yet supported for {}", language))
+        Err(anyhow::anyhow!(
+            "Version listing not yet supported for {}",
+            language
+        ))
     }
 }
 
@@ -172,29 +203,42 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
     let registry = PluginRegistry::new();
     let plugin = registry.require(language)?;
     let installed = plugin.list_installed().unwrap_or_default();
-    
+
     println!();
-    
+
     // Show quick options first
     println!("  {} Quick Options:", "[SPECIAL]".cyan().bold());
-    println!("    {}  - Install latest stable release", "latest".bold().green());
-    println!("    {}    - Install latest LTS version", "lts".bold().green());
+    println!(
+        "    {}  - Install latest stable release",
+        "latest".bold().green()
+    );
+    println!(
+        "    {}    - Install latest LTS version",
+        "lts".bold().green()
+    );
     println!();
-    
+
     // Show latest 10 versions
-    println!("  {} Latest Available Versions:", "[VERSIONS]".cyan().bold());
-    
+    println!(
+        "  {} Latest Available Versions:",
+        "[VERSIONS]".cyan().bold()
+    );
+
     let display_count = std::cmp::min(10, versions.len());
-    
+
     for (idx, version) in versions.iter().take(display_count).enumerate() {
         let metadata = get_version_metadata(version, language);
         let is_installed = installed.contains(&version.to_string());
-        let marker = if is_installed { "[INSTALLED]" } else { "         " };
+        let marker = if is_installed {
+            "[INSTALLED]"
+        } else {
+            "         "
+        };
         let num = format!("{:2}.", idx + 1);
-        
+
         println!("    {} {} {}  {}", num, marker, version, metadata);
     }
-    
+
     if versions.len() > 10 {
         let hint = if language == "python" {
             "3.12, 3.13, or 3"
@@ -223,31 +267,31 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
             "20".green()
         );
     }
-    
+
     Ok(())
 }
 
 /// Interactive selection from version list
 fn select_from_version_list(versions: &[String], _language: &str) -> Result<String> {
-    use dialoguer::Select;
     use dialoguer::theme::ColorfulTheme;
-    
+    use dialoguer::Select;
+
     let theme = ColorfulTheme::default();
-    
+
     // Build selection items
     let mut items: Vec<String> = Vec::new();
     let mut values: Vec<String> = Vec::new();
-    
+
     // Add special options at the top
     items.push("latest - Latest stable release".to_string());
     values.push("latest".to_string());
-    
+
     items.push("lts    - Latest LTS version (Recommended)".to_string());
     values.push("lts".to_string());
-    
+
     items.push("--- Press ENTER to select ---".to_string()); // Separator
     values.push("".to_string());
-    
+
     // Add latest 10 versions
     let display_count = std::cmp::min(10, versions.len());
     for (idx, version) in versions.iter().take(display_count).enumerate() {
@@ -255,21 +299,21 @@ fn select_from_version_list(versions: &[String], _language: &str) -> Result<Stri
         items.push(format!("{:2}. {} ({})", idx + 1, version, metadata));
         values.push(version.clone());
     }
-    
+
     // Show selection menu
     let selection = Select::with_theme(&theme)
         .with_prompt("Select version (use arrow keys)")
         .items(&items)
         .default(1) // Default to LTS option
         .interact()?;
-    
+
     let selected = &values[selection];
-    
+
     // Check if user selected separator
     if selected.is_empty() {
         return Err(anyhow::anyhow!("Please select a valid version"));
     }
-    
+
     Ok(selected.clone())
 }
 
@@ -299,18 +343,18 @@ fn get_version_metadata_short(version: &str, language: &str) -> String {
 /// Interactive version selection with metadata
 fn select_version_interactive(plugin: &dyn LanguagePlugin, language: &str) -> Result<String> {
     let theme = ColorfulTheme::default();
-    
+
     // Get installed versions
     let installed = plugin.list_installed().unwrap_or_default();
-    
+
     // Build version options with metadata
     struct VersionOption {
         value: String,
         display: String,
     }
-    
+
     let mut options: Vec<VersionOption> = Vec::new();
-    
+
     // Add installed versions first
     if !installed.is_empty() {
         for version in &installed {
@@ -320,14 +364,14 @@ fn select_version_interactive(plugin: &dyn LanguagePlugin, language: &str) -> Re
                 display: format!("{}  {}", version, info),
             });
         }
-        
+
         // Separator
         options.push(VersionOption {
             value: "".to_string(),
             display: "─── Version Aliases ───".to_string(),
         });
     }
-    
+
     // Add aliases
     options.push(VersionOption {
         value: "latest".to_string(),
@@ -349,33 +393,34 @@ fn select_version_interactive(plugin: &dyn LanguagePlugin, language: &str) -> Re
         value: "18".to_string(),
         display: "18                  Maintenance LTS".to_string(),
     });
-    
+
     // Warning if no versions installed
     if installed.is_empty() {
-        options.insert(0, VersionOption {
-            value: "".to_string(),
-            display: "⚠️  No versions installed - select an alias to install".to_string(),
-        });
+        options.insert(
+            0,
+            VersionOption {
+                value: "".to_string(),
+                display: "⚠️  No versions installed - select an alias to install".to_string(),
+            },
+        );
     }
-    
+
     // Extract display items
-    let display_items: Vec<String> = options.iter()
-        .map(|opt| opt.display.clone())
-        .collect();
-    
+    let display_items: Vec<String> = options.iter().map(|opt| opt.display.clone()).collect();
+
     let version_idx = Select::with_theme(&theme)
         .with_prompt(format!("Select {} version", language))
         .items(&display_items)
         .default(if installed.is_empty() { 2 } else { 0 })
         .interact()?;
-    
+
     let selected = &options[version_idx];
-    
+
     // Skip separator and warning
     if selected.value.is_empty() || selected.value.starts_with("⚠️") {
         return Err(anyhow::anyhow!("Please select a valid version"));
     }
-    
+
     Ok(selected.value.clone())
 }
 
@@ -405,7 +450,7 @@ fn get_version_metadata(version: &str, language: &str) -> String {
 /// Post-install validation: verify binary exists and version matches
 fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &str) -> Result<()> {
     println!("\n{} Validating installation...", "[CHECK]".cyan());
-    
+
     // Check 1: Binary exists
     let bin_path = plugin.bin_path(version)?;
     let binary_name = match language {
@@ -432,22 +477,29 @@ fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &
         }
     };
     let binary = bin_path.join(binary_name);
-    
+
     if binary.exists() {
         println!("  [OK] Binary: {}", binary.display());
     } else {
         println!("  [FAIL] Binary not found: {}", binary.display());
-        return Err(anyhow::anyhow!("Installation validation failed: binary not found"));
+        return Err(anyhow::anyhow!(
+            "Installation validation failed: binary not found"
+        ));
     }
-    
+
     // Check 2: Version check
     println!("  [OK] Version: {} {}", language.bold(), version.green());
-    
+
     // Check 3: PATH ready
     println!("  [OK] PATH: Ready to use");
-    
-    println!("\n{} {} {} installed successfully!", "[SUCCESS]".green().bold(), language.bold(), version.bold());
+
+    println!(
+        "\n{} {} {} installed successfully!",
+        "[SUCCESS]".green().bold(),
+        language.bold(),
+        version.bold()
+    );
     println!("  [TIP] Run: ven init   to create a project");
-    
+
     Ok(())
 }

@@ -92,10 +92,10 @@ pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Resul
     venv_cmd.arg(name);
 
     let try_stdlib_venv = venv_cmd
-        .status()
+        .output()
         .with_context(|| format!("Failed to run {:?}", python_executable))?;
 
-    if try_stdlib_venv.success() {
+    if try_stdlib_venv.status.success() {
         ensure_pyvenv_no_system_site(&venv)?;
         return Ok(venv);
     }
@@ -110,19 +110,19 @@ pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Resul
             "--disable-pip-version-check",
             "virtualenv",
         ])
-        .status()
+        .output()
         .with_context(|| {
             format!(
                 "Failed to run pip beside {:?} (need pip + network for virtualenv fallback)",
                 python_executable
             )
         })?;
-    if !pip_st.success() {
+    if !pip_st.status.success() {
         anyhow::bail!(
             "This Python has no stdlib `venv` (common with Windows embeddable builds), \
              and `pip install virtualenv` failed (exit {}). \
              Fix pip/network or use a full Python installer; then run:  {:?} -m venv {}",
-            pip_st,
+            pip_st.status,
             python_executable,
             name
         );
@@ -135,10 +135,14 @@ pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Resul
     vx.arg(name);
 
     let vx_st = vx
-        .status()
+        .output()
         .with_context(|| format!("Failed to run virtualenv via {:?}", python_executable))?;
-    if !vx_st.success() {
-        anyhow::bail!("`{:?} -m virtualenv {name}` exited with {}", python_executable, vx_st);
+    if !vx_st.status.success() {
+        anyhow::bail!(
+            "`{:?} -m virtualenv {name}` exited with {}",
+            python_executable,
+            vx_st.status
+        );
     }
 
     ensure_pyvenv_no_system_site(&venv)?;
@@ -156,7 +160,10 @@ fn ensure_pyvenv_no_system_site(venv_root: &Path) -> Result<()> {
     let mut out = String::new();
     let mut changed = false;
     for line in s.lines() {
-        if line.trim_start().starts_with("include-system-site-packages") {
+        if line
+            .trim_start()
+            .starts_with("include-system-site-packages")
+        {
             saw_include = true;
             if line.trim() != "include-system-site-packages = false" {
                 changed = true;
@@ -206,14 +213,10 @@ pub fn ensure_gitignore_venv(project_root: &Path) -> Result<()> {
         writeln!(
             f,
             "\n# ven (local Python env)\n{}/\n{}/",
-            PROJECT_VENV_DIR,
-            LEGACY_VENV_DIR
+            PROJECT_VENV_DIR, LEGACY_VENV_DIR
         )?;
     } else {
-        fs::write(
-            &p,
-            format!("{}/\n{}/\n", PROJECT_VENV_DIR, LEGACY_VENV_DIR),
-        )?;
+        fs::write(&p, format!("{}/\n{}/\n", PROJECT_VENV_DIR, LEGACY_VENV_DIR))?;
     }
     Ok(())
 }
