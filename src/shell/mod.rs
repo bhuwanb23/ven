@@ -136,17 +136,19 @@ function global:__ven_activate {{
     }}
 }}
 
-# Override Set-Location (cd calls this internally)
-$global:__ven_original_setlocation = $function:Set-Location
-
-function global:Set-Location {{
-    param(
-        [string]$Path = ".",
-        [string]$PassThru
-    )
+# Hook into the prompt to detect directory changes
+if (-not $global:__ven_prompt_hooked) {{
+    $global:__ven_prompt_hooked = $true
+    $global:__ven_old_prompt = ${{function:prompt}}
     
-    & $global:__ven_original_setlocation @PSBoundParameters
-    __ven_activate
+    function global:prompt {{
+        __ven_activate
+        if ($global:__ven_old_prompt) {{
+            & $global:__ven_old_prompt
+        }} else {{
+            "PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) "
+        }}
+    }}
 }}
 
 # Activate on terminal start
