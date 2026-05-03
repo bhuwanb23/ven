@@ -12,6 +12,8 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
         return Err(anyhow::anyhow!("ven.toml already exists in this directory"));
     }
 
+    print_installed_runtimes_banner()?;
+
     let theme = ColorfulTheme::default();
     let selected_language: String;
     let selected_version: String;
@@ -171,11 +173,109 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
             println!("      {} {}", pkg.bold(), ver.dimmed());
         }
     }
+
+    if selected_language == "python" {
+        use crate::core::config::resolve_python_version;
+        use crate::core::project_venv::{create_local_venv, ensure_gitignore_venv};
+        use crate::plugins::{LanguagePlugin, PythonPlugin};
+        println!(
+            "\n{} Creating local virtual environment (.venv)...",
+            "[PY]".cyan().bold()
+        );
+        #[cfg(target_os = "windows")]
+        {
+            let plugin = PythonPlugin;
+            let installed = plugin.list_installed().unwrap_or_default();
+            match resolve_python_version(&selected_version, &installed) {
+                Ok(resolved) => match plugin.bin_path(&resolved) {
+                    Ok(bin) => {
+                        let py_exe = bin.join("python.exe");
+                        if !py_exe.is_file() {
+                            println!(
+                                "  {} No python.exe at {}. Run: {}",
+                                "[!]".yellow().bold(),
+                                py_exe.display(),
+                                format!("ven install python {}", resolved).bold()
+                            );
+                        } else {
+                            match create_local_venv(&cwd, &py_exe) {
+                                Ok(venv_path) => {
+                                    ensure_gitignore_venv(&cwd)?;
+                                    println!(
+                                        "  {} `.venv` at {}",
+                                        "[OK]".green().bold(),
+                                        venv_path.display()
+                                    );
+                                }
+                                Err(e) => {
+                                    println!(
+                                        "  {} Could not create .venv: {}",
+                                        "[!]".yellow().bold(),
+                                        e
+                                    );
+                                    println!(
+                                        "    Try: {} -m venv .venv",
+                                        py_exe.display()
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => println!(
+                        "  {} Python {} path error: {}",
+                        "[!]".yellow().bold(),
+                        resolved,
+                        e
+                    ),
+                },
+                Err(_) => {
+                    println!(
+                        "  {} No installed Python matches `{}`.",
+                        "[!]".yellow().bold(),
+                        selected_version
+                    );
+                    println!(
+                        "    Run: {}  then open a new shell (or {})",
+                        format!("ven install python {}", selected_version).bold(),
+                        "ven-use".bold()
+                    );
+                }
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            use std::path::Path;
+            use std::process::Command;
+            let ok = Command::new("python3")
+                .arg("--version")
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            if ok {
+                match create_local_venv(&cwd, Path::new("python3")) {
+                    Ok(venv_path) => {
+                        ensure_gitignore_venv(&cwd)?;
+                        println!(
+                            "  {} `.venv` at {}",
+                            "[OK]".green().bold(),
+                            venv_path.display()
+                        );
+                    }
+                    Err(e) => println!("  {} {}", "[!]".yellow().bold(), e),
+                }
+            } else {
+                println!(
+                    "  {} python3 not on PATH. Create a venv with: python3 -m venv .venv",
+                    "[!]".yellow().bold()
+                );
+            }
+        }
+    }
     
     // MODE 4: Validation
     if validate {
         println!("\n{} Running validation...", "🔍".bold().cyan());
-        run_validation(&selected_language, &selected_version, &selected_packages)?;
+        run_validation(&selected_language, &selected_version, &selected_packages, &cwd)?;
     } else {
         println!("\nEdit this file to customize your dependencies.");
         println!("Run: ven install {} {}   to install this version", 
@@ -186,6 +286,38 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
         );
     }
 
+    Ok(())
+}
+
+/// Show Node and Python versions already installed under ven before choosing a project runtime.
+fn print_installed_runtimes_banner() -> Result<()> {
+    use crate::plugins::PluginRegistry;
+
+    let registry = PluginRegistry::new();
+    println!(
+        "\n{} Installed runtimes (ven-managed):",
+        "[INSTALLED]".cyan().bold()
+    );
+    for lang in registry.list_languages() {
+        let plugin = registry.require(lang)?;
+        let versions = plugin.list_installed().unwrap_or_default();
+        if versions.is_empty() {
+            println!(
+                "  {} {} — {}",
+                "•".dimmed(),
+                lang.bold(),
+                "(none)".dimmed()
+            );
+        } else {
+            println!(
+                "  {} {} — {}",
+                "•".dimmed(),
+                lang.bold(),
+                versions.join(", ").cyan()
+            );
+        }
+    }
+    println!();
     Ok(())
 }
 
@@ -311,7 +443,12 @@ fn select_python_version() -> Result<String> {
 }
 
 /// Health check & validation system
-fn run_validation(language: &str, version: &str, packages: &[(String, String)]) -> Result<()> {
+fn run_validation(
+    language: &str,
+    version: &str,
+    packages: &[(String, String)],
+    project_dir: &std::path::Path,
+) -> Result<()> {
     use crate::plugins::{NodePlugin, LanguagePlugin};
     
     let mut all_checks_passed = true;
@@ -332,6 +469,21 @@ fn run_validation(language: &str, version: &str, packages: &[(String, String)]) 
         } else {
             println!("  {} Node.js {} not installed yet", "✗".red(), version);
             println!("    {} Run: ven install node {}", "💡".yellow(), version);
+            all_checks_passed = false;
+        }
+    }
+
+    if language == "python" {
+        use crate::core::project_venv::local_venv_bin_dir;
+        if local_venv_bin_dir(project_dir).is_some() {
+            println!("  {} `.venv` is present", "✓".green());
+        } else {
+            println!("  {} `.venv` not found", "✗".red());
+            println!(
+                "    {} Run: ven install python {}  (Windows) or python3 -m venv .venv",
+                "💡".yellow(),
+                version
+            );
             all_checks_passed = false;
         }
     }

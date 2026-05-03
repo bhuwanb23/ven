@@ -6,41 +6,94 @@ use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version, resolve_p
 
 // ── ven list [language] ───────────────────────────────────────────────
 pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()> {
-    let lang = language.unwrap_or("node");
     let registry = PluginRegistry::new();
+    match language {
+        Some(lang) => list_single_language(&registry, lang, verbose, json),
+        None => list_all_languages(&registry, verbose, json),
+    }
+}
+
+fn list_single_language(
+    registry: &PluginRegistry,
+    lang: &str,
+    verbose: bool,
+    json: bool,
+) -> Result<()> {
     let plugin = registry.require(lang)?;
-    
-    // Get installed versions
     let versions = plugin.list_installed()?;
 
     if versions.is_empty() {
         if json {
-            // Output empty JSON array
-            println!("[]");
+            let output = build_list_output(lang, &versions, &None, verbose)?;
+            println!("{}", serde_json::to_string_pretty(&output)?);
         } else {
-            println!("{} No {} versions installed. Run: ven install {} latest", 
-                "[WARN]".yellow(), 
-                lang.bold(), 
+            println!(
+                "{} No {} versions installed. Run: ven install {} latest",
+                "[WARN]".yellow(),
+                lang.bold(),
                 lang.bold()
             );
         }
         return Ok(());
     }
 
-    // Detect active version from ven.toml
     let active_version = detect_active_version(lang)?;
 
     if json {
-        // JSON output mode
-        output_json(lang, &versions, &active_version, verbose)?;
+        let output = build_list_output(lang, &versions, &active_version, verbose)?;
+        println!("{}", serde_json::to_string_pretty(&output)?);
     } else if verbose {
-        // Verbose mode with disk size and dates
         display_verbose_mode(lang, &versions, &active_version)?;
     } else {
-        // Normal mode with metadata
         display_versions_with_metadata(lang, &versions, &active_version)?;
     }
-    
+
+    Ok(())
+}
+
+fn list_all_languages(registry: &PluginRegistry, verbose: bool, json: bool) -> Result<()> {
+    let langs = registry.list_languages();
+    if json {
+        let mut map = serde_json::Map::new();
+        for lang in &langs {
+            let plugin = registry.require(lang)?;
+            let versions = plugin.list_installed().unwrap_or_default();
+            let active_version = detect_active_version(lang)?;
+            let output = build_list_output(lang, &versions, &active_version, verbose)?;
+            map.insert((*lang).to_string(), serde_json::to_value(&output)?);
+        }
+        println!("{}", serde_json::to_string_pretty(&serde_json::Value::Object(map))?);
+        return Ok(());
+    }
+
+    let n = langs.len();
+    for (i, lang) in langs.iter().enumerate() {
+        let plugin = registry.require(lang)?;
+        let versions = plugin.list_installed().unwrap_or_default();
+        let active_version = detect_active_version(lang)?;
+
+        if versions.is_empty() {
+            println!(
+                "\n  {} {}",
+                lang.bold().cyan(),
+                "(no versions installed)".dimmed()
+            );
+            println!(
+                "    {} {}",
+                "→".dimmed(),
+                format!("ven install {} latest", lang).dimmed()
+            );
+        } else if verbose {
+            display_verbose_mode(lang, &versions, &active_version)?;
+        } else {
+            display_versions_with_metadata(lang, &versions, &active_version)?;
+        }
+
+        if i + 1 < n {
+            println!();
+        }
+    }
+
     Ok(())
 }
 
@@ -82,11 +135,15 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
     }
 }
 
-/// Get version status based on major version number
-fn get_version_status(version: &str) -> (&'static str, &'static str) {
+/// Release-line hint for list output (Node majors vs Python minors).
+fn get_version_status(language: &str, version: &str) -> (&'static str, &'static str) {
+    if language == "python" {
+        return get_python_version_status(version);
+    }
+
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
-    
+
     match major_num {
         0..=14 => ("DEPRECATED", "End-of-life"),
         15..=16 => ("DEPRECATED", "Maintenance ended"),
@@ -96,6 +153,22 @@ fn get_version_status(version: &str) -> (&'static str, &'static str) {
         22 => ("CURRENT", "Active development"),
         23..=99 => ("CURRENT", "Latest stable"),
         _ => ("UNKNOWN", "Unknown status"),
+    }
+}
+
+fn get_python_version_status(version: &str) -> (&'static str, &'static str) {
+    let minor = version
+        .split('.')
+        .nth(1)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+    match minor {
+        0..=7 => ("EOL", "End of life"),
+        8 | 9 => ("SECURITY", "Security fixes only"),
+        10 => ("MAINT", "Bugfix / security"),
+        11 | 12 => ("STABLE", "Active bugfix line"),
+        13..=99 => ("CURRENT", "Newer 3.x line"),
+        _ => ("PYTHON", "Python"),
     }
 }
 
@@ -111,7 +184,7 @@ fn display_versions_with_metadata(
     println!();
     
     for version in versions {
-        let (status, description) = get_version_status(version);
+        let (status, description) = get_version_status(language, version);
         
         // Determine marker
         let is_active = active_version.as_ref() == Some(version);
@@ -155,18 +228,24 @@ fn display_versions_with_metadata(
         println!("  {} Currently active: {}", "[ACTIVE]".green().bold(), active.bold());
     }
     
-    // Check for deprecated versions
-    let deprecated_count = versions.iter()
-        .filter(|v| get_version_status(v).0 == "DEPRECATED")
+    let old_count = versions
+        .iter()
+        .filter(|v| {
+            matches!(
+                get_version_status(language, v).0,
+                "DEPRECATED" | "EOL"
+            )
+        })
         .count();
-    
-    if deprecated_count > 0 {
-        println!("  {} {} deprecated version(s) - consider removing to free space", 
-            "[TIP]".yellow(), 
-            deprecated_count
+
+    if old_count > 0 {
+        println!(
+            "  {} {} old / end-of-life version(s) — consider upgrading or removing",
+            "[TIP]".yellow(),
+            old_count
         );
     }
-    
+
     println!();
     Ok(())
 }
@@ -251,7 +330,7 @@ fn display_verbose_mode(
     println!();
     
     for version in versions {
-        let (status, _description) = get_version_status(version);
+        let (status, _description) = get_version_status(language, version);
         let version_path = get_version_path(language, version)?;
         
         // Calculate size
@@ -306,18 +385,24 @@ fn display_verbose_mode(
     }
     println!("  {} Total disk space: {}", "[DISK]".cyan().bold(), format_bytes(total_size).bold());
     
-    // Check for deprecated versions
-    let deprecated_count = versions.iter()
-        .filter(|v| get_version_status(v).0 == "DEPRECATED")
+    let old_count = versions
+        .iter()
+        .filter(|v| {
+            matches!(
+                get_version_status(language, v).0,
+                "DEPRECATED" | "EOL"
+            )
+        })
         .count();
-    
-    if deprecated_count > 0 {
-        println!("  {} {} deprecated version(s) - consider removing to free space", 
-            "[TIP]".yellow(), 
-            deprecated_count
+
+    if old_count > 0 {
+        println!(
+            "  {} {} old / end-of-life version(s) — consider upgrading or removing",
+            "[TIP]".yellow(),
+            old_count
         );
     }
-    
+
     println!();
     Ok(())
 }
@@ -347,20 +432,20 @@ struct ListOutput {
     versions: Vec<VersionInfo>,
 }
 
-/// JSON output mode for scripting
-fn output_json(
+/// Build JSON-serializable list payload (single language).
+fn build_list_output(
     language: &str,
     versions: &[String],
     active_version: &Option<String>,
     verbose: bool,
-) -> Result<()> {
+) -> Result<ListOutput> {
     let mut version_infos = Vec::new();
     let mut total_size: u64 = 0;
-    
+
     for version in versions {
-        let (status, description) = get_version_status(version);
+        let (status, description) = get_version_status(language, version);
         let is_active = active_version.as_ref() == Some(version);
-        
+
         let mut info = VersionInfo {
             version: version.clone(),
             status: status.to_string(),
@@ -370,31 +455,26 @@ fn output_json(
             size_human: None,
             installed_date: None,
         };
-        
+
         if verbose {
             let version_path = get_version_path(language, version)?;
             let size = calculate_dir_size(&version_path).unwrap_or(0);
             total_size += size;
-            
+
             info.size_bytes = Some(size);
             info.size_human = Some(format_bytes(size));
             info.installed_date = Some(get_installation_date(&version_path));
         }
-        
+
         version_infos.push(info);
     }
-    
-    let output = ListOutput {
+
+    Ok(ListOutput {
         language: language.to_string(),
         count: versions.len(),
         active_version: active_version.clone(),
         total_size_bytes: if verbose { Some(total_size) } else { None },
         total_size_human: if verbose { Some(format_bytes(total_size)) } else { None },
         versions: version_infos,
-    };
-    
-    let json_string = serde_json::to_string_pretty(&output)?;
-    println!("{}", json_string);
-    
-    Ok(())
+    })
 }

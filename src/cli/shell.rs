@@ -186,6 +186,7 @@ pub fn cmd_shell_deactivate() -> Result<()> {
 Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_PYTHON_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
+Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue
 
 "#
     );
@@ -195,6 +196,7 @@ Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
 unset VEN_NODE_VERSION 2>/dev/null || true
 unset VEN_PYTHON_VERSION 2>/dev/null || true
 unset VEN_TOML 2>/dev/null || true
+unset VIRTUAL_ENV 2>/dev/null || true
 
 "#
     );

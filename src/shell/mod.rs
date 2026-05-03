@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::path::Path;
 
 use crate::core::{
-    find_ven_toml, parse_ven_toml, resolve_node_version, resolve_python_version,
+    find_ven_toml, parse_ven_toml, project_venv, resolve_node_version, resolve_python_version,
 };
 use crate::plugins::{LanguagePlugin, NodePlugin, PythonPlugin};
 
@@ -99,7 +99,9 @@ __ven_activate() {{
     else
         export PATH="$__VEN_ORIGINAL_PATH"
         unset VEN_NODE_VERSION 2>/dev/null
+        unset VEN_PYTHON_VERSION 2>/dev/null
         unset VEN_TOML 2>/dev/null
+        unset VIRTUAL_ENV 2>/dev/null
     fi
 }}
 
@@ -156,7 +158,9 @@ function __ven_on_prompt --on-event fish_prompt
     else
         set -gx PATH $__VEN_ORIGINAL_PATH
         set -e VEN_NODE_VERSION 2>/dev/null
+        set -e VEN_PYTHON_VERSION 2>/dev/null
         set -e VEN_TOML 2>/dev/null
+        set -e VIRTUAL_ENV 2>/dev/null
     end
 end
 "#
@@ -229,7 +233,9 @@ function global:__ven_activate {{
         }} elseif ($exit -ne 0) {{
             $env:PATH = $global:VEN_ORIGINAL_PATH
             if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
+            if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
+            if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             $key = "$current_dir|$exit"
             if ($global:VEN_LAST_ACTIVATE_WARN -ne $key) {{
                 Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install the required Node version or fix ven.toml. Try: ven shell activate `"$current_dir`""
@@ -238,10 +244,16 @@ function global:__ven_activate {{
         }} else {{
             $env:PATH = $global:VEN_ORIGINAL_PATH
             if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
+            if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
+            if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
         }}
     }} catch {{
         $env:PATH = $global:VEN_ORIGINAL_PATH
+        if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
+        if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
+        if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
+        if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
     }}
 }}
 
@@ -315,6 +327,20 @@ pub enum ComputeExportsOutcome {
     },
 }
 
+fn path_for_env_value(p: &Path) -> String {
+    let s = p.display().to_string();
+    if cfg!(target_os = "windows") {
+        let s = if s.starts_with("\\\\?\\") {
+            s[4..].to_string()
+        } else {
+            s
+        };
+        s.replace('/', "\\")
+    } else {
+        s.replace('\\', "/")
+    }
+}
+
 pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let absolute_dir = if dir.is_absolute() {
         dir.to_path_buf()
@@ -358,10 +384,69 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         anyhow::bail!("ven.toml [runtime]: set `node` and/or `python`");
     }
 
+    let project_root = toml_canonical
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("ven.toml path has no parent directory"))?;
+
     let mut prepend_dirs: Vec<std::path::PathBuf> = Vec::new();
     let mut node_resolved: Option<String> = None;
     let mut node_bin_for_path: Option<std::path::PathBuf> = None;
     let mut python_resolved: Option<String> = None;
+    let mut virtual_env_root: Option<std::path::PathBuf> = None;
+
+    if !python_spec.is_empty() {
+        if let Some(venv_bin) = project_venv::local_venv_bin_dir(project_root) {
+            prepend_dirs.push(venv_bin);
+            let venv_dir = project_root.join(".venv");
+            virtual_env_root = Some(venv_dir.clone());
+            python_resolved = Some(
+                project_venv::local_venv_python_version(&venv_dir)
+                    .or_else(|| {
+                        let installed = PythonPlugin.list_installed().unwrap_or_default();
+                        resolve_python_version(python_spec, &installed).ok()
+                    })
+                    .unwrap_or_else(|| python_spec.to_string()),
+            );
+        } else {
+            #[cfg(target_os = "windows")]
+            {
+                let plugin = PythonPlugin;
+                let installed = plugin.list_installed().unwrap_or_default();
+                let resolved = match resolve_python_version(python_spec, &installed) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return Ok(ComputeExportsOutcome::MissingToolchain {
+                            language: "python".into(),
+                            install_with: python_spec.to_string(),
+                        });
+                    }
+                };
+                let bin = match plugin.bin_path(&resolved) {
+                    Ok(p) => p,
+                    Err(_) => {
+                        return Ok(ComputeExportsOutcome::MissingToolchain {
+                            language: "python".into(),
+                            install_with: resolved.clone(),
+                        });
+                    }
+                };
+                prepend_dirs.push(bin);
+                python_resolved = Some(resolved);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                if node_spec.is_empty() {
+                    anyhow::bail!(
+                        "ven.toml sets `runtime.python` but there is no `.venv` under {}.\n\
+                         Create it with:  python3 -m venv .venv\n\
+                         On Windows, `ven init` for a Python project creates `.venv` when your ven Python is installed.",
+                        project_root.display()
+                    );
+                }
+                // Node still activates; Python takes effect once `.venv` exists.
+            }
+        }
+    }
 
     if !node_spec.is_empty() {
         let plugin = NodePlugin;
@@ -387,40 +472,6 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         node_bin_for_path = Some(bin.clone());
         prepend_dirs.push(bin);
         node_resolved = Some(resolved);
-    }
-
-    if !python_spec.is_empty() {
-        #[cfg(not(target_os = "windows"))]
-        {
-            anyhow::bail!(
-                "ven.toml sets `runtime.python`; Python PATH activation is only implemented on Windows in this release."
-            );
-        }
-        #[cfg(target_os = "windows")]
-        {
-            let plugin = PythonPlugin;
-            let installed = plugin.list_installed().unwrap_or_default();
-            let resolved = match resolve_python_version(python_spec, &installed) {
-                Ok(v) => v,
-                Err(_) => {
-                    return Ok(ComputeExportsOutcome::MissingToolchain {
-                        language: "python".into(),
-                        install_with: python_spec.to_string(),
-                    });
-                }
-            };
-            let bin = match plugin.bin_path(&resolved) {
-                Ok(p) => p,
-                Err(_) => {
-                    return Ok(ComputeExportsOutcome::MissingToolchain {
-                        language: "python".into(),
-                        install_with: resolved.clone(),
-                    });
-                }
-            };
-            prepend_dirs.push(bin);
-            python_resolved = Some(resolved);
-        }
     }
 
     let toml_normalized = if cfg!(target_os = "windows") {
@@ -450,6 +501,12 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         if let Some(ref v) = python_resolved {
             out.push_str(&format!("$env:VEN_PYTHON_VERSION = \"{}\"\n", v));
         }
+        if let Some(ref vr) = virtual_env_root {
+            out.push_str(&format!(
+                "$env:VIRTUAL_ENV = \"{}\"\n",
+                path_for_env_value(vr)
+            ));
+        }
         out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", toml_normalized));
         for (key, val) in &config.env {
             out.push_str(&format!("$env:{} = \"{}\"\n", key, val));
@@ -465,6 +522,12 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         }
         if let Some(ref v) = python_resolved {
             out.push_str(&format!("export VEN_PYTHON_VERSION=\"{}\"\n", v));
+        }
+        if let Some(ref vr) = virtual_env_root {
+            out.push_str(&format!(
+                "export VIRTUAL_ENV=\"{}\"\n",
+                path_for_env_value(vr)
+            ));
         }
         out.push_str(&format!("export VEN_TOML=\"{}\"\n", toml_normalized));
         for (key, val) in &config.env {

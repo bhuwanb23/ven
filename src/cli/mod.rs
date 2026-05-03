@@ -22,7 +22,7 @@ pub mod upgrade;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js 20.x (Python: not yet enabled)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite          # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7  # Windows: embeddable Python\n  ven list                     # All installed runtimes (node, python, …)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -50,19 +50,20 @@ pub enum Commands {
         version: Option<String>,
     },
 
-    /// List installed Node.js versions
+    /// List installed language runtimes (Node.js, Python, …)
     ///
-    /// Shows all Node.js versions installed on your system.
-    /// Optionally filter by language and show detailed information.
+    /// With no language argument, shows every registered language. Use a name
+    /// to filter (e.g. `node`, `python`).
     ///
     /// Examples:
-    ///   ven list                   # List all installed versions
-    ///   ven list node              # List Node.js versions
-    ///   ven list --verbose         # Show disk usage and install date
-    ///   ven list --json            # JSON output for scripting
-    #[command(long_about = "List installed Node.js versions\n\nShows all Node.js versions installed on your system with optional\ndetails like disk usage and installation date.\n\nExamples:\n  ven list                   # List all installed versions\n  ven list node              # List Node.js versions\n  ven list --verbose         # Show disk usage and install date\n  ven list --json            # JSON output for scripting")]
+    ///   ven list                   # All languages installed under ven
+    ///   ven list node              # Node.js only
+    ///   ven list python            # Python only
+    ///   ven list --verbose         # Disk usage and install date
+    ///   ven list --json            # JSON (object keyed by language if listing all)
+    #[command(long_about = "List installed runtimes managed by ven\n\nWithout a language, prints Node, Python, and any other registered languages.\nPass a language name to restrict output.\n\nExamples:\n  ven list\n  ven list node\n  ven list python\n  ven list --verbose\n  ven list --json")]
     List {
-        /// Language to list (default: shows all)
+        /// Language to list (omit to show all languages)
         language: Option<String>,
         
         /// Show detailed info (installation date, disk size)

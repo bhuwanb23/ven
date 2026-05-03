@@ -2,6 +2,7 @@ pub mod config;
 pub mod packages;
 pub mod download;
 pub mod python_install;
+pub mod project_venv;
 pub mod extract;
 pub mod npm_registry;
 pub mod resolver;
