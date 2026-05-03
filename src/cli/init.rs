@@ -176,11 +176,14 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
 
     if selected_language == "python" {
         use crate::core::config::resolve_python_version;
-        use crate::core::project_venv::{create_local_venv, ensure_gitignore_venv};
+        use crate::core::project_venv::{
+            create_local_venv, ensure_gitignore_venv, PROJECT_VENV_DIR,
+        };
         use crate::plugins::{LanguagePlugin, PythonPlugin};
         println!(
-            "\n{} Creating local virtual environment (.venv)...",
-            "[PY]".cyan().bold()
+            "\n{} Creating local virtual environment ({}/)...",
+            "[PY]".cyan().bold(),
+            PROJECT_VENV_DIR
         );
         #[cfg(target_os = "windows")]
         {
@@ -202,21 +205,24 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                                 Ok(venv_path) => {
                                     ensure_gitignore_venv(&cwd)?;
                                     println!(
-                                        "  {} `.venv` at {}",
+                                        "  {} `{}/` at {}",
                                         "[OK]".green().bold(),
+                                        PROJECT_VENV_DIR,
                                         venv_path.display()
                                     );
                                     print_python_venv_usage_hints();
                                 }
                                 Err(e) => {
                                     println!(
-                                        "  {} Could not create .venv: {}",
+                                        "  {} Could not create `{}`: {}",
                                         "[!]".yellow().bold(),
+                                        PROJECT_VENV_DIR,
                                         e
                                     );
                                     println!(
-                                        "    Try: {} -m venv .venv  (or ven will use virtualenv if venv is missing)",
-                                        py_exe.display()
+                                        "    Try: {} -m venv {}  (or ven installs virtualenv if stdlib venv is missing)",
+                                        py_exe.display(),
+                                        PROJECT_VENV_DIR
                                     );
                                 }
                             }
@@ -257,8 +263,9 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                     Ok(venv_path) => {
                         ensure_gitignore_venv(&cwd)?;
                         println!(
-                            "  {} `.venv` at {}",
+                            "  {} `{}/` at {}",
                             "[OK]".green().bold(),
+                            PROJECT_VENV_DIR,
                             venv_path.display()
                         );
                         print_python_venv_usage_hints();
@@ -267,8 +274,9 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                 }
             } else {
                 println!(
-                    "  {} python3 not on PATH. Create a venv with: python3 -m venv .venv",
-                    "[!]".yellow().bold()
+                    "  {} python3 not on PATH. Create a venv with: python3 -m venv {}",
+                    "[!]".yellow().bold(),
+                    PROJECT_VENV_DIR
                 );
             }
         }
@@ -297,45 +305,45 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
 
 #[cfg(target_os = "windows")]
 fn print_python_venv_usage_hints() {
+    use crate::core::project_venv::PROJECT_VENV_DIR;
     println!(
-        "  {} Project venv folder is {}",
+        "  {} Project env folder is `{}/` (same as most tutorials; legacy `./.venv` is still detected).",
         "[PY]".cyan().bold(),
-        ".venv".bold()
+        PROJECT_VENV_DIR
     );
     println!(
         "      PowerShell:  {}",
-        r"& .\.venv\Scripts\Activate.ps1".dimmed()
+        format!("& .\\{}\\Scripts\\Activate.ps1", PROJECT_VENV_DIR).dimmed()
     );
     println!(
         "      cmd.exe:     {}",
-        ".venv\\Scripts\\activate.bat".dimmed()
+        format!("{}\\Scripts\\activate.bat", PROJECT_VENV_DIR).dimmed()
     );
     println!(
-        "      Or skip activate: {} in this repo (prepends `.venv\\Scripts`).",
-        "ven-use".bold()
-    );
-    println!(
-        "      {}",
-        "Note: paths use `.venv` (with a dot) and `Scripts` — not `venv` or `scripts`."
-            .dimmed()
+        "      Or rely on `{}` here (prepends `{}/Scripts` to PATH).",
+        "ven-use".bold(),
+        PROJECT_VENV_DIR
     );
     println!(
         "      {}",
-        "If you use both `deactivate` and ven shell hooks, the next prompt may put `.venv` back on PATH while you stay in this directory."
+        "Why `pip` looks unchanged: after `Deactivate`, hooks may restore this env on the next prompt. \
+         Run `ven deactivate` (and apply with iex/eval): sets VEN_SKIP_PROJECT_VENV so the project env is NOT prepended until you `ven-use` again."
             .dimmed()
     );
 }
 
 #[cfg(not(target_os = "windows"))]
 fn print_python_venv_usage_hints() {
+    use crate::core::project_venv::PROJECT_VENV_DIR;
     println!(
         "  {} Activate:  {}",
         "[PY]".cyan().bold(),
-        "source .venv/bin/activate".dimmed()
+        format!("source {}/bin/activate", PROJECT_VENV_DIR).dimmed()
     );
     println!(
-        "      Or: {} in this repo.",
-        "ven-use".bold()
+        "      Or: `{}` in this repo. After `ven deactivate`, run `ven-use` again to prepend `{}/`.",
+        "ven-use".bold(),
+        PROJECT_VENV_DIR
     );
 }
 
@@ -521,15 +529,24 @@ fn run_validation(
     }
 
     if language == "python" {
-        use crate::core::project_venv::local_venv_bin_dir;
+        use crate::core::project_venv::{local_venv_bin_dir, PROJECT_VENV_DIR};
         if local_venv_bin_dir(project_dir).is_some() {
-            println!("  {} `.venv` is present", "✓".green());
-        } else {
-            println!("  {} `.venv` not found", "✗".red());
             println!(
-                "    {} Run: ven install python {}  (Windows) or python3 -m venv .venv",
+                "  {} `{}/` (or legacy `.venv`) is present",
+                "✓".green(),
+                PROJECT_VENV_DIR
+            );
+        } else {
+            println!(
+                "  {} `{}/` not found",
+                "✗".red(),
+                PROJECT_VENV_DIR
+            );
+            println!(
+                "    {} Run: ven install python {}  (Windows) or python3 -m venv {}",
                 "💡".yellow(),
-                version
+                version,
+                PROJECT_VENV_DIR
             );
             all_checks_passed = false;
         }

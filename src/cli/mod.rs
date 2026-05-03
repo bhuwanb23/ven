@@ -98,7 +98,7 @@ pub enum Commands {
     /// Print commands to revert ven's PATH overlay in this terminal (same session as hooks).
     #[command(
         visible_alias = "d",
-        long_about = "Print shell code to undo ven's PATH/environment overlay.\n\nRequires the shell hook globals (e.g. VEN_ORIGINAL_PATH). Evaluate in-process:\n\n  PowerShell:  iex ((ven deactivate) -join \"`n\")\n  bash/zsh:    eval \"$(ven deactivate)\"\n\nExamples:\n  ven deactivate"
+        long_about = "Print shell code to undo ven's PATH/environment overlay and pause auto-prepending of the project \"venv/\" (sets VEN_SKIP_PROJECT_VENV=1). Run \"ven-use\" to resume putting the env on PATH.\n\nRequires the shell hook globals (e.g. VEN_ORIGINAL_PATH). Evaluate in-process:\n\n  PowerShell:  iex ((ven deactivate) -join \"`n\")\n  bash/zsh:    eval \"$(ven deactivate)\"\n\nExamples:\n  ven deactivate"
     )]
     Deactivate,
 

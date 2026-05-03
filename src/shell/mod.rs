@@ -75,6 +75,7 @@ __ven_toml_sig() {{
 }}
 
 ven-use() {{
+    unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
     local d="${{1:-$PWD}}"
     local script
     script=$("$__VEN_BIN" shell activate "$d" 2>/dev/null) || true
@@ -85,6 +86,9 @@ __ven_activate() {{
     local current_dir="$PWD"
     local sig
     sig=$(__ven_toml_sig "$current_dir")
+    if [ -n "$__VEN_LAST_DIR" ] && [ "$current_dir" != "$__VEN_LAST_DIR" ]; then
+        unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
+    fi
     if [ "$__VEN_LAST_DIR" = "$current_dir" ] && [ "$__VEN_LAST_TOML_SIG" = "$sig" ]; then
         return
     fi
@@ -102,6 +106,7 @@ __ven_activate() {{
         unset VEN_PYTHON_VERSION 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
+        unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
     fi
 }}
 
@@ -136,6 +141,7 @@ function __ven_fish_toml_sig --argument-names start
 end
 
 function ven-use
+    set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
     set -l d $argv[1]
     if test -z "$d"
         set d $PWD
@@ -147,6 +153,12 @@ function ven-use
 end
 
 function __ven_on_prompt --on-event fish_prompt
+    if set -q __ven_prev_pwd_ven_hook
+        if test "$PWD" != "$__ven_prev_pwd_ven_hook"
+            set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
+        end
+    end
+    set -g __ven_prev_pwd_ven_hook $PWD
     set -l sig (__ven_fish_toml_sig $PWD)
     if test "$sig" = "$__VEN_LAST_SIG"
         return
@@ -161,6 +173,7 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_PYTHON_VERSION 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
+        set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
     end
 end
 "#
@@ -207,6 +220,7 @@ if (-not $global:__ven_use_defined) {{
     $global:__ven_use_defined = $true
     function global:ven-use {{
         param([string]$Directory = $PWD.Path)
+        if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
         $lines = & $global:VEN_BIN shell activate $Directory 2>$null
         $script = if ($null -eq $lines) {{ '' }} else {{ [string]::Join([Environment]::NewLine, @($lines)) }}
         if ($script) {{ Invoke-Expression $script }}
@@ -216,6 +230,10 @@ if (-not $global:__ven_use_defined) {{
 function global:__ven_activate {{
     $current_dir = $PWD.Path
     $sig = __ven_toml_sig $current_dir
+
+    if ($null -ne $global:VEN_LAST_DIR -and $current_dir -ne $global:VEN_LAST_DIR) {{
+        if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
+    }}
 
     if ($global:VEN_LAST_DIR -eq $current_dir -and $global:VEN_LAST_TOML_SIG -eq $sig) {{ return }}
     $global:VEN_LAST_DIR = $current_dir
@@ -247,6 +265,7 @@ function global:__ven_activate {{
             if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
+            if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
         }}
     }} catch {{
         $env:PATH = $global:VEN_ORIGINAL_PATH
@@ -395,19 +414,32 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let mut virtual_env_root: Option<std::path::PathBuf> = None;
 
     if !python_spec.is_empty() {
-        if let Some(venv_bin) = project_venv::local_venv_bin_dir(project_root) {
-            prepend_dirs.push(venv_bin);
-            let venv_dir = project_root.join(".venv");
-            virtual_env_root = Some(venv_dir.clone());
-            python_resolved = Some(
-                project_venv::local_venv_python_version(&venv_dir)
-                    .or_else(|| {
-                        let installed = PythonPlugin.list_installed().unwrap_or_default();
-                        resolve_python_version(python_spec, &installed).ok()
-                    })
-                    .unwrap_or_else(|| python_spec.to_string()),
-            );
-        } else {
+        let skip_project_venv = matches!(
+            std::env::var("VEN_SKIP_PROJECT_VENV").as_deref(),
+            Ok("1"),
+        );
+
+        let mut used_project_venv = false;
+
+        if !skip_project_venv {
+            if let Some(venv_bin) = project_venv::local_venv_bin_dir(project_root) {
+                if let Some(venv_dir) = project_venv::local_venv_root(project_root) {
+                    prepend_dirs.push(venv_bin);
+                    virtual_env_root = Some(venv_dir.clone());
+                    python_resolved = Some(
+                        project_venv::local_venv_python_version(&venv_dir)
+                            .or_else(|| {
+                                let installed = PythonPlugin.list_installed().unwrap_or_default();
+                                resolve_python_version(python_spec, &installed).ok()
+                            })
+                            .unwrap_or_else(|| python_spec.to_string()),
+                    );
+                    used_project_venv = true;
+                }
+            }
+        }
+
+        if !used_project_venv {
             #[cfg(target_os = "windows")]
             {
                 let plugin = PythonPlugin;
@@ -436,14 +468,22 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
             #[cfg(not(target_os = "windows"))]
             {
                 if node_spec.is_empty() {
+                    if skip_project_venv && project_venv::local_venv_root(project_root).is_some() {
+                        anyhow::bail!(
+                            "`VEN_SKIP_PROJECT_VENV` is set to 1 (from `ven deactivate`), \
+                             so ven is not putting the project `venv` first on PATH.\n\
+                             To use `./venv`: remove it (`unset VEN_SKIP_PROJECT_VENV`), run `ven-use`, \
+                             or `source ./venv/bin/activate`."
+                        );
+                    }
                     anyhow::bail!(
-                        "ven.toml sets `runtime.python` but there is no `.venv` under {}.\n\
-                         Create it with:  python3 -m venv .venv\n\
-                         On Windows, `ven init` for a Python project creates `.venv` when your ven Python is installed.",
+                        "ven.toml sets `runtime.python` but there is no `venv/` (or legacy `.venv`) under {}.\n\
+                         Create it with:  python3 -m venv venv\n\
+                         On Windows, `ven init` for a Python project creates `venv/` when your ven Python is installed.",
                         project_root.display()
                     );
                 }
-                // Node still activates; Python takes effect once `.venv` exists.
+                // Node still activates; Python takes effect once `./venv` exists (unless skipping).
             }
         }
     }
