@@ -16,10 +16,11 @@ pub struct VenConfig {
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Default)]
 pub struct RuntimeConfig {
-    // Optional so ven.toml can exist without a node field
-    // (useful when ven.toml only declares packages, or future languages)
     #[serde(default)]
     pub node: String,
+    /// Python interpreter version (Windows embeddable install under ~/.ven/python)
+    #[serde(default)]
+    pub python: String,
 }
 
 /// Walks up the directory tree to find the nearest `ven.toml` file.
@@ -103,6 +104,37 @@ pub fn resolve_node_version(spec: &str, installed: &[String]) -> Result<String> 
                 .ok_or_else(|| anyhow::anyhow!("No Node {} versions installed.", major))
         }
         _ => Ok(spec.to_string()), // already exact: "20.11.0"
+    }
+}
+
+/// Resolve ven.toml `runtime.python` against versions installed under ~/.ven/python
+pub fn resolve_python_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim();
+    match spec {
+        "latest" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No Python versions installed. Run: ven install python latest")),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Python {}.x.y installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Python {}.z installed.", spec))
+        }
+        _ => Ok(spec.to_string()),
     }
 }
 

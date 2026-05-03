@@ -1,7 +1,8 @@
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Select, theme::ColorfulTheme};
-use crate::plugins::{PluginRegistry, LanguagePlugin};
+use crate::plugins::{LanguagePlugin, PluginRegistry};
+use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
 
 /// Resolve a major version like "20" to the latest 20.x.x by fetching nodejs.org release list
 fn resolve_major_version(_plugin: &dyn LanguagePlugin, major: &str) -> Result<String> {
@@ -65,11 +66,15 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
     // "latest" → latest stable e.g. "22.3.0"
     // "20" → highest 20.x available on nodejs.org e.g. "20.11.0"
     // "20.11.0" → exact, pass through
-    let resolved = if version == "lts" || version == "latest" {
+    let resolved = if language == "python" {
+        println!("{} Resolving Python from python.org...", "[FETCH]".cyan());
+        let avail = fetch_python_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))?;
+        resolve_python_version_spec(version, &avail)?
+    } else if version == "lts" || version == "latest" {
         println!("{} Fetching {} release list...", "[FETCH]".cyan(), language.bold());
         plugin.latest_version()?
     } else if !version.contains('.') {
-        // Major-only like "20" — resolve to highest 20.x from nodejs.org
         println!("{} Resolving {} {} to latest patch version...", "[RESOLVE]".cyan(), language.bold(), version.bold());
         resolve_major_version(plugin, version)?
     } else {
@@ -105,10 +110,15 @@ pub fn cmd_install_interactive() -> Result<()> {
     
     println!("\n[OK] Selected: {}", language.bold());
     
-    // Step 2: Version selection
-    let version = select_version_interactive(plugin, language)?;
-    
-    // Step 3: Install
+    // Step 2: Version selection (Python uses the same remote list UI as `ven install python`)
+    let version = if *language == "python" {
+        let versions = fetch_available_versions(language)?;
+        display_version_list(&versions, language)?;
+        select_from_version_list(&versions, language)?
+    } else {
+        select_version_interactive(plugin, language)?
+    };
+
     println!("\n{} Installing {} {}...", "[DOWNLOAD]".bold().cyan(), language.bold(), version.bold());
     cmd_install(language, &version)
 }
@@ -148,6 +158,9 @@ fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
             .collect();
         
         Ok(versions)
+    } else if language == "python" {
+        fetch_python_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))
     } else {
         Err(anyhow::anyhow!("Version listing not yet supported for {}", language))
     }
@@ -174,7 +187,7 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
     let display_count = std::cmp::min(10, versions.len());
     
     for (idx, version) in versions.iter().take(display_count).enumerate() {
-        let metadata = get_version_metadata(version);
+        let metadata = get_version_metadata(version, language);
         let is_installed = installed.contains(&version.to_string());
         let marker = if is_installed { "[INSTALLED]" } else { "         " };
         let num = format!("{:2}.", idx + 1);
@@ -183,11 +196,33 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
     }
     
     if versions.len() > 10 {
-        println!("\n  [INFO] ... and {} more versions (use major version like 20, 22, 18)", versions.len() - 10);
+        let hint = if language == "python" {
+            "3.12, 3.13, or 3"
+        } else {
+            "20, 22, 18"
+        };
+        println!(
+            "\n  [INFO] ... and {} more versions (use a major or full version, e.g. {})",
+            versions.len() - 10,
+            hint
+        );
     }
-    
-    // Show recommendation
-    println!("\n{} Recommended: {} {} (LTS - Best compatibility)", "[TIP]".yellow(), language.bold(), "20".green());
+
+    if language == "python" {
+        println!(
+            "\n{} Example: {} {}  (or full patch e.g. 3.12.7)",
+            "[TIP]".yellow(),
+            "ven install python".dimmed(),
+            "3.12".green()
+        );
+    } else {
+        println!(
+            "\n{} Recommended: {} {} (LTS - Best compatibility)",
+            "[TIP]".yellow(),
+            language.bold(),
+            "20".green()
+        );
+    }
     
     Ok(())
 }
@@ -216,7 +251,7 @@ fn select_from_version_list(versions: &[String], _language: &str) -> Result<Stri
     // Add latest 10 versions
     let display_count = std::cmp::min(10, versions.len());
     for (idx, version) in versions.iter().take(display_count).enumerate() {
-        let metadata = get_version_metadata_short(version);
+        let metadata = get_version_metadata_short(version, _language);
         items.push(format!("{:2}. {} ({})", idx + 1, version, metadata));
         values.push(version.clone());
     }
@@ -239,22 +274,25 @@ fn select_from_version_list(versions: &[String], _language: &str) -> Result<Stri
 }
 
 /// Get short version metadata for display
-fn get_version_metadata_short(version: &str) -> String {
+fn get_version_metadata_short(version: &str, language: &str) -> String {
+    if language == "python" {
+        return "CPython".to_string();
+    }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
-    
+
     if major_num >= 23 {
-        format!("CURRENT")
+        "CURRENT".to_string()
     } else if major_num == 22 {
-        format!("CURRENT")
+        "CURRENT".to_string()
     } else if major_num == 20 {
-        format!("LTS")
+        "LTS".to_string()
     } else if major_num == 18 {
-        format!("LTS")
+        "LTS".to_string()
     } else if major_num <= 16 {
-        format!("DEPRECATED")
+        "DEPRECATED".to_string()
     } else {
-        format!("STABLE")
+        "STABLE".to_string()
     }
 }
 
@@ -276,7 +314,7 @@ fn select_version_interactive(plugin: &dyn LanguagePlugin, language: &str) -> Re
     // Add installed versions first
     if !installed.is_empty() {
         for version in &installed {
-            let info = get_version_metadata(version);
+            let info = get_version_metadata(version, language);
             options.push(VersionOption {
                 value: version.clone(),
                 display: format!("{}  {}", version, info),
@@ -342,22 +380,25 @@ fn select_version_interactive(plugin: &dyn LanguagePlugin, language: &str) -> Re
 }
 
 /// Get version metadata (compatibility, status, etc.)
-fn get_version_metadata(version: &str) -> String {
+fn get_version_metadata(version: &str, language: &str) -> String {
+    if language == "python" {
+        return format!("[Python {}]", version);
+    }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
-    
+
     if major_num >= 23 {
-        format!("[CURRENT]  (~85% pkg compat)")
+        "[CURRENT]  (~85% pkg compat)".to_string()
     } else if major_num == 22 {
-        format!("[CURRENT]  (~95% pkg compat)")
+        "[CURRENT]  (~95% pkg compat)".to_string()
     } else if major_num == 20 {
-        format!("[LTS]      (~98% pkg compat) [Recommended]")
+        "[LTS]      (~98% pkg compat) [Recommended]".to_string()
     } else if major_num == 18 {
-        format!("[LTS]      (~95% pkg compat) [Maintenance]")
+        "[LTS]      (~95% pkg compat) [Maintenance]".to_string()
     } else if major_num <= 16 {
-        format!("[DEPRECATED] (<80% pkg compat)")
+        "[DEPRECATED] (<80% pkg compat)".to_string()
     } else {
-        format!("[INSTALLED]")
+        "[INSTALLED]".to_string()
     }
 }
 
@@ -367,7 +408,29 @@ fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &
     
     // Check 1: Binary exists
     let bin_path = plugin.bin_path(version)?;
-    let binary_name = if cfg!(windows) { "node.exe" } else { "node" };
+    let binary_name = match language {
+        "node" => {
+            if cfg!(target_os = "windows") {
+                "node.exe"
+            } else {
+                "node"
+            }
+        }
+        "python" => {
+            if cfg!(target_os = "windows") {
+                "python.exe"
+            } else {
+                "python3"
+            }
+        }
+        _ => {
+            if cfg!(target_os = "windows") {
+                "node.exe"
+            } else {
+                "node"
+            }
+        }
+    };
     let binary = bin_path.join(binary_name);
     
     if binary.exists() {

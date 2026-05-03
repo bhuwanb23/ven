@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use super::LanguagePlugin;
 use super::NodePlugin;
+use super::PythonPlugin;
 
 /// Plugin Registry - manages all language plugins
 /// This makes it easy to add new languages (Python, Go, Rust, etc.)
@@ -16,9 +17,8 @@ impl PluginRegistry {
             plugins: HashMap::new(),
         };
         
-        // Register all available language plugins
         registry.register("node", Box::new(NodePlugin));
-        // Future: registry.register("python", Box::new(PythonPlugin));
+        registry.register("python", Box::new(PythonPlugin));
         // Future: registry.register("go", Box::new(GoPlugin));
         // Future: registry.register("rust", Box::new(RustPlugin));
         

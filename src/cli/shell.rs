@@ -133,24 +133,27 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
             hint_shell_activate_apply_if_tty();
             Ok(())
         }
-        ComputeExportsOutcome::MissingNode { install_with } => {
+        ComputeExportsOutcome::MissingToolchain {
+            language,
+            install_with,
+        } => {
             let interactive = io::stdin().is_terminal() && io::stdout().is_terminal();
             if interactive {
                 if Confirm::with_theme(&ColorfulTheme::default())
                     .with_prompt(format!(
-                        "Node {} is required by ven.toml but not installed. Install it now?",
-                        install_with
+                        "{} {} is required by ven.toml but not installed. Install it now?",
+                        language, install_with
                     ))
                     .default(true)
                     .interact()?
                 {
-                    crate::cli::install::cmd_install("node", &install_with)?;
+                    crate::cli::install::cmd_install(&language, &install_with)?;
                     match try_compute_exports(path)? {
                         ComputeExportsOutcome::Success(exports) => {
                             print!("{}", exports);
                             hint_shell_activate_apply_if_tty();
                         }
-                        ComputeExportsOutcome::MissingNode { .. } => {
+                        ComputeExportsOutcome::MissingToolchain { .. } => {
                             anyhow::bail!(
                                 "Install finished but activation still failed. Try: ven shell activate {}",
                                 path.display()
@@ -162,7 +165,8 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
                 Ok(())
             } else {
                 Err(anyhow::anyhow!(
-                    "Node.js not installed for this project.\n\nInstall: ven install node {}",
+                    "Required runtime not installed.\n\nInstall: ven install {} {}",
+                    language,
                     install_with
                 ))
             }
@@ -180,6 +184,7 @@ pub fn cmd_shell_deactivate() -> Result<()> {
     $env:PATH = $global:VEN_ORIGINAL_PATH
 }}
 Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
+Remove-Item Env:VEN_PYTHON_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
 
 "#
@@ -188,6 +193,7 @@ Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
     print!(
         r#"if test -n "$__VEN_ORIGINAL_PATH"; then export PATH="$__VEN_ORIGINAL_PATH"; fi
 unset VEN_NODE_VERSION 2>/dev/null || true
+unset VEN_PYTHON_VERSION 2>/dev/null || true
 unset VEN_TOML 2>/dev/null || true
 
 "#

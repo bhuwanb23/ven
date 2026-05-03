@@ -1,14 +1,19 @@
 pub mod config;
 pub mod packages;
 pub mod download;
+pub mod python_install;
 pub mod extract;
 pub mod npm_registry;
 pub mod resolver;
 pub mod security;
 
-pub use config::{find_ven_toml, parse_ven_toml, load_config, resolve_node_version};
+pub use config::{
+    find_ven_toml, load_config, parse_ven_toml, resolve_node_version, resolve_python_version,
+};
 pub use download::NodeDownloader;
 pub use extract::install_node as install_node_native;
+#[allow(unused_imports)] // crate root re-exports for `ven` as a library
+pub use python_install::{PythonDownloader, install_python as install_python_native};
 pub use resolver::DependencyGraph;
 pub use security::SecurityScanner;
 

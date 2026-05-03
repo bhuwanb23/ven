@@ -2,7 +2,7 @@ use anyhow::Result;
 use colored::Colorize;
 use serde::Serialize;
 use crate::plugins::PluginRegistry;
-use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version};
+use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version, resolve_python_version};
 
 // ── ven list [language] ───────────────────────────────────────────────
 pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()> {
@@ -46,35 +46,39 @@ pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()>
 
 /// Detect which version is currently active (from ven.toml)
 fn detect_active_version(language: &str) -> Result<Option<String>> {
-    // Only support node for now
-    if language != "node" {
-        return Ok(None);
-    }
-
-    // Find ven.toml in current directory
     let current_dir = std::env::current_dir()?;
     let toml_path = match find_ven_toml(&current_dir) {
         Some(p) => p,
-        None => return Ok(None), // No ven.toml found
+        None => return Ok(None),
     };
 
-    // Parse config
     let config = parse_ven_toml(&toml_path)?;
-    let node_spec = &config.runtime.node;
-    
-    if node_spec.is_empty() {
-        return Ok(None);
-    }
-
-    // Get installed versions and resolve
     let registry = PluginRegistry::new();
     let plugin = registry.require(language)?;
     let installed = plugin.list_installed().unwrap_or_default();
-    
-    // Resolve version spec to actual version
-    match resolve_node_version(node_spec, &installed) {
-        Ok(resolved) => Ok(Some(resolved)),
-        Err(_) => Ok(None), // If resolution fails, no active version
+
+    match language {
+        "node" => {
+            let spec = config.runtime.node.trim();
+            if spec.is_empty() {
+                return Ok(None);
+            }
+            match resolve_node_version(spec, &installed) {
+                Ok(resolved) => Ok(Some(resolved)),
+                Err(_) => Ok(None),
+            }
+        }
+        "python" => {
+            let spec = config.runtime.python.trim();
+            if spec.is_empty() {
+                return Ok(None);
+            }
+            match resolve_python_version(spec, &installed) {
+                Ok(resolved) => Ok(Some(resolved)),
+                Err(_) => Ok(None),
+            }
+        }
+        _ => Ok(None),
     }
 }
 

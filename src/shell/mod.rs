@@ -1,8 +1,10 @@
 use anyhow::Result;
 use std::path::Path;
 
-use crate::core::{find_ven_toml, parse_ven_toml, resolve_node_version};
-use crate::plugins::{LanguagePlugin, NodePlugin};
+use crate::core::{
+    find_ven_toml, parse_ven_toml, resolve_node_version, resolve_python_version,
+};
+use crate::plugins::{LanguagePlugin, NodePlugin, PythonPlugin};
 
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
@@ -304,16 +306,16 @@ pub fn windows_powershell_profile_paths(home: &std::path::Path) -> Vec<std::path
 
 #[derive(Debug)]
 pub enum ComputeExportsOutcome {
-    /// No ven.toml in this directory tree
     NoToml,
-    /// PATH/env script ready for the shell
     Success(String),
-    /// Resolved version / spec is not installed under ~/.ven yet
-    MissingNode { install_with: String },
+    /// Runtime named in ven.toml is not installed under ~/.ven yet
+    MissingToolchain {
+        language: String,
+        install_with: String,
+    },
 }
 
 pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
-    // Make directory absolute first
     let absolute_dir = if dir.is_absolute() {
         dir.to_path_buf()
     } else {
@@ -322,13 +324,11 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
             .unwrap_or_else(|_| dir.to_path_buf())
     };
 
-    // Try to find ven.toml starting from this directory
     let toml_path = match find_ven_toml(&absolute_dir) {
         Some(p) => p,
         None => return Ok(ComputeExportsOutcome::NoToml),
     };
 
-    // Canonicalize the toml path to get clean absolute path (resolves . and ..)
     let toml_canonical = std::fs::canonicalize(&toml_path).unwrap_or_else(|_| {
         if toml_path.is_absolute() {
             toml_path
@@ -339,7 +339,6 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         }
     });
 
-    // On Windows, canonicalize adds \\?\ prefix which we need to strip
     let toml_str = toml_canonical.display().to_string();
     let toml_absolute = if cfg!(target_os = "windows") {
         if toml_str.starts_with("\\\\?\\") {
@@ -353,65 +352,121 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
 
     let config = parse_ven_toml(std::path::Path::new(&toml_absolute))?;
     let node_spec = config.runtime.node.trim();
-    if node_spec.is_empty() {
-        anyhow::bail!("ven.toml [runtime].node is empty; set a Node.js version.");
+    let python_spec = config.runtime.python.trim();
+
+    if node_spec.is_empty() && python_spec.is_empty() {
+        anyhow::bail!("ven.toml [runtime]: set `node` and/or `python`");
     }
 
-    let plugin = NodePlugin;
-    let installed = plugin.list_installed().unwrap_or_default();
-    let resolved = match resolve_node_version(node_spec, &installed) {
-        Ok(version) => version,
-        Err(_) => {
-            return Ok(ComputeExportsOutcome::MissingNode {
-                install_with: node_spec.to_string(),
-            });
-        }
-    };
+    let mut prepend_dirs: Vec<std::path::PathBuf> = Vec::new();
+    let mut node_resolved: Option<String> = None;
+    let mut node_bin_for_path: Option<std::path::PathBuf> = None;
+    let mut python_resolved: Option<String> = None;
 
-    let bin_path = match plugin.bin_path(&resolved) {
-        Ok(p) => p,
-        Err(_) => {
-            return Ok(ComputeExportsOutcome::MissingNode {
-                install_with: resolved,
-            });
-        }
-    };
+    if !node_spec.is_empty() {
+        let plugin = NodePlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        let resolved = match resolve_node_version(node_spec, &installed) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(ComputeExportsOutcome::MissingToolchain {
+                    language: "node".into(),
+                    install_with: node_spec.to_string(),
+                });
+            }
+        };
+        let bin = match plugin.bin_path(&resolved) {
+            Ok(p) => p,
+            Err(_) => {
+                return Ok(ComputeExportsOutcome::MissingToolchain {
+                    language: "node".into(),
+                    install_with: resolved.clone(),
+                });
+            }
+        };
+        node_bin_for_path = Some(bin.clone());
+        prepend_dirs.push(bin);
+        node_resolved = Some(resolved);
+    }
 
-    let bin_str = bin_path.display().to_string();
-    
-    // Normalize slashes for the platform
+    if !python_spec.is_empty() {
+        #[cfg(not(target_os = "windows"))]
+        {
+            anyhow::bail!(
+                "ven.toml sets `runtime.python`; Python PATH activation is only implemented on Windows in this release."
+            );
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let plugin = PythonPlugin;
+            let installed = plugin.list_installed().unwrap_or_default();
+            let resolved = match resolve_python_version(python_spec, &installed) {
+                Ok(v) => v,
+                Err(_) => {
+                    return Ok(ComputeExportsOutcome::MissingToolchain {
+                        language: "python".into(),
+                        install_with: python_spec.to_string(),
+                    });
+                }
+            };
+            let bin = match plugin.bin_path(&resolved) {
+                Ok(p) => p,
+                Err(_) => {
+                    return Ok(ComputeExportsOutcome::MissingToolchain {
+                        language: "python".into(),
+                        install_with: resolved.clone(),
+                    });
+                }
+            };
+            prepend_dirs.push(bin);
+            python_resolved = Some(resolved);
+        }
+    }
+
     let toml_normalized = if cfg!(target_os = "windows") {
-        // Windows: ensure backslashes (already correct from canonicalize)
         toml_absolute.replace('/', "\\")
     } else {
-        // Unix: ensure forward slashes
         toml_absolute.replace('\\', "/")
     };
 
-    // FIXED: output different syntax depending on platform
-    // PowerShell uses $env:PATH = "...;" + $env:PATH
-    // bash/zsh uses  export PATH="...:$PATH"
+    let sep = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let path_joined = prepend_dirs
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect::<Vec<_>>()
+        .join(sep);
+
     let exports = if cfg!(target_os = "windows") {
-        // PowerShell syntax — semicolon separator on Windows
         let mut out = format!(
-            "$env:PATH = \"{bin};\" + $env:PATH\n$env:NODE_PATH = \"{bin}\"\n$env:VEN_NODE_VERSION = \"{ver}\"\n$env:VEN_TOML = \"{toml}\"\n",
-            bin  = bin_str,
-            ver  = resolved,
-            toml = toml_normalized,
+            "$env:PATH = \"{pj};\" + $env:PATH\n",
+            pj = path_joined
         );
-        // Also export [env] section variables
+        if let Some(ref dir) = node_bin_for_path {
+            out.push_str(&format!("$env:NODE_PATH = \"{}\"\n", dir.display()));
+        }
+        if let Some(ref v) = node_resolved {
+            out.push_str(&format!("$env:VEN_NODE_VERSION = \"{}\"\n", v));
+        }
+        if let Some(ref v) = python_resolved {
+            out.push_str(&format!("$env:VEN_PYTHON_VERSION = \"{}\"\n", v));
+        }
+        out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", toml_normalized));
         for (key, val) in &config.env {
             out.push_str(&format!("$env:{} = \"{}\"\n", key, val));
         }
         out
     } else {
-        // bash/zsh/fish syntax — colon separator on Unix
-        let mut out = format!(
-            "export PATH=\"{bin}:$PATH\"\nexport NODE_PATH=\"{bin}\"\nexport VEN_NODE_VERSION=\"{ver}\"\nexport VEN_TOML=\"{toml}\"\n",
-            bin  = bin_str,
-            ver  = resolved,
-            toml = toml_normalized,
-        );
+        let mut out = format!("export PATH=\"{pj}:$PATH\"\n", pj = path_joined);
+        if let Some(ref dir) = node_bin_for_path {
+            out.push_str(&format!("export NODE_PATH=\"{}\"\n", dir.display()));
+        }
+        if let Some(ref v) = node_resolved {
+            out.push_str(&format!("export VEN_NODE_VERSION=\"{}\"\n", v));
+        }
+        if let Some(ref v) = python_resolved {
+            out.push_str(&format!("export VEN_PYTHON_VERSION=\"{}\"\n", v));
+        }
+        out.push_str(&format!("export VEN_TOML=\"{}\"\n", toml_normalized));
         for (key, val) in &config.env {
             out.push_str(&format!("export {}=\"{}\"\n", key, val));
         }

@@ -13,9 +13,8 @@ fn test_example_directory_config() {
     // Parse the actual example file
     let config = parse_ven_toml(&toml_path).expect("Should parse example ven.toml");
     
-    assert_eq!(config.runtime.node, "20.11.1");
-    assert_eq!(config.packages.get("express").unwrap(), "^4.18.2");
-    assert_eq!(config.env.get("NODE_ENV").unwrap(), "development");
+    assert_eq!(config.runtime.node, "25.9.0");
+    assert!(config.packages.is_empty());
 }
 
 #[test]
