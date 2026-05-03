@@ -61,10 +61,15 @@ pub fn cmd_add(
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
     let node_version = cfg.runtime.node.clone();
     let python_version = cfg.runtime.python.clone();
+    let go_version = cfg.runtime.go.clone();
     let python_mode = !python_version.is_empty() && node_version.is_empty();
+    let go_mode = !go_version.is_empty() && node_version.is_empty() && python_version.is_empty();
 
     if python_mode {
         return cmd_add_python(package_specs, dry_run);
+    }
+    if go_mode {
+        return cmd_add_go(package_specs, dry_run);
     }
 
     // Load existing packages from ven.toml
@@ -508,6 +513,74 @@ fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<()> {
     }
     println!();
     Ok(())
+}
+
+fn cmd_add_go(package_specs: &[String], dry_run: bool) -> Result<()> {
+    println!("\n{}", "ven add (go)".bold().cyan());
+    println!("  {} {} module(s)", "[PLAN]".cyan(), package_specs.len());
+    if dry_run {
+        println!(
+            "  {} Dry run mode - no changes will be made",
+            "[DRY-RUN]".yellow()
+        );
+        println!();
+        for spec in package_specs {
+            println!("  {} go get {}", "[PREVIEW]".cyan(), spec.bold());
+        }
+        println!();
+        return Ok(());
+    }
+
+    ensure_go_mod()?;
+    let mut installed = Vec::new();
+    for spec in package_specs {
+        let status = Command::new("go").args(["get", spec]).status();
+        match status {
+            Ok(s) if s.success() => {
+                println!("  {} {}", "[OK]".green(), format!("Added {}", spec.bold()));
+                let (name, declared) = parse_go_spec(spec);
+                installed.push((name, declared));
+            }
+            Ok(_) => println!("  {} Failed to add {}", "[ERROR]".red(), spec),
+            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+        }
+    }
+
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
+    println!();
+    Ok(())
+}
+
+fn ensure_go_mod() -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let go_mod = cwd.join("go.mod");
+    if go_mod.is_file() {
+        return Ok(());
+    }
+    let module_name = cwd
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("app")
+        .to_string();
+    let status = Command::new("go")
+        .args(["mod", "init", &module_name])
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("Failed to initialize go.mod (go mod init {})", module_name);
+    }
+    Ok(())
+}
+
+fn parse_go_spec(spec: &str) -> (String, String) {
+    if let Some((name, version)) = spec.rsplit_once('@') {
+        if !version.is_empty() {
+            return (name.to_string(), format!("@{}", version));
+        }
+    }
+    (spec.to_string(), "latest".to_string())
 }
 
 fn parse_python_spec(spec: &str) -> (String, String) {
