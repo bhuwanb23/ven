@@ -1,6 +1,7 @@
 use crate::core::config::VenConfig;
 use crate::core::{
-    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version, resolve_python_version,
+    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version,
+    resolve_python_version, resolve_rust_version,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -52,6 +53,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
     let has_node = !config.runtime.node.is_empty();
     let has_python = !config.runtime.python.is_empty();
     let has_go = !config.runtime.go.is_empty();
+    let has_rust = !config.runtime.rust.is_empty();
 
     // Runtime section
     if has_node {
@@ -71,7 +73,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
         if !installed {
             println!("    {} Run: ven install node {}", "[!]".yellow(), node_spec);
         }
-    } else if !has_python && !has_go {
+    } else if !has_python && !has_go && !has_rust {
         println!("  {} node {}", "[!]".yellow(), "not specified".dimmed());
     }
     if has_python {
@@ -104,12 +106,27 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
             println!("    {} Run: ven install go {}", "[!]".yellow(), go_spec);
         }
     }
+    if has_rust {
+        let rust_spec = &config.runtime.rust;
+        let resolved = resolve_rust_for_display(rust_spec)?;
+        let installed = is_rust_installed(rust_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} rust {} {}",
+            status_icon,
+            rust_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install rust {}", "[!]".yellow(), rust_spec);
+        }
+    }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
-        let installed_count = if has_python && !has_node && !has_go {
+        let installed_count = if has_python && !has_node && !has_go && !has_rust {
             config
                 .packages
                 .keys()
@@ -132,7 +149,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
 
         // Show tip if packages are missing
         if installed_count < pkg_count {
-            if has_python && !has_node && !has_go {
+            if has_python && !has_node && !has_go && !has_rust {
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
             } else {
                 println!(
@@ -240,6 +257,24 @@ fn display_verbose_status(
             println!("    {} go {} - {}", "✗".red(), spec.bold(), "not installed");
             if fix {
                 println!("      {} Run: ven install go {}", "[!]".yellow(), spec);
+            }
+        }
+    }
+    if !config.runtime.rust.is_empty() {
+        let spec = &config.runtime.rust;
+        let installed = is_rust_installed(spec);
+        let resolved = resolve_rust_for_display(spec)?;
+        if installed {
+            println!("    {} rust {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!(
+                "    {} rust {} - {}",
+                "✗".red(),
+                spec.bold(),
+                "not installed"
+            );
+            if fix {
+                println!("      {} Run: ven install rust {}", "[!]".yellow(), spec);
             }
         }
     }
@@ -406,6 +441,16 @@ fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.rust.is_empty() {
+        let rust_spec = &config.runtime.rust;
+        let resolved = resolve_rust_for_display(rust_spec)?;
+        let installed = is_rust_installed(rust_spec);
+        runtime_info["rust"] = json!({
+            "version_required": rust_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
 
     // Build package list
     let mut pkg_list = Vec::new();
@@ -415,6 +460,7 @@ fn output_json_status(
         let is_installed = if !config.runtime.python.is_empty()
             && config.runtime.node.is_empty()
             && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
         {
             is_python_package_installed(name)
         } else {
@@ -533,6 +579,17 @@ fn resolve_go_for_display(spec: &str) -> Result<String> {
     }
 }
 
+fn resolve_rust_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("rust")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_rust_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -562,6 +619,17 @@ fn is_go_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("go") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_go_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+fn is_rust_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("rust") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_rust_version(spec, &installed).is_ok()
     } else {
         false
     }
@@ -690,6 +758,7 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
     if config.runtime.node.is_empty()
         && config.runtime.python.is_empty()
         && config.runtime.go.is_empty()
+        && config.runtime.rust.is_empty()
     {
         issues.push("No runtime version specified".to_string());
     }
@@ -712,6 +781,13 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
             issues.push(format!("Go {} not installed", config.runtime.go));
         } else {
             ok_items.push(format!("Go {} ready", config.runtime.go));
+        }
+    }
+    if !config.runtime.rust.is_empty() {
+        if !is_rust_installed(&config.runtime.rust) {
+            issues.push(format!("Rust {} not installed", config.runtime.rust));
+        } else {
+            ok_items.push(format!("Rust {} ready", config.runtime.rust));
         }
     }
 

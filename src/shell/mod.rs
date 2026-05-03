@@ -3,9 +3,9 @@ use std::path::Path;
 
 use crate::core::{
     find_ven_toml, parse_ven_toml, project_venv, resolve_go_version, resolve_node_version,
-    resolve_python_version,
+    resolve_python_version, resolve_rust_version,
 };
-use crate::plugins::{GoPlugin, LanguagePlugin, NodePlugin, PythonPlugin};
+use crate::plugins::{GoPlugin, LanguagePlugin, NodePlugin, PythonPlugin, RustPlugin};
 
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
@@ -107,10 +107,13 @@ __ven_activate() {{
         unset VEN_NODE_VERSION 2>/dev/null
         unset VEN_PYTHON_VERSION 2>/dev/null
         unset VEN_GO_VERSION 2>/dev/null
+        unset VEN_RUST_VERSION 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
         unset GOROOT 2>/dev/null
         unset GOPATH 2>/dev/null
+        unset CARGO_HOME 2>/dev/null
+        unset RUSTUP_HOME 2>/dev/null
         unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
     fi
 }}
@@ -178,10 +181,13 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_NODE_VERSION 2>/dev/null
         set -e VEN_PYTHON_VERSION 2>/dev/null
         set -e VEN_GO_VERSION 2>/dev/null
+        set -e VEN_RUST_VERSION 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
         set -e GOROOT 2>/dev/null
         set -e GOPATH 2>/dev/null
+        set -e CARGO_HOME 2>/dev/null
+        set -e RUSTUP_HOME 2>/dev/null
         set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
     end
 end
@@ -263,10 +269,13 @@ function global:__ven_activate {{
             if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
             if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
             if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
+            if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
             if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
+            if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
+            if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
             $key = "$current_dir|$exit"
             if ($global:VEN_LAST_ACTIVATE_WARN -ne $key) {{
                 Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install required runtimes or fix ven.toml. Try: ven shell activate `"$current_dir`""
@@ -277,10 +286,13 @@ function global:__ven_activate {{
             if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
             if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
             if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
+            if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
             if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
+            if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
+            if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
             if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
         }}
     }} catch {{
@@ -288,10 +300,13 @@ function global:__ven_activate {{
         if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
         if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
         if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
+        if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
         if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
         if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
         if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
         if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
+        if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
+        if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
     }}
 }}
 
@@ -419,9 +434,11 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let node_spec = config.runtime.node.trim();
     let python_spec = config.runtime.python.trim();
     let go_spec = config.runtime.go.trim();
+    let rust_spec = config.runtime.rust.trim();
 
-    if node_spec.is_empty() && python_spec.is_empty() && go_spec.is_empty() {
-        anyhow::bail!("ven.toml [runtime]: set `node` and/or `python` and/or `go`");
+    if node_spec.is_empty() && python_spec.is_empty() && go_spec.is_empty() && rust_spec.is_empty()
+    {
+        anyhow::bail!("ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust`");
     }
 
     let project_root = toml_canonical
@@ -434,6 +451,8 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let mut python_resolved: Option<String> = None;
     let mut go_resolved: Option<String> = None;
     let mut go_root_for_env: Option<std::path::PathBuf> = None;
+    let mut rust_resolved: Option<String> = None;
+    let mut rust_root_for_env: Option<std::path::PathBuf> = None;
     let mut virtual_env_root: Option<std::path::PathBuf> = None;
 
     if !python_spec.is_empty() {
@@ -578,6 +597,34 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         go_resolved = Some(resolved);
     }
 
+    if !rust_spec.is_empty() {
+        let plugin = RustPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        let resolved = match resolve_rust_version(rust_spec, &installed) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(ComputeExportsOutcome::MissingToolchain {
+                    language: "rust".into(),
+                    install_with: rust_spec.to_string(),
+                });
+            }
+        };
+        let bin = match plugin.bin_path(&resolved) {
+            Ok(p) => p,
+            Err(_) => {
+                return Ok(ComputeExportsOutcome::MissingToolchain {
+                    language: "rust".into(),
+                    install_with: resolved.clone(),
+                });
+            }
+        };
+        if let Some(root) = bin.parent() {
+            rust_root_for_env = Some(root.to_path_buf());
+        }
+        prepend_dirs.push(bin);
+        rust_resolved = Some(resolved);
+    }
+
     let toml_normalized = if cfg!(target_os = "windows") {
         toml_absolute.replace('/', "\\")
     } else {
@@ -602,10 +649,13 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
             r#"if (Test-Path Env:VEN_NODE_VERSION) { Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_PYTHON_VERSION) { Remove-Item Env:VEN_PYTHON_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_GO_VERSION) { Remove-Item Env:VEN_GO_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:VEN_RUST_VERSION) { Remove-Item Env:VEN_RUST_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:NODE_PATH) { Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue }
 if (Test-Path Env:VIRTUAL_ENV) { Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue }
 if (Test-Path Env:GOROOT) { Remove-Item Env:GOROOT -ErrorAction SilentlyContinue }
 if (Test-Path Env:GOPATH) { Remove-Item Env:GOPATH -ErrorAction SilentlyContinue }
+if (Test-Path Env:CARGO_HOME) { Remove-Item Env:CARGO_HOME -ErrorAction SilentlyContinue }
+if (Test-Path Env:RUSTUP_HOME) { Remove-Item Env:RUSTUP_HOME -ErrorAction SilentlyContinue }
 
 "#,
         );
@@ -639,6 +689,19 @@ if (Test-Path Env:GOPATH) { Remove-Item Env:GOPATH -ErrorAction SilentlyContinue
                 ));
             }
         }
+        if let Some(ref v) = rust_resolved {
+            out.push_str(&format!("$env:VEN_RUST_VERSION = \"{}\"\n", v));
+        }
+        if let Some(ref root) = rust_root_for_env {
+            out.push_str(&format!(
+                "$env:CARGO_HOME = \"{}\"\n",
+                path_for_env_value(root)
+            ));
+            out.push_str(&format!(
+                "$env:RUSTUP_HOME = \"{}\"\n",
+                path_for_env_value(root)
+            ));
+        }
         if let Some(ref vr) = virtual_env_root {
             out.push_str(&format!(
                 "$env:VIRTUAL_ENV = \"{}\"\n",
@@ -655,10 +718,13 @@ if (Test-Path Env:GOPATH) { Remove-Item Env:GOPATH -ErrorAction SilentlyContinue
             r#"unset VEN_NODE_VERSION 2>/dev/null || true
 unset VEN_PYTHON_VERSION 2>/dev/null || true
 unset VEN_GO_VERSION 2>/dev/null || true
+unset VEN_RUST_VERSION 2>/dev/null || true
 unset NODE_PATH 2>/dev/null || true
 unset VIRTUAL_ENV 2>/dev/null || true
 unset GOROOT 2>/dev/null || true
 unset GOPATH 2>/dev/null || true
+unset CARGO_HOME 2>/dev/null || true
+unset RUSTUP_HOME 2>/dev/null || true
 
 "#,
         );
@@ -691,6 +757,19 @@ unset GOPATH 2>/dev/null || true
                     path_for_env_value(&gopath)
                 ));
             }
+        }
+        if let Some(ref v) = rust_resolved {
+            out.push_str(&format!("export VEN_RUST_VERSION=\"{}\"\n", v));
+        }
+        if let Some(ref root) = rust_root_for_env {
+            out.push_str(&format!(
+                "export CARGO_HOME=\"{}\"\n",
+                path_for_env_value(root)
+            ));
+            out.push_str(&format!(
+                "export RUSTUP_HOME=\"{}\"\n",
+                path_for_env_value(root)
+            ));
         }
         if let Some(ref vr) = virtual_env_root {
             out.push_str(&format!(

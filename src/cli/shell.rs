@@ -201,10 +201,13 @@ pub fn cmd_shell_deactivate() -> Result<()> {
 Remove-Item Env:VEN_NODE_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_PYTHON_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_GO_VERSION -ErrorAction SilentlyContinue
+Remove-Item Env:VEN_RUST_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
 Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue
 Remove-Item Env:GOROOT -ErrorAction SilentlyContinue
 Remove-Item Env:GOPATH -ErrorAction SilentlyContinue
+Remove-Item Env:CARGO_HOME -ErrorAction SilentlyContinue
+Remove-Item Env:RUSTUP_HOME -ErrorAction SilentlyContinue
 $env:VEN_SKIP_PROJECT_VENV = '1'
 # Force next __ven_activate to re-run (same-dir cache would skip activate and leave stray venv on PATH)
 $global:VEN_LAST_DIR = $null
@@ -219,10 +222,13 @@ $global:VEN_LAST_ACTIVATE_WARN = $null
 unset VEN_NODE_VERSION 2>/dev/null || true
 unset VEN_PYTHON_VERSION 2>/dev/null || true
 unset VEN_GO_VERSION 2>/dev/null || true
+unset VEN_RUST_VERSION 2>/dev/null || true
 unset VEN_TOML 2>/dev/null || true
 unset VIRTUAL_ENV 2>/dev/null || true
 unset GOROOT 2>/dev/null || true
 unset GOPATH 2>/dev/null || true
+unset CARGO_HOME 2>/dev/null || true
+unset RUSTUP_HOME 2>/dev/null || true
 export VEN_SKIP_PROJECT_VENV=1
 unset __VEN_LAST_DIR 2>/dev/null || true
 unset __VEN_LAST_TOML_SIG 2>/dev/null || true

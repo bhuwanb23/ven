@@ -46,6 +46,9 @@ pub struct RuntimeConfig {
     /// Go toolchain version (installed under ~/.ven/go/<version>)
     #[serde(default)]
     pub go: String,
+    /// Rust toolchain version (installed under ~/.ven/rust/<version>)
+    #[serde(default)]
+    pub rust: String,
 }
 
 /// Walks up the directory tree to find the nearest `ven.toml` file.
@@ -194,6 +197,39 @@ pub fn resolve_go_version(spec: &str, installed: &[String]) -> Result<String> {
                 .max_by(|a, b| version_cmp(a, b))
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Go {}.z installed.", spec))
+        }
+        _ => Ok(spec.to_string()),
+    }
+}
+
+/// Resolve ven.toml `runtime.rust` against versions installed under ~/.ven/rust
+pub fn resolve_rust_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim().trim_start_matches('v');
+    match spec {
+        "latest" | "stable" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Rust versions installed. Run: ven install rust latest")
+            }),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Rust {}.x installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Rust {}.z installed.", spec))
         }
         _ => Ok(spec.to_string()),
     }

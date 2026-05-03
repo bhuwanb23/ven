@@ -2,6 +2,7 @@ use super::GoPlugin;
 use super::LanguagePlugin;
 use super::NodePlugin;
 use super::PythonPlugin;
+use super::RustPlugin;
 use std::collections::HashMap;
 
 /// Plugin Registry - manages all language plugins
@@ -21,7 +22,7 @@ impl PluginRegistry {
         registry.register("node", Box::new(NodePlugin));
         registry.register("python", Box::new(PythonPlugin));
         registry.register("go", Box::new(GoPlugin));
-        // Future: registry.register("rust", Box::new(RustPlugin));
+        registry.register("rust", Box::new(RustPlugin));
 
         registry
     }

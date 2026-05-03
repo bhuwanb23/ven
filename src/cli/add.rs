@@ -62,14 +62,22 @@ pub fn cmd_add(
     let node_version = cfg.runtime.node.clone();
     let python_version = cfg.runtime.python.clone();
     let go_version = cfg.runtime.go.clone();
+    let rust_version = cfg.runtime.rust.clone();
     let python_mode = !python_version.is_empty() && node_version.is_empty();
     let go_mode = !go_version.is_empty() && node_version.is_empty() && python_version.is_empty();
+    let rust_mode = !rust_version.is_empty()
+        && node_version.is_empty()
+        && python_version.is_empty()
+        && go_version.is_empty();
 
     if python_mode {
         return cmd_add_python(package_specs, dry_run);
     }
     if go_mode {
         return cmd_add_go(package_specs, dry_run);
+    }
+    if rust_mode {
+        return cmd_add_rust(package_specs, dry_run);
     }
 
     // Load existing packages from ven.toml
@@ -575,6 +583,75 @@ fn ensure_go_mod() -> Result<()> {
 }
 
 fn parse_go_spec(spec: &str) -> (String, String) {
+    if let Some((name, version)) = spec.rsplit_once('@') {
+        if !version.is_empty() {
+            return (name.to_string(), format!("@{}", version));
+        }
+    }
+    (spec.to_string(), "latest".to_string())
+}
+
+fn cmd_add_rust(package_specs: &[String], dry_run: bool) -> Result<()> {
+    println!("\n{}", "ven add (rust)".bold().cyan());
+    println!("  {} {} crate(s)", "[PLAN]".cyan(), package_specs.len());
+    if dry_run {
+        println!(
+            "  {} Dry run mode - no changes will be made",
+            "[DRY-RUN]".yellow()
+        );
+        println!();
+        for spec in package_specs {
+            println!("  {} cargo add {}", "[PREVIEW]".cyan(), spec.bold());
+        }
+        println!();
+        return Ok(());
+    }
+
+    ensure_cargo_manifest()?;
+    let mut installed = Vec::new();
+    for spec in package_specs {
+        let status = Command::new("cargo").args(["add", spec]).status();
+        match status {
+            Ok(s) if s.success() => {
+                println!("  {} {}", "[OK]".green(), format!("Added {}", spec.bold()));
+                let (name, declared) = parse_rust_spec(spec);
+                installed.push((name, declared));
+            }
+            Ok(_) => println!("  {} Failed to add {}", "[ERROR]".red(), spec),
+            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+        }
+    }
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
+    println!();
+    Ok(())
+}
+
+fn ensure_cargo_manifest() -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let cargo_toml = cwd.join("Cargo.toml");
+    if cargo_toml.is_file() {
+        return Ok(());
+    }
+    let name = cwd
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("app");
+    let status = Command::new("cargo")
+        .args(["init", "--name", name])
+        .status()?;
+    if !status.success() {
+        anyhow::bail!(
+            "Failed to initialize Cargo.toml (cargo init --name {})",
+            name
+        );
+    }
+    Ok(())
+}
+
+fn parse_rust_spec(spec: &str) -> (String, String) {
     if let Some((name, version)) = spec.rsplit_once('@') {
         if !version.is_empty() {
             return (name.to_string(), format!("@{}", version));

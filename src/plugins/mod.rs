@@ -25,8 +25,10 @@ pub mod go;
 pub mod node;
 pub mod python;
 pub mod registry;
+pub mod rust;
 
 pub use go::GoPlugin;
 pub use node::NodePlugin;
 pub use python::PythonPlugin;
 pub use registry::PluginRegistry;
+pub use rust::RustPlugin;

@@ -80,7 +80,7 @@ pub fn cmd_init(
             println!("{} Configuring your empty project...", "→".cyan());
 
             // Show language selection
-            let languages = vec!["node", "python", "go"];
+            let languages = vec!["node", "python", "go", "rust"];
             let language_idx = Select::with_theme(&theme)
                 .with_prompt("Select language")
                 .items(&languages)
@@ -94,6 +94,7 @@ pub fn cmd_init(
                 "node" => select_node_version()?,
                 "python" => select_python_version()?,
                 "go" => select_go_version()?,
+                "rust" => select_rust_version()?,
                 _ => {
                     return Err(anyhow::anyhow!(
                         "Unsupported language: {}",
@@ -115,7 +116,7 @@ pub fn cmd_init(
         }
     } else {
         // MODE 2: Interactive language & version selection
-        let languages = vec!["node", "python", "go"];
+        let languages = vec!["node", "python", "go", "rust"];
         let language_idx = Select::with_theme(&theme)
             .with_prompt("Select language")
             .items(&languages)
@@ -129,6 +130,7 @@ pub fn cmd_init(
             "node" => select_node_version()?,
             "python" => select_python_version()?,
             "go" => select_go_version()?,
+            "rust" => select_rust_version()?,
             _ => {
                 return Err(anyhow::anyhow!(
                     "Unsupported language: {}",
@@ -570,6 +572,31 @@ fn select_go_version() -> Result<String> {
     Ok(installed[idx].clone())
 }
 
+/// Interactive Rust version selection — only versions installed under ven.
+fn select_rust_version() -> Result<String> {
+    use crate::plugins::{LanguagePlugin, RustPlugin};
+    let theme = ColorfulTheme::default();
+    let plugin = RustPlugin;
+    let installed = plugin.list_installed().unwrap_or_default();
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No Rust versions installed under ven.\n\
+             Install one first, e.g.:  ven install rust 1.75.0\n\
+             Then run  ven init  again."
+        );
+    }
+    let items: Vec<String> = installed
+        .iter()
+        .map(|v| format!("{}  {}", v, "Rust toolchain".dimmed()))
+        .collect();
+    let idx = Select::with_theme(&theme)
+        .with_prompt("Select Rust version (installed)")
+        .items(&items)
+        .default(0)
+        .interact()?;
+    Ok(installed[idx].clone())
+}
+
 /// Health check & validation system
 fn run_validation(
     language: &str,
@@ -634,6 +661,19 @@ fn run_validation(
         } else {
             println!("  {} Go {} not installed yet", "✗".red(), version);
             println!("    {} Run: ven install go {}", "💡".yellow(), version);
+            all_checks_passed = false;
+        }
+    }
+
+    if language == "rust" {
+        use crate::plugins::{LanguagePlugin, RustPlugin};
+        let plugin = RustPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        if installed.contains(&version.to_string()) {
+            println!("  {} Rust {} installed", "✓".green(), version);
+        } else {
+            println!("  {} Rust {} not installed yet", "✗".red(), version);
+            println!("    {} Run: ven install rust {}", "💡".yellow(), version);
             all_checks_passed = false;
         }
     }

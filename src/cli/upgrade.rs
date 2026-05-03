@@ -51,6 +51,10 @@ pub fn cmd_upgrade(
     let cfg =
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
     let python_mode = !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty();
+    let rust_mode = !cfg.runtime.rust.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.go.is_empty();
 
     // Handle --all flag: get all packages from ven.toml
     let target_packages = if all {
@@ -74,6 +78,9 @@ pub fn cmd_upgrade(
 
     if python_mode {
         return cmd_upgrade_python(&target_packages, apply, dry_run, json);
+    }
+    if rust_mode {
+        return cmd_upgrade_rust(&target_packages, apply, dry_run, json);
     }
 
     if json {
@@ -228,6 +235,55 @@ fn resolve_python_cmd() -> PathBuf {
     {
         PathBuf::from("python3")
     }
+}
+
+fn cmd_upgrade_rust(packages: &[String], apply: bool, dry_run: bool, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"rust",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages
+            }))?
+        );
+    } else {
+        println!("\n  {}", "ven upgrade (rust)".bold().cyan());
+    }
+
+    for pkg in packages {
+        if dry_run || !apply {
+            if !json {
+                println!("  {} cargo update -p {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            continue;
+        }
+        let status = std::process::Command::new("cargo")
+            .args(["update", "-p", pkg])
+            .status();
+        match status {
+            Ok(s) if s.success() => {
+                if !json {
+                    println!("  {} Updated {}", "[OK]".green(), pkg.bold());
+                }
+            }
+            Ok(_) => {
+                if !json {
+                    println!("  {} Failed to update {}", "[WARN]".yellow(), pkg);
+                }
+            }
+            Err(e) => {
+                if !json {
+                    println!("  {} {}", "[ERROR]".red(), e);
+                }
+            }
+        }
+    }
+    if !json {
+        println!();
+    }
+    Ok(())
 }
 
 /// Execute batch upgrade with preview/apply support

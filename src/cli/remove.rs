@@ -20,8 +20,19 @@ pub fn cmd_remove(
     let python_mode = load_config(&cwd)?
         .map(|c| !c.runtime.python.is_empty() && c.runtime.node.is_empty())
         .unwrap_or(false);
+    let rust_mode = load_config(&cwd)?
+        .map(|c| {
+            !c.runtime.rust.is_empty()
+                && c.runtime.node.is_empty()
+                && c.runtime.python.is_empty()
+                && c.runtime.go.is_empty()
+        })
+        .unwrap_or(false);
     if python_mode && !cleanup {
         return cmd_remove_python(packages, dry_run, json);
+    }
+    if rust_mode && !cleanup {
+        return cmd_remove_rust(packages, dry_run, json);
     }
 
     // Handle cleanup mode separately
@@ -144,6 +155,65 @@ fn resolve_python_cmd() -> PathBuf {
     {
         PathBuf::from("python3")
     }
+}
+
+fn cmd_remove_rust(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
+    if packages.is_empty() {
+        if json {
+            println!("{{\"error\":\"No packages specified\"}}");
+        } else {
+            println!("  {} No packages specified", "[ERROR]".red());
+        }
+        return Ok(());
+    }
+    if dry_run {
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "mode":"rust_dry_run",
+                    "packages": packages
+                }))?
+            );
+        } else {
+            println!(
+                "\n  {} {}",
+                "ven remove".bold().cyan(),
+                "[RUST DRY RUN]".yellow()
+            );
+            for pkg in packages {
+                println!("  {} Would remove {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            println!();
+        }
+        return Ok(());
+    }
+    let mut removed: Vec<String> = Vec::new();
+    for pkg in packages {
+        let status = std::process::Command::new("cargo")
+            .args(["remove", pkg])
+            .status();
+        match status {
+            Ok(s) if s.success() => {
+                println!("  {} Removed {}", "[OK]".green(), pkg.bold());
+                removed.push(pkg.clone());
+                let _ = remove_from_ven_toml(pkg);
+            }
+            Ok(_) => println!("  {} Failed to remove {}", "[WARN]".yellow(), pkg),
+            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+        }
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"rust",
+                "removed": removed
+            }))?
+        );
+    }
+    println!();
+    Ok(())
 }
 
 /// Execute batch removal with dependency checking

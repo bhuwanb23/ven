@@ -1,5 +1,6 @@
 use crate::core::{
-    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version, resolve_python_version,
+    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version,
+    resolve_python_version, resolve_rust_version,
 };
 use crate::plugins::PluginRegistry;
 use anyhow::Result;
@@ -146,6 +147,16 @@ fn detect_active_version(language: &str) -> Result<Option<String>> {
                 Err(_) => Ok(None),
             }
         }
+        "rust" => {
+            let spec = config.runtime.rust.trim();
+            if spec.is_empty() {
+                return Ok(None);
+            }
+            match resolve_rust_version(spec, &installed) {
+                Ok(resolved) => Ok(Some(resolved)),
+                Err(_) => Ok(None),
+            }
+        }
         _ => Ok(None),
     }
 }
@@ -157,6 +168,9 @@ fn get_version_status(language: &str, version: &str) -> (&'static str, &'static 
     }
     if language == "go" {
         return get_go_version_status(version);
+    }
+    if language == "rust" {
+        return ("STABLE", "Rust stable release");
     }
 
     let major = version.split('.').next().unwrap_or("0");

@@ -1,5 +1,6 @@
 use crate::core::go_install::{fetch_go_release_versions, resolve_go_version_spec};
 use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
+use crate::core::rust_install::{fetch_rust_release_versions, resolve_rust_version_spec};
 use crate::plugins::{LanguagePlugin, PluginRegistry};
 use anyhow::Result;
 use colored::Colorize;
@@ -77,6 +78,11 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
         let avail = fetch_go_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Go releases: {}", e))?;
         resolve_go_version_spec(version, &avail)?
+    } else if language == "rust" {
+        println!("{} Resolving Rust releases...", "[FETCH]".cyan());
+        let avail = fetch_rust_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))?;
+        resolve_rust_version_spec(version, &avail)?
     } else if version == "lts" || version == "latest" {
         println!(
             "{} Fetching {} release list...",
@@ -131,7 +137,7 @@ pub fn cmd_install_interactive() -> Result<()> {
     println!("\n[OK] Selected: {}", language.bold());
 
     // Step 2: Version selection (Python uses the same remote list UI as `ven install python`)
-    let version = if *language == "python" || *language == "go" {
+    let version = if *language == "python" || *language == "go" || *language == "rust" {
         let versions = fetch_available_versions(language)?;
         display_version_list(&versions, language)?;
         select_from_version_list(&versions, language)?
@@ -197,6 +203,9 @@ fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
             .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))
     } else if language == "go" {
         fetch_go_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Go releases: {}", e))
+    } else if language == "rust" {
+        fetch_rust_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))
     } else {
         Err(anyhow::anyhow!(
             "Version listing not yet supported for {}",
@@ -254,6 +263,8 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
             "3.12, 3.13, or 3"
         } else if language == "go" {
             "1.21, 1.22, or 1"
+        } else if language == "rust" {
+            "1.75, 1.76, or 1"
         } else {
             "20, 22, 18"
         };
@@ -277,6 +288,13 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
             "[TIP]".yellow(),
             "ven install go".dimmed(),
             "1.21".green()
+        );
+    } else if language == "rust" {
+        println!(
+            "\n{} Example: {} {}  (or full patch e.g. 1.75.0)",
+            "[TIP]".yellow(),
+            "ven install rust".dimmed(),
+            "1.75".green()
         );
     } else {
         println!(
@@ -345,6 +363,8 @@ fn get_version_metadata_short(version: &str, language: &str) -> String {
         return "CPython".to_string();
     } else if language == "go" {
         return "Go".to_string();
+    } else if language == "rust" {
+        return "Rust".to_string();
     }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
@@ -456,6 +476,9 @@ fn get_version_metadata(version: &str, language: &str) -> String {
     if language == "go" {
         return format!("[Go {}]", version);
     }
+    if language == "rust" {
+        return format!("[Rust {}]", version);
+    }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
 
@@ -500,6 +523,13 @@ fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &
                 "go.exe"
             } else {
                 "go"
+            }
+        }
+        "rust" => {
+            if cfg!(target_os = "windows") {
+                "cargo.exe"
+            } else {
+                "cargo"
             }
         }
         _ => {
