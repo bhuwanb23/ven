@@ -12,6 +12,29 @@ pub struct VenConfig {
     pub packages: HashMap<String, String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub venv: VenVenvConfig,
+}
+
+/// Controls whether ven shell hooks put `./venv` (or `./.venv`) first on PATH.
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub struct VenVenvConfig {
+    /// Default `true` when `[venv]` is absent (backward compatible): hooks prepend `./venv`.
+    /// Set `false` so PATH uses only ~/.ven-managed Python until you run `venv\\Scripts\\Activate`.
+    #[serde(default = "default_venv_auto_path")]
+    pub auto_path: bool,
+}
+
+fn default_venv_auto_path() -> bool {
+    true
+}
+
+impl Default for VenVenvConfig {
+    fn default() -> Self {
+        Self {
+            auto_path: default_venv_auto_path(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Default)]
@@ -210,6 +233,31 @@ PORT = "3000"
 
         let result = parse_ven_toml(&file_path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_venv_defaults_auto_path_true() {
+        let cfg: VenConfig = toml::from_str(
+            r#"[runtime]
+node = "18"
+"#,
+        )
+        .unwrap();
+        assert!(cfg.venv.auto_path);
+    }
+
+    #[test]
+    fn test_venv_explicit_auto_path_false() {
+        let cfg: VenConfig = toml::from_str(
+            r#"[runtime]
+python = "3.12.0"
+
+[venv]
+auto_path = false
+"#,
+        )
+        .unwrap();
+        assert!(!cfg.venv.auto_path);
     }
 
     #[test]

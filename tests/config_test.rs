@@ -15,6 +15,7 @@ fn test_example_directory_config() {
     
     assert_eq!(config.runtime.node, "25.9.0");
     assert!(config.packages.is_empty());
+    assert!(config.venv.auto_path, "omit [venv] => default auto_path=true");
 }
 
 #[test]

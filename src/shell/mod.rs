@@ -421,7 +421,7 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
 
         let mut used_project_venv = false;
 
-        if !skip_project_venv {
+        if config.venv.auto_path && !skip_project_venv {
             if let Some(venv_bin) = project_venv::local_venv_bin_dir(project_root) {
                 if let Some(venv_dir) = project_venv::local_venv_root(project_root) {
                     prepend_dirs.push(venv_bin);
@@ -476,16 +476,23 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
                              or `source ./venv/bin/activate`."
                         );
                     }
-                    anyhow::bail!(
-                        "ven.toml sets `runtime.python` but there is no `venv/` (or legacy `.venv`) under {}.\n\
-                         Create it with:  python3 -m venv venv\n\
-                         On Windows, `ven init` for a Python project creates `venv/` when your ven Python is installed.",
-                        project_root.display()
-                    );
+                    if project_venv::local_venv_root(project_root).is_none() {
+                        anyhow::bail!(
+                            "ven.toml sets `runtime.python` but there is no `venv/` (or legacy `.venv`) under {}.\n\
+                             Create it with:  python3 -m venv venv\n\
+                             On Windows, `ven init` for a Python project creates `venv/` when your ven Python is installed.",
+                            project_root.display()
+                        );
+                    }
+                    // e.g. `[venv] auto_path = false`: Unix has no ven embed prepend; `./venv` exists for manual activate.
                 }
                 // Node still activates; Python takes effect once `./venv` exists (unless skipping).
             }
         }
+    }
+
+    if !python_spec.is_empty() && python_resolved.is_none() {
+        python_resolved = Some(python_spec.to_string());
     }
 
     if !node_spec.is_empty() {

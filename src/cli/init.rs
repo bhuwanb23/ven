@@ -158,6 +158,16 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
         }
     }
 
+    if selected_language == "python" {
+        content.push_str("\n[venv]\n");
+        content.push_str(
+            "# false: shell hooks put ~/.ven Python on PATH only (pip/python match ven.toml).\n\
+             #        Run .\\venv\\Scripts\\Activate.ps1 (Windows) when you want the project venv.\n\
+             # true: hooks also prepend ./venv (previous behavior;Deactivate.ps1 alone may not stick).\n",
+        );
+        content.push_str("auto_path = false\n");
+    }
+
     fs::write(&toml_path, &content)?;
     
     // Success message
@@ -326,8 +336,12 @@ fn print_python_venv_usage_hints() {
     );
     println!(
         "      {}",
-        "Why `pip` looks unchanged: after `Deactivate`, hooks may restore this env on the next prompt. \
-         Run `ven deactivate` (and apply with iex/eval): sets VEN_SKIP_PROJECT_VENV so the project env is NOT prepended until you `ven-use` again."
+        "`[venv] auto_path = false` in ven.toml keeps ~/.ven-managed `pip` on PATH until you activate .\\venv (no hook override)."
+            .dimmed()
+    );
+    println!(
+        "      {}",
+        "Set `auto_path = true` to auto-prepend ./venv again; pair with `ven deactivate` (+ iex) if you need to pause that."
             .dimmed()
     );
 }
