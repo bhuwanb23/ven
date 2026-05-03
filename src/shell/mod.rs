@@ -37,9 +37,9 @@ pub fn detect_shell() -> String {
 
 pub fn generate_hook(shell: &str) -> String {
     match shell {
-        "bash" | "zsh"             => bash_zsh_hook(),
-        "fish"                     => fish_hook(),
-        "powershell" | "pwsh"      => powershell_hook(),
+        "bash" | "zsh" => bash_zsh_hook(),
+        "fish" => fish_hook(),
+        "powershell" | "pwsh" => powershell_hook(),
         other => format!("echo 'ven: unknown shell: {}' >&2\n", other),
     }
 }
@@ -49,8 +49,9 @@ fn bash_zsh_hook() -> String {
     let ven_path = std::env::current_exe()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "ven".to_string());
-    
-    format!(r#"
+
+    format!(
+        r#"
 # ven shell hook (bash/zsh) - Auto-switches Node.js on cd
 __VEN_ORIGINAL_PATH="$PATH"
 __VEN_LAST_DIR=""
@@ -113,7 +114,8 @@ __ven_activate() {{
 # Override cd command
 cd() {{ builtin cd "$@" && __ven_activate; }}
 __ven_activate  # activate for current directory on shell start
-"#)
+"#
+    )
 }
 
 fn fish_hook() -> String {
@@ -187,8 +189,9 @@ fn powershell_hook() -> String {
     let ven_path = std::env::current_exe()
         .map(|p| p.display().to_string().replace('/', "\\"))
         .unwrap_or_else(|_| "ven".to_string());
-    
-    format!(r#"
+
+    format!(
+        r#"
 # ven shell hook (PowerShell) - Auto-switches Node.js on cd / Set-Location
 if (-not $global:VEN_ORIGINAL_PATH) {{
     $global:VEN_ORIGINAL_PATH = $env:PATH
@@ -312,7 +315,8 @@ if (-not $global:__ven_prompt_hooked) {{
 }}
 
 __ven_activate
-"#)
+"#
+    )
 }
 
 /// Windows profile paths where we install the hook (pwsh, VS Code/Cursor host, Windows PowerShell 5.1).
@@ -414,14 +418,14 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let mut virtual_env_root: Option<std::path::PathBuf> = None;
 
     if !python_spec.is_empty() {
-        let skip_project_venv = matches!(
-            std::env::var("VEN_SKIP_PROJECT_VENV").as_deref(),
-            Ok("1"),
-        );
+        let skip_project_venv =
+            matches!(std::env::var("VEN_SKIP_PROJECT_VENV").as_deref(), Ok("1"),);
 
         let mut used_project_venv = false;
 
-        if config.venv.auto_path && !skip_project_venv {
+        // Prepend project venv when present (unless `ven deactivate`). `auto_path` is kept for
+        // compat in ven.toml only; hooks always expose ./venv Scripts so pip/python stay in sync on cd.
+        if !skip_project_venv {
             if let Some(venv_bin) = project_venv::local_venv_bin_dir(project_root) {
                 if let Some(venv_dir) = project_venv::local_venv_root(project_root) {
                     prepend_dirs.push(venv_bin);
@@ -462,6 +466,12 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
                         });
                     }
                 };
+                // Embed layout: pip.exe lives in Scripts/ beside python.exe; root alone resolves
+                // `python` but not `pip` (falls through to another Python on PATH).
+                let scripts = bin.join("Scripts");
+                if scripts.is_dir() {
+                    prepend_dirs.push(scripts);
+                }
                 prepend_dirs.push(bin);
                 python_resolved = Some(resolved);
             }
@@ -484,7 +494,7 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
                             project_root.display()
                         );
                     }
-                    // e.g. `[venv] auto_path = false`: Unix has no ven embed prepend; `./venv` exists for manual activate.
+                    // Unix: no ~/.ven Python prepend; `./venv/bin` holds python when present.
                 }
                 // Node still activates; Python takes effect once `./venv` exists (unless skipping).
             }
@@ -527,7 +537,11 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         toml_absolute.replace('\\', "/")
     };
 
-    let sep = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let sep = if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    };
     let path_joined = prepend_dirs
         .iter()
         .map(|p| p.display().to_string())

@@ -1,10 +1,15 @@
 use anyhow::Result;
 use colored::Colorize;
+use dialoguer::{theme::ColorfulTheme, MultiSelect, Select};
 use std::fs;
-use dialoguer::{Select, MultiSelect, theme::ColorfulTheme};
 
 /// Interactive project initialization with templates, packages, and validation
-pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, validate: bool) -> Result<()> {
+pub fn cmd_init(
+    _node: Option<&str>,
+    use_template: bool,
+    with_packages: bool,
+    validate: bool,
+) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let toml_path = cwd.join("ven.toml");
 
@@ -23,42 +28,57 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
     // MODE 1: Template selection
     if use_template {
         println!("\n{} Smart Project Templates", "📦".bold().cyan());
-        
+
         let templates = vec![
-            ("Express API Server", "node", "20", vec![
-                ("express", "^4.18.2"),
-                ("cors", "^2.8.5"),
-                ("dotenv", "^16.3.1"),
-            ]),
-            ("React + Vite Frontend", "node", "20", vec![
-                ("react", "^18.2.0"),
-                ("react-dom", "^18.2.0"),
-                ("vite", "^5.0.0"),
-            ]),
-            ("Next.js Full-stack", "node", "20", vec![
-                ("next", "^14.0.0"),
-                ("react", "^18.2.0"),
-                ("react-dom", "^18.2.0"),
-            ]),
+            (
+                "Express API Server",
+                "node",
+                "20",
+                vec![
+                    ("express", "^4.18.2"),
+                    ("cors", "^2.8.5"),
+                    ("dotenv", "^16.3.1"),
+                ],
+            ),
+            (
+                "React + Vite Frontend",
+                "node",
+                "20",
+                vec![
+                    ("react", "^18.2.0"),
+                    ("react-dom", "^18.2.0"),
+                    ("vite", "^5.0.0"),
+                ],
+            ),
+            (
+                "Next.js Full-stack",
+                "node",
+                "20",
+                vec![
+                    ("next", "^14.0.0"),
+                    ("react", "^18.2.0"),
+                    ("react-dom", "^18.2.0"),
+                ],
+            ),
             ("Empty Project", "", "", vec![]),
         ];
-        
+
         let template_names: Vec<&str> = templates.iter().map(|t| t.0).collect();
-        
+
         let template_idx = Select::with_theme(&theme)
             .with_prompt("Select project template")
             .items(&template_names)
             .default(0)
             .interact()?;
-        
+
         let template = &templates[template_idx];
         template_name = template.0.to_string();
-        
+
         // Check if this is an "Empty Project" - if so, do interactive language/version selection
         if template.1.is_empty() {
             println!("\n{} Selected: {}", "✓".green(), template_name.bold());
             println!("{} Configuring your empty project...", "→".cyan());
-            
+
             // Show language selection
             let languages = vec!["node", "python"];
             let language_idx = Select::with_theme(&theme)
@@ -66,27 +86,30 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
                 .items(&languages)
                 .default(0)
                 .interact()?;
-            
+
             selected_language = languages[language_idx].to_string();
-            
+
             // Version selection
             selected_version = match selected_language.as_str() {
                 "node" => select_node_version()?,
                 "python" => select_python_version()?,
                 _ => {
-                    return Err(anyhow::anyhow!("Unsupported language: {}", selected_language));
+                    return Err(anyhow::anyhow!(
+                        "Unsupported language: {}",
+                        selected_language
+                    ));
                 }
             };
         } else {
             // Pre-configured template
             selected_language = template.1.to_string();
             selected_version = template.2.to_string();
-            
+
             // Add template packages
             for (pkg, ver) in &template.3 {
                 selected_packages.push((pkg.to_string(), ver.to_string()));
             }
-            
+
             println!("\n{} Selected: {}", "✓".green(), template_name.bold());
         }
     } else {
@@ -97,15 +120,18 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
             .items(&languages)
             .default(0)
             .interact()?;
-        
+
         selected_language = languages[language_idx].to_string();
-        
+
         // Version selection
         selected_version = match selected_language.as_str() {
             "node" => select_node_version()?,
             "python" => select_python_version()?,
             _ => {
-                return Err(anyhow::anyhow!("Unsupported language: {}", selected_language));
+                return Err(anyhow::anyhow!(
+                    "Unsupported language: {}",
+                    selected_language
+                ));
             }
         };
     }
@@ -113,7 +139,7 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
     // MODE 3: Interactive package selection
     if with_packages && selected_packages.is_empty() {
         println!("\n{} Interactive Package Selection", "📦".bold().cyan());
-        
+
         let popular_packages = vec![
             ("express", "^4.18.2", "Fast, minimalist web framework"),
             ("typescript", "^5.3.0", "Typed JavaScript for better DX"),
@@ -124,29 +150,37 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
             ("eslint", "^8.56.0", "Code linting and quality"),
             ("prettier", "^3.1.0", "Code formatting"),
         ];
-        
-        let pkg_display: Vec<String> = popular_packages.iter()
+
+        let pkg_display: Vec<String> = popular_packages
+            .iter()
             .map(|(name, ver, desc)| format!("{} {} - {}", name.bold(), ver.dimmed(), desc))
             .collect();
-        
+
         let selected_indices = MultiSelect::with_theme(&theme)
             .with_prompt("Add popular packages? (SPACE to select, ENTER to continue)")
             .items(&pkg_display)
             .interact()?;
-        
+
         for idx in selected_indices {
             let pkg = &popular_packages[idx];
             selected_packages.push((pkg.0.to_string(), pkg.1.to_string()));
         }
-        
+
         if !selected_packages.is_empty() {
-            println!("\n{} Selected {} packages", "✓".green(), selected_packages.len());
+            println!(
+                "\n{} Selected {} packages",
+                "✓".green(),
+                selected_packages.len()
+            );
         }
     }
 
     // Generate ven.toml
     let mut content = String::from("[runtime]\n");
-    content.push_str(&format!("{} = \"{}\"\n", selected_language, selected_version));
+    content.push_str(&format!(
+        "{} = \"{}\"\n",
+        selected_language, selected_version
+    ));
 
     content.push_str("\n[packages]\n");
     if selected_packages.is_empty() {
@@ -161,22 +195,25 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
     if selected_language == "python" {
         content.push_str("\n[venv]\n");
         content.push_str(
-            "# false: shell hooks put ~/.ven Python on PATH only (pip/python match ven.toml).\n\
-             #        Run .\\venv\\Scripts\\Activate.ps1 (Windows) when you want the project venv.\n\
-             # true: hooks also prepend ./venv (previous behavior;Deactivate.ps1 alone may not stick).\n",
+            "# Optional. Hooks prepend `./venv` (or `./.venv`) when present; use `ven deactivate` (+ iex) to pause.\n",
         );
-        content.push_str("auto_path = false\n");
+        content.push_str("auto_path = true\n");
     }
 
     fs::write(&toml_path, &content)?;
-    
+
     // Success message
     println!("\n{} Created {}", "✓".green(), toml_path.display());
     if !template_name.is_empty() {
         println!("  {} Template: {}", "📦".cyan(), template_name.bold());
     }
-    println!("  {} {} {}", "🔧".cyan(), selected_language.bold(), selected_version.green());
-    
+    println!(
+        "  {} {} {}",
+        "🔧".cyan(),
+        selected_language.bold(),
+        selected_version.green()
+    );
+
     if !selected_packages.is_empty() {
         println!("  {} {} packages:", "📦".cyan(), selected_packages.len());
         for (pkg, ver) in &selected_packages {
@@ -291,11 +328,16 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
             }
         }
     }
-    
+
     // MODE 4: Validation
     if validate {
         println!("\n{} Running validation...", "🔍".bold().cyan());
-        run_validation(&selected_language, &selected_version, &selected_packages, &cwd)?;
+        run_validation(
+            &selected_language,
+            &selected_version,
+            &selected_packages,
+            &cwd,
+        )?;
     } else {
         println!("\nEdit this file to customize your dependencies.");
         if selected_language != "python" {
@@ -336,12 +378,7 @@ fn print_python_venv_usage_hints() {
     );
     println!(
         "      {}",
-        "`[venv] auto_path = false` in ven.toml keeps ~/.ven-managed `pip` on PATH until you activate .\\venv (no hook override)."
-            .dimmed()
-    );
-    println!(
-        "      {}",
-        "Set `auto_path = true` to auto-prepend ./venv again; pair with `ven deactivate` (+ iex) if you need to pause that."
+        "If you run `ven deactivate`, run `ven-use` again to put `./venv/Scripts` + ven Python back."
             .dimmed()
     );
 }
@@ -374,12 +411,7 @@ fn print_installed_runtimes_banner() -> Result<()> {
         let plugin = registry.require(lang)?;
         let versions = plugin.list_installed().unwrap_or_default();
         if versions.is_empty() {
-            println!(
-                "  {} {} — {}",
-                "•".dimmed(),
-                lang.bold(),
-                "(none)".dimmed()
-            );
+            println!("  {} {} — {}", "•".dimmed(), lang.bold(), "(none)".dimmed());
         } else {
             println!(
                 "  {} {} — {}",
@@ -437,7 +469,7 @@ fn select_node_version() -> Result<String> {
 fn get_version_info(version: &str) -> String {
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
-    
+
     // Determine version status and compatibility
     if major_num >= 23 {
         format!("🔥 Current  (~85% pkg compat)")
@@ -518,21 +550,25 @@ fn run_validation(
     packages: &[(String, String)],
     project_dir: &std::path::Path,
 ) -> Result<()> {
-    use crate::plugins::{NodePlugin, LanguagePlugin};
-    
+    use crate::plugins::{LanguagePlugin, NodePlugin};
+
     let mut all_checks_passed = true;
-    
+
     // Check 1: ven.toml created
     println!("  {} ven.toml created", "✓".green());
-    
+
     // Check 2: Node.js version installed
     if language == "node" {
         let plugin = NodePlugin;
         let installed = plugin.list_installed().unwrap_or_default();
-        
+
         if version == "latest" || version == "lts" || !version.contains('.') {
             // Alias - will be resolved during install
-            println!("  {} Node.js {} (will resolve during install)", "⚠️".yellow(), version);
+            println!(
+                "  {} Node.js {} (will resolve during install)",
+                "⚠️".yellow(),
+                version
+            );
         } else if installed.contains(&version.to_string()) {
             println!("  {} Node.js {} installed", "✓".green(), version);
         } else {
@@ -551,11 +587,7 @@ fn run_validation(
                 PROJECT_VENV_DIR
             );
         } else {
-            println!(
-                "  {} `{}/` not found",
-                "✗".red(),
-                PROJECT_VENV_DIR
-            );
+            println!("  {} `{}/` not found", "✗".red(), PROJECT_VENV_DIR);
             println!(
                 "    {} Run: ven install python {}  (Windows) or python3 -m venv {}",
                 "💡".yellow(),
@@ -565,21 +597,21 @@ fn run_validation(
             all_checks_passed = false;
         }
     }
-    
+
     // Check 3: Package compatibility (basic check)
     if !packages.is_empty() {
         println!("  {} {} packages declared", "✓".green(), packages.len());
-        
+
         // Future: Check npm registry for compatibility
         // For now, just list them
         for (pkg, _) in packages {
             println!("      {} {}", "•".dimmed(), pkg);
         }
     }
-    
+
     // Check 4: Environment variables
     println!("  {} Environment variables (optional)", "ℹ️".blue());
-    
+
     // Final summary
     println!();
     if all_checks_passed {
@@ -588,6 +620,6 @@ fn run_validation(
         println!("  {} Some issues need attention", "⚠️".yellow().bold());
     }
     println!();
-    
+
     Ok(())
 }
