@@ -50,7 +50,12 @@ pub fn local_venv_python_version(venv_root: &Path) -> Option<String> {
     None
 }
 
-/// Creates `.venv` under `project_root` using `python_executable -m venv .venv`.
+/// Creates `.venv` under `project_root`.
+///
+/// Uses `python -m venv` first. Official **Windows embeddable** zips omit the stdlib `venv`
+/// package, so that step often fails with `No module named venv`. In that case we install
+/// PyPI [`virtualenv`](https://pypi.org/project/virtualenv/) via pip and run
+/// `python -m virtualenv .venv`, which produces the same layout (`pyvenv.cfg`, `Scripts`/…).
 pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Result<PathBuf> {
     let venv = project_root.join(".venv");
     if venv.join("pyvenv.cfg").is_file() {
@@ -60,18 +65,54 @@ pub fn create_local_venv(project_root: &Path, python_executable: &Path) -> Resul
         std::fs::remove_dir_all(&venv)
             .with_context(|| format!("Could not remove partial {}", venv.display()))?;
     }
-    let st = Command::new(python_executable)
+
+    let try_stdlib_venv = Command::new(python_executable)
         .current_dir(project_root)
         .args(["-m", "venv", ".venv"])
         .status()
         .with_context(|| format!("Failed to run {:?}", python_executable))?;
-    if !st.success() {
+
+    if try_stdlib_venv.success() {
+        return Ok(venv);
+    }
+
+    // Embed / minimal builds: no stdlib `venv` — bootstrap virtualenv through pip.
+    let pip_st = Command::new(python_executable)
+        .current_dir(project_root)
+        .args([
+            "-m",
+            "pip",
+            "install",
+            "-q",
+            "--disable-pip-version-check",
+            "virtualenv",
+        ])
+        .status()
+        .with_context(|| {
+            format!(
+                "Failed to run pip beside {:?} (need pip + network for virtualenv fallback)",
+                python_executable
+            )
+        })?;
+    if !pip_st.success() {
         anyhow::bail!(
-            "{:?} -m venv .venv exited with {}",
-            python_executable,
-            st
+            "This Python has no stdlib `venv` (common with Windows embeddable builds), \
+             and `pip install virtualenv` failed (exit {}). \
+             Fix pip/network or use a full Python installer; then run:  {:?} -m venv .venv",
+            pip_st,
+            python_executable
         );
     }
+
+    let vx_st = Command::new(python_executable)
+        .current_dir(project_root)
+        .args(["-m", "virtualenv", ".venv"])
+        .status()
+        .with_context(|| format!("Failed to run virtualenv via {:?}", python_executable))?;
+    if !vx_st.success() {
+        anyhow::bail!("`{:?} -m virtualenv .venv` exited with {}", python_executable, vx_st);
+    }
+
     Ok(venv)
 }
 
