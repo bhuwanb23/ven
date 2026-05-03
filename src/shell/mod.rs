@@ -207,7 +207,17 @@ pub fn windows_powershell_profile_paths(home: &std::path::Path) -> Vec<std::path
 // Reads ven.toml, resolves Node version, returns shell assignment text.
 // The hook runs this text with eval (bash) or Invoke-Expression (PowerShell).
 
-pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
+#[derive(Debug)]
+pub enum ComputeExportsOutcome {
+    /// No ven.toml in this directory tree
+    NoToml,
+    /// PATH/env script ready for the shell
+    Success(String),
+    /// Resolved version / spec is not installed under ~/.ven yet
+    MissingNode { install_with: String },
+}
+
+pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     // Make directory absolute first
     let absolute_dir = if dir.is_absolute() {
         dir.to_path_buf()
@@ -216,30 +226,27 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
             .map(|cwd| cwd.join(dir))
             .unwrap_or_else(|_| dir.to_path_buf())
     };
-    
+
     // Try to find ven.toml starting from this directory
     let toml_path = match find_ven_toml(&absolute_dir) {
         Some(p) => p,
-        None    => return Ok(None), // no ven.toml — print nothing
+        None => return Ok(ComputeExportsOutcome::NoToml),
     };
-    
+
     // Canonicalize the toml path to get clean absolute path (resolves . and ..)
-    let toml_canonical = std::fs::canonicalize(&toml_path)
-        .unwrap_or_else(|_| {
-            // If canonicalize fails, use the path as-is
-            if toml_path.is_absolute() {
-                toml_path
-            } else {
-                std::env::current_dir()
-                    .map(|cwd| cwd.join(&toml_path))
-                    .unwrap_or_else(|_| toml_path)
-            }
-        });
-    
+    let toml_canonical = std::fs::canonicalize(&toml_path).unwrap_or_else(|_| {
+        if toml_path.is_absolute() {
+            toml_path
+        } else {
+            std::env::current_dir()
+                .map(|cwd| cwd.join(&toml_path))
+                .unwrap_or_else(|_| toml_path)
+        }
+    });
+
     // On Windows, canonicalize adds \\?\ prefix which we need to strip
     let toml_str = toml_canonical.display().to_string();
     let toml_absolute = if cfg!(target_os = "windows") {
-        // Strip \\?\ prefix if present
         if toml_str.starts_with("\\\\?\\") {
             toml_str[4..].to_string()
         } else {
@@ -250,32 +257,31 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
     };
 
     let config = parse_ven_toml(std::path::Path::new(&toml_absolute))?;
-    let node_spec = &config.runtime.node;
+    let node_spec = config.runtime.node.trim();
+    if node_spec.is_empty() {
+        anyhow::bail!("ven.toml [runtime].node is empty; set a Node.js version.");
+    }
 
-    // Resolve alias ("lts", "20") to installed concrete version ("20.11.0")
     let plugin = NodePlugin;
     let installed = plugin.list_installed().unwrap_or_default();
     let resolved = match resolve_node_version(node_spec, &installed) {
         Ok(version) => version,
         Err(_) => {
-            // Check if any versions are installed at all
-            if installed.is_empty() {
-                anyhow::bail!(
-                    "No Node.js versions installed.\n\nInstall: ven install node {}", 
-                    node_spec
-                );
-            } else {
-                anyhow::bail!(
-                    "Node.js {} required but not installed.\n\nInstall: ven install node {}", 
-                    node_spec,
-                    node_spec
-                );
-            }
+            return Ok(ComputeExportsOutcome::MissingNode {
+                install_with: node_spec.to_string(),
+            });
         }
     };
 
-    // Get the bin/ path for this resolved version
-    let bin_path = plugin.bin_path(&resolved)?;
+    let bin_path = match plugin.bin_path(&resolved) {
+        Ok(p) => p,
+        Err(_) => {
+            return Ok(ComputeExportsOutcome::MissingNode {
+                install_with: resolved,
+            });
+        }
+    };
+
     let bin_str = bin_path.display().to_string();
     
     // Normalize slashes for the platform
@@ -317,5 +323,5 @@ pub fn compute_exports(dir: &Path) -> Result<Option<String>> {
         out
     };
 
-    Ok(Some(exports))
+    Ok(ComputeExportsOutcome::Success(exports))
 }

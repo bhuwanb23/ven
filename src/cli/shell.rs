@@ -1,7 +1,11 @@
 use anyhow::Result;
 use colored::Colorize;
+use dialoguer::{Confirm, theme::ColorfulTheme};
+use std::io::{self, IsTerminal};
 use std::path::PathBuf;
-use crate::shell::{generate_hook, compute_exports, windows_powershell_profile_paths};
+use crate::shell::{
+    generate_hook, try_compute_exports, windows_powershell_profile_paths, ComputeExportsOutcome,
+};
 
 // ── ven shell hook <shell> ────────────────────────────────────────
 pub fn cmd_shell_hook(shell: &str) -> Result<()> {
@@ -117,21 +121,47 @@ pub fn cmd_shell_install() -> Result<()> {
 #[allow(non_snake_case)]
 pub fn cmd_shell_activate(dir: &str) -> Result<()> {
     let path = std::path::Path::new(dir);
-    
-    // Check if directory exists
+
     if !path.exists() {
         anyhow::bail!("Directory not found: {}", path.display());
     }
-    
-    match compute_exports(path)? {
-        Some(exports) => {
-            // Output the exports (stdout only — shell hooks eval this)
+
+    match try_compute_exports(path)? {
+        ComputeExportsOutcome::NoToml => Ok(()),
+        ComputeExportsOutcome::Success(exports) => {
             print!("{}", exports);
+            Ok(())
         }
-        None => {
-            // No ven.toml in this tree: exit 0 with no stdout so hooks restore PATH
-            // (interactive users can run `ven status` / `ven init` for guidance)
+        ComputeExportsOutcome::MissingNode { install_with } => {
+            let interactive = io::stdin().is_terminal() && io::stdout().is_terminal();
+            if interactive {
+                if Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt(format!(
+                        "Node {} is required by ven.toml but not installed. Install it now?",
+                        install_with
+                    ))
+                    .default(true)
+                    .interact()?
+                {
+                    crate::cli::install::cmd_install("node", &install_with)?;
+                    match try_compute_exports(path)? {
+                        ComputeExportsOutcome::Success(exports) => print!("{}", exports),
+                        ComputeExportsOutcome::MissingNode { .. } => {
+                            anyhow::bail!(
+                                "Install finished but activation still failed. Try: ven shell activate {}",
+                                path.display()
+                            );
+                        }
+                        ComputeExportsOutcome::NoToml => {}
+                    }
+                }
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Node.js not installed for this project.\n\nInstall: ven install node {}",
+                    install_with
+                ))
+            }
         }
     }
-    Ok(())
 }
