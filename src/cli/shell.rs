@@ -1,7 +1,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use dialoguer::{Confirm, theme::ColorfulTheme};
-use std::io::{self, IsTerminal};
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use crate::shell::{
     generate_hook, try_compute_exports, windows_powershell_profile_paths, ComputeExportsOutcome,
@@ -130,6 +130,7 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
         ComputeExportsOutcome::NoToml => Ok(()),
         ComputeExportsOutcome::Success(exports) => {
             print!("{}", exports);
+            hint_shell_activate_apply_if_tty();
             Ok(())
         }
         ComputeExportsOutcome::MissingNode { install_with } => {
@@ -145,7 +146,10 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
                 {
                     crate::cli::install::cmd_install("node", &install_with)?;
                     match try_compute_exports(path)? {
-                        ComputeExportsOutcome::Success(exports) => print!("{}", exports),
+                        ComputeExportsOutcome::Success(exports) => {
+                            print!("{}", exports);
+                            hint_shell_activate_apply_if_tty();
+                        }
                         ComputeExportsOutcome::MissingNode { .. } => {
                             anyhow::bail!(
                                 "Install finished but activation still failed. Try: ven shell activate {}",
@@ -163,5 +167,31 @@ pub fn cmd_shell_activate(dir: &str) -> Result<()> {
                 ))
             }
         }
+    }
+}
+
+/// `ven shell activate` only **prints** shell code; the parent process cannot apply it.
+/// When the user runs it directly (TTY → TTY), explain; when piped to `iex`/`eval`, no hint.
+fn hint_shell_activate_apply_if_tty() {
+    if !(io::stdout().is_terminal() && io::stderr().is_terminal()) {
+        return;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = writeln!(
+            io::stderr(),
+            "{}",
+            r##"ven: The lines above are not executed automatically. Apply them with:  iex ((ven shell activate $PWD) -join "`n")  or:  ven-use"##
+                .dimmed()
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = writeln!(
+            io::stderr(),
+            "{}",
+            "ven: The lines above are not executed automatically. Apply with:  eval \"$(ven shell activate .)\"  or:  ven-use"
+                .dimmed()
+        );
     }
 }

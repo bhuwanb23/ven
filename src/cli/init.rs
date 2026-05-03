@@ -180,6 +180,10 @@ pub fn cmd_init(_node: Option<&str>, use_template: bool, with_packages: bool, va
         println!("\nEdit this file to customize your dependencies.");
         println!("Run: ven install {} {}   to install this version", 
             selected_language, selected_version);
+        println!(
+            "Then apply in this terminal: {}  (after one-time  ven setup  or  ven shell install)",
+            "ven-use".bold()
+        );
     }
 
     Ok(())

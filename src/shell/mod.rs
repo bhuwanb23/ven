@@ -54,6 +54,13 @@ __VEN_ORIGINAL_PATH="$PATH"
 __VEN_LAST_DIR=""
 __VEN_BIN="{ven_path}"
 
+ven-use() {{
+    local d="${{1:-$PWD}}"
+    local script
+    script=$("$__VEN_BIN" shell activate "$d" 2>/dev/null) || true
+    if [ -n "$script" ]; then eval "$script"; fi
+}}
+
 __ven_activate() {{
     local current_dir="$PWD"
     
@@ -86,6 +93,17 @@ __ven_activate  # activate for current directory on shell start
 fn fish_hook() -> String {
     r#"
 # ven shell hook (fish)
+function ven-use
+    set -l d $argv[1]
+    if test -z "$d"
+        set d $PWD
+    end
+    set -l script (ven shell activate "$d" 2>/dev/null)
+    if test -n "$script"
+        eval $script
+    end
+end
+
 function __ven_activate --on-variable PWD
     set exports (ven shell activate "$PWD" 2>/dev/null)
     if test -n "$exports"
@@ -113,6 +131,17 @@ if (-not $global:VEN_ORIGINAL_PATH) {{
 $global:VEN_BIN = "{ven_path}"
 $global:VEN_LAST_DIR = $null
 $global:VEN_LAST_ACTIVATE_WARN = $null
+
+# Manual apply (ven shell activate only prints; this runs those lines in-process)
+if (-not $global:__ven_use_defined) {{
+    $global:__ven_use_defined = $true
+    function global:ven-use {{
+        param([string]$Directory = $PWD.Path)
+        $lines = & $global:VEN_BIN shell activate $Directory 2>$null
+        $script = if ($null -eq $lines) {{ '' }} else {{ [string]::Join([Environment]::NewLine, @($lines)) }}
+        if ($script) {{ Invoke-Expression $script }}
+    }}
+}}
 
 function global:__ven_activate {{
     $current_dir = $PWD.Path
