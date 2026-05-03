@@ -97,8 +97,8 @@ __ven_activate  # activate on shell start
     .to_string()
 }
 
-// FIXED: PowerShell hook — uses Invoke-Expression + $env:PATH syntax
-// Monitors directory changes and automatically switches Node versions
+// PowerShell hook — Invoke-Expression + $env:PATH; Set-Location + prompt so
+// `cd`, `Set-Location`, and Cursor/pwsh hosts all pick up directory changes.
 fn powershell_hook() -> String {
     // Get the current executable path
     let ven_path = std::env::current_exe()
@@ -106,41 +106,73 @@ fn powershell_hook() -> String {
         .unwrap_or_else(|_| "ven".to_string());
     
     format!(r#"
-# ven shell hook (PowerShell) - Auto-switches Node.js on cd
-$global:VEN_ORIGINAL_PATH = $env:PATH
+# ven shell hook (PowerShell) - Auto-switches Node.js on cd / Set-Location
+if (-not $global:VEN_ORIGINAL_PATH) {{
+    $global:VEN_ORIGINAL_PATH = $env:PATH
+}}
 $global:VEN_BIN = "{ven_path}"
 $global:VEN_LAST_DIR = $null
+$global:VEN_LAST_ACTIVATE_WARN = $null
 
 function global:__ven_activate {{
     $current_dir = $PWD.Path
-    
-    # Skip if same directory
+
     if ($global:VEN_LAST_DIR -eq $current_dir) {{ return }}
     $global:VEN_LAST_DIR = $current_dir
-    
-    # Try to activate ven.toml
+
     try {{
-        $exports = (& $global:VEN_BIN shell activate $current_dir 2>$null) -join "`n"
-        
-        if ($exports) {{
-            # ven.toml found
-            Invoke-Expression $exports
+        $lines = & $global:VEN_BIN shell activate $current_dir 2>$null
+        $exit = $LASTEXITCODE
+        $script = if ($null -eq $lines) {{ '' }} else {{ [string]::Join([Environment]::NewLine, @($lines)) }}
+
+        # Prefer stdout over $LASTEXITCODE (PS can leave a stale exit code between prompts)
+        if ($script) {{
+            Invoke-Expression $script
+            $global:VEN_LAST_ACTIVATE_WARN = $null
+        }} elseif ($exit -ne 0) {{
+            $env:PATH = $global:VEN_ORIGINAL_PATH
+            if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
+            if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
+            $key = "$current_dir|$exit"
+            if ($global:VEN_LAST_ACTIVATE_WARN -ne $key) {{
+                Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install the required Node version or fix ven.toml. Try: ven shell activate `"$current_dir`""
+                $global:VEN_LAST_ACTIVATE_WARN = $key
+            }}
         }} else {{
-            # No ven.toml - restore original PATH
             $env:PATH = $global:VEN_ORIGINAL_PATH
             if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
         }}
     }} catch {{
-        # Ignore errors
+        $env:PATH = $global:VEN_ORIGINAL_PATH
     }}
 }}
 
-# Hook into the prompt to detect directory changes
+# Wrap Set-Location so `cd` / Set-Location always re-run activation (prompt alone misses some hosts)
+if (-not $global:__ven_set_location_wrapped) {{
+    $global:__ven_set_location_wrapped = $true
+    function global:Set-Location {{
+        [CmdletBinding(DefaultParameterSetName='Path', SupportsShouldProcess=$true)]
+        param(
+            [Parameter(ParameterSetName='Path', Position=0, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+            [string] $Path,
+            [Parameter(ParameterSetName='LiteralPath', Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
+            [string] $LiteralPath,
+            [Parameter(ParameterSetName='StackName')]
+            [string] $StackName,
+            [switch] $PassThru,
+            [Parameter(ValueFromPipeline=$true)]
+            [psobject] $InputObject
+        )
+        Microsoft.PowerShell.Management\Set-Location @PSBoundParameters
+        __ven_activate
+    }}
+}}
+
 if (-not $global:__ven_prompt_hooked) {{
     $global:__ven_prompt_hooked = $true
     $global:__ven_old_prompt = ${{function:prompt}}
-    
+
     function global:prompt {{
         __ven_activate
         if ($global:__ven_old_prompt) {{
@@ -151,9 +183,23 @@ if (-not $global:__ven_prompt_hooked) {{
     }}
 }}
 
-# Activate on terminal start
 __ven_activate
 "#)
+}
+
+/// Windows profile paths where we install the hook (pwsh, VS Code/Cursor host, Windows PowerShell 5.1).
+pub fn windows_powershell_profile_paths(home: &std::path::Path) -> Vec<std::path::PathBuf> {
+    vec![
+        home.join("Documents")
+            .join("PowerShell")
+            .join("Microsoft.PowerShell_profile.ps1"),
+        home.join("Documents")
+            .join("PowerShell")
+            .join("Microsoft.VSCode_profile.ps1"),
+        home.join("Documents")
+            .join("WindowsPowerShell")
+            .join("Microsoft.PowerShell_profile.ps1"),
+    ]
 }
 
 // ── Compute exports for a directory ─────────────────────────────────
