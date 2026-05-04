@@ -55,6 +55,11 @@ pub fn cmd_upgrade(
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty();
+    let java_mode = !cfg.runtime.java.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.go.is_empty()
+        && cfg.runtime.rust.is_empty();
 
     // Handle --all flag: get all packages from ven.toml
     let target_packages = if all {
@@ -81,6 +86,9 @@ pub fn cmd_upgrade(
     }
     if rust_mode {
         return cmd_upgrade_rust(&target_packages, apply, dry_run, json);
+    }
+    if java_mode {
+        return cmd_upgrade_java_notice(&target_packages, apply, dry_run, json);
     }
 
     if json {
@@ -283,6 +291,32 @@ fn cmd_upgrade_rust(packages: &[String], apply: bool, dry_run: bool, json: bool)
     if !json {
         println!();
     }
+    Ok(())
+}
+
+fn cmd_upgrade_java_notice(
+    packages: &[String],
+    apply: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"java",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages,
+                "message":"Use Maven/Gradle for Java dependency upgrades"
+            }))?
+        );
+        return Ok(());
+    }
+    println!("\n  {}", "ven upgrade (java)".bold().cyan());
+    println!("  {} Java upgrades are managed by Maven/Gradle.", "[INFO]".cyan());
+    println!("  {} No direct package upgrade performed by ven.", "[TIP]".cyan());
+    println!();
     Ok(())
 }
 

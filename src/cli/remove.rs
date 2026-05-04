@@ -28,11 +28,23 @@ pub fn cmd_remove(
                 && c.runtime.go.is_empty()
         })
         .unwrap_or(false);
+    let java_mode = load_config(&cwd)?
+        .map(|c| {
+            !c.runtime.java.is_empty()
+                && c.runtime.node.is_empty()
+                && c.runtime.python.is_empty()
+                && c.runtime.go.is_empty()
+                && c.runtime.rust.is_empty()
+        })
+        .unwrap_or(false);
     if python_mode && !cleanup {
         return cmd_remove_python(packages, dry_run, json);
     }
     if rust_mode && !cleanup {
         return cmd_remove_rust(packages, dry_run, json);
+    }
+    if java_mode && !cleanup {
+        return cmd_remove_java_notice(packages, dry_run, json);
     }
 
     // Handle cleanup mode separately
@@ -212,6 +224,26 @@ fn cmd_remove_rust(packages: &[String], dry_run: bool, json: bool) -> Result<()>
             }))?
         );
     }
+    println!();
+    Ok(())
+}
+
+fn cmd_remove_java_notice(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"java",
+                "dry_run": dry_run,
+                "packages": packages,
+                "message":"Use Maven/Gradle to manage Java dependencies"
+            }))?
+        );
+        return Ok(());
+    }
+    println!("\n  {}", "ven remove (java)".bold().cyan());
+    println!("  {} Java dependency removal is managed by Maven/Gradle.", "[INFO]".cyan());
+    println!("  {} No direct removal performed by ven.", "[TIP]".cyan());
     println!();
     Ok(())
 }

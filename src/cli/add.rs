@@ -63,12 +63,18 @@ pub fn cmd_add(
     let python_version = cfg.runtime.python.clone();
     let go_version = cfg.runtime.go.clone();
     let rust_version = cfg.runtime.rust.clone();
+    let java_version = cfg.runtime.java.clone();
     let python_mode = !python_version.is_empty() && node_version.is_empty();
     let go_mode = !go_version.is_empty() && node_version.is_empty() && python_version.is_empty();
     let rust_mode = !rust_version.is_empty()
         && node_version.is_empty()
         && python_version.is_empty()
         && go_version.is_empty();
+    let java_mode = !java_version.is_empty()
+        && node_version.is_empty()
+        && python_version.is_empty()
+        && go_version.is_empty()
+        && rust_version.is_empty();
 
     if python_mode {
         return cmd_add_python(package_specs, dry_run);
@@ -78,6 +84,9 @@ pub fn cmd_add(
     }
     if rust_mode {
         return cmd_add_rust(package_specs, dry_run);
+    }
+    if java_mode {
+        return cmd_add_java_notice(package_specs, dry_run);
     }
 
     // Load existing packages from ven.toml
@@ -658,6 +667,21 @@ fn parse_rust_spec(spec: &str) -> (String, String) {
         }
     }
     (spec.to_string(), "latest".to_string())
+}
+
+fn cmd_add_java_notice(package_specs: &[String], dry_run: bool) -> Result<()> {
+    println!("\n{}", "ven add (java)".bold().cyan());
+    println!("  {} {} item(s)", "[PLAN]".cyan(), package_specs.len());
+    if dry_run {
+        println!("  {} Java dependencies are managed by Maven/Gradle.", "[INFO]".cyan());
+        println!("  {} No changes made.", "[DRY-RUN]".yellow());
+        println!();
+        return Ok(());
+    }
+    println!("  {} Java package management is delegated to Maven/Gradle.", "[INFO]".cyan());
+    println!("  {} Use your build tool (e.g. mvn/gradle) to add dependencies.", "[TIP]".cyan());
+    println!();
+    Ok(())
 }
 
 fn parse_python_spec(spec: &str) -> (String, String) {

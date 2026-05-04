@@ -1,6 +1,6 @@
 use crate::core::config::VenConfig;
 use crate::core::{
-    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_node_version,
+    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_java_version, resolve_node_version,
     resolve_python_version, resolve_rust_version,
 };
 use anyhow::Result;
@@ -54,6 +54,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
     let has_python = !config.runtime.python.is_empty();
     let has_go = !config.runtime.go.is_empty();
     let has_rust = !config.runtime.rust.is_empty();
+    let has_java = !config.runtime.java.is_empty();
 
     // Runtime section
     if has_node {
@@ -73,7 +74,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
         if !installed {
             println!("    {} Run: ven install node {}", "[!]".yellow(), node_spec);
         }
-    } else if !has_python && !has_go && !has_rust {
+    } else if !has_python && !has_go && !has_rust && !has_java {
         println!("  {} node {}", "[!]".yellow(), "not specified".dimmed());
     }
     if has_python {
@@ -121,12 +122,27 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
             println!("    {} Run: ven install rust {}", "[!]".yellow(), rust_spec);
         }
     }
+    if has_java {
+        let java_spec = &config.runtime.java;
+        let resolved = resolve_java_for_display(java_spec)?;
+        let installed = is_java_installed(java_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} java {} {}",
+            status_icon,
+            java_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install java {}", "[!]".yellow(), java_spec);
+        }
+    }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
-        let installed_count = if has_python && !has_node && !has_go && !has_rust {
+        let installed_count = if has_python && !has_node && !has_go && !has_rust && !has_java {
             config
                 .packages
                 .keys()
@@ -149,7 +165,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
 
         // Show tip if packages are missing
         if installed_count < pkg_count {
-            if has_python && !has_node && !has_go && !has_rust {
+            if has_python && !has_node && !has_go && !has_rust && !has_java {
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
             } else {
                 println!(
@@ -275,6 +291,19 @@ fn display_verbose_status(
             );
             if fix {
                 println!("      {} Run: ven install rust {}", "[!]".yellow(), spec);
+            }
+        }
+    }
+    if !config.runtime.java.is_empty() {
+        let spec = &config.runtime.java;
+        let installed = is_java_installed(spec);
+        let resolved = resolve_java_for_display(spec)?;
+        if installed {
+            println!("    {} java {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!("    {} java {} - {}", "✗".red(), spec.bold(), "not installed");
+            if fix {
+                println!("      {} Run: ven install java {}", "[!]".yellow(), spec);
             }
         }
     }
@@ -451,6 +480,16 @@ fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.java.is_empty() {
+        let java_spec = &config.runtime.java;
+        let resolved = resolve_java_for_display(java_spec)?;
+        let installed = is_java_installed(java_spec);
+        runtime_info["java"] = json!({
+            "version_required": java_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
 
     // Build package list
     let mut pkg_list = Vec::new();
@@ -461,6 +500,7 @@ fn output_json_status(
             && config.runtime.node.is_empty()
             && config.runtime.go.is_empty()
             && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty()
         {
             is_python_package_installed(name)
         } else {
@@ -590,6 +630,17 @@ fn resolve_rust_for_display(spec: &str) -> Result<String> {
     }
 }
 
+fn resolve_java_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("java")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_java_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -630,6 +681,17 @@ fn is_rust_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("rust") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_rust_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+fn is_java_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("java") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_java_version(spec, &installed).is_ok()
     } else {
         false
     }
@@ -759,6 +821,7 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
         && config.runtime.python.is_empty()
         && config.runtime.go.is_empty()
         && config.runtime.rust.is_empty()
+        && config.runtime.java.is_empty()
     {
         issues.push("No runtime version specified".to_string());
     }
@@ -788,6 +851,13 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
             issues.push(format!("Rust {} not installed", config.runtime.rust));
         } else {
             ok_items.push(format!("Rust {} ready", config.runtime.rust));
+        }
+    }
+    if !config.runtime.java.is_empty() {
+        if !is_java_installed(&config.runtime.java) {
+            issues.push(format!("Java {} not installed", config.runtime.java));
+        } else {
+            ok_items.push(format!("Java {} ready", config.runtime.java));
         }
     }
 

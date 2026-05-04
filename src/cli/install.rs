@@ -1,4 +1,5 @@
 use crate::core::go_install::{fetch_go_release_versions, resolve_go_version_spec};
+use crate::core::java_install::{fetch_java_release_versions, resolve_java_version_spec};
 use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
 use crate::core::rust_install::{fetch_rust_release_versions, resolve_rust_version_spec};
 use crate::plugins::{LanguagePlugin, PluginRegistry};
@@ -83,6 +84,11 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
         let avail = fetch_rust_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))?;
         resolve_rust_version_spec(version, &avail)?
+    } else if language == "java" {
+        println!("{} Resolving Java from Adoptium...", "[FETCH]".cyan());
+        let avail = fetch_java_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Java releases: {}", e))?;
+        resolve_java_version_spec(version, &avail)?
     } else if version == "lts" || version == "latest" {
         println!(
             "{} Fetching {} release list...",
@@ -137,7 +143,8 @@ pub fn cmd_install_interactive() -> Result<()> {
     println!("\n[OK] Selected: {}", language.bold());
 
     // Step 2: Version selection (Python uses the same remote list UI as `ven install python`)
-    let version = if *language == "python" || *language == "go" || *language == "rust" {
+    let version =
+        if *language == "python" || *language == "go" || *language == "rust" || *language == "java" {
         let versions = fetch_available_versions(language)?;
         display_version_list(&versions, language)?;
         select_from_version_list(&versions, language)?
@@ -206,6 +213,8 @@ fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
     } else if language == "rust" {
         fetch_rust_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))
+    } else if language == "java" {
+        fetch_java_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Java releases: {}", e))
     } else {
         Err(anyhow::anyhow!(
             "Version listing not yet supported for {}",
@@ -265,6 +274,8 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
             "1.21, 1.22, or 1"
         } else if language == "rust" {
             "1.75, 1.76, or 1"
+        } else if language == "java" {
+            "11, 17, 21, or 21.0"
         } else {
             "20, 22, 18"
         };
@@ -295,6 +306,13 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
             "[TIP]".yellow(),
             "ven install rust".dimmed(),
             "1.75".green()
+        );
+    } else if language == "java" {
+        println!(
+            "\n{} Example: {} {}  (or full patch e.g. 21.0.5)",
+            "[TIP]".yellow(),
+            "ven install java".dimmed(),
+            "21".green()
         );
     } else {
         println!(
@@ -365,6 +383,8 @@ fn get_version_metadata_short(version: &str, language: &str) -> String {
         return "Go".to_string();
     } else if language == "rust" {
         return "Rust".to_string();
+    } else if language == "java" {
+        return "OpenJDK".to_string();
     }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
@@ -530,6 +550,13 @@ fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &
                 "cargo.exe"
             } else {
                 "cargo"
+            }
+        }
+        "java" => {
+            if cfg!(target_os = "windows") {
+                "java.exe"
+            } else {
+                "java"
             }
         }
         _ => {

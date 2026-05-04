@@ -22,7 +22,7 @@ pub mod upgrade;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven list                     # All installed runtimes (node, python, go, rust, …)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven list                     # All installed runtimes (node, python, go, rust, java, …)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -43,7 +43,7 @@ pub enum Commands {
     ///   ven install                # Interactive mode
     #[command(
         visible_alias = "i",
-        long_about = "Install a language runtime (e.g., Node.js, Python, Go)\n\nDownloads and installs versions from official sources.\nSupports version specs like \"20\", \"3.12\", \"1.21\", \"lts\", or \"latest\".\n\nExamples:\n  ven install node 20        # Install latest Node.js 20.x\n  ven install python 3.12.7  # Install specific Python patch\n  ven install go 1.21        # Install latest Go 1.21.x\n  ven install node           # Show available versions\n  ven install                # Interactive mode"
+        long_about = "Install a language runtime (e.g., Node.js, Python, Go, Rust, Java)\n\nDownloads and installs versions from official sources.\nSupports version specs like \"20\", \"3.12\", \"1.21\", \"1.75\", \"21\", \"lts\", or \"latest\".\n\nExamples:\n  ven install node 20        # Install latest Node.js 20.x\n  ven install python 3.12.7  # Install specific Python patch\n  ven install go 1.21        # Install latest Go 1.21.x\n  ven install rust 1.75      # Install Rust 1.75.x\n  ven install java 21        # Install Java 21.x\n  ven install node           # Show available versions\n  ven install                # Interactive mode"
     )]
     Install {
         /// Language to install (e.g. "node", "python", "go")

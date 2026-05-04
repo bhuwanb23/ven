@@ -80,7 +80,7 @@ pub fn cmd_init(
             println!("{} Configuring your empty project...", "→".cyan());
 
             // Show language selection
-            let languages = vec!["node", "python", "go", "rust"];
+            let languages = vec!["node", "python", "go", "rust", "java"];
             let language_idx = Select::with_theme(&theme)
                 .with_prompt("Select language")
                 .items(&languages)
@@ -95,6 +95,7 @@ pub fn cmd_init(
                 "python" => select_python_version()?,
                 "go" => select_go_version()?,
                 "rust" => select_rust_version()?,
+                "java" => select_java_version()?,
                 _ => {
                     return Err(anyhow::anyhow!(
                         "Unsupported language: {}",
@@ -116,7 +117,7 @@ pub fn cmd_init(
         }
     } else {
         // MODE 2: Interactive language & version selection
-        let languages = vec!["node", "python", "go", "rust"];
+        let languages = vec!["node", "python", "go", "rust", "java"];
         let language_idx = Select::with_theme(&theme)
             .with_prompt("Select language")
             .items(&languages)
@@ -131,6 +132,7 @@ pub fn cmd_init(
             "python" => select_python_version()?,
             "go" => select_go_version()?,
             "rust" => select_rust_version()?,
+            "java" => select_java_version()?,
             _ => {
                 return Err(anyhow::anyhow!(
                     "Unsupported language: {}",
@@ -597,6 +599,31 @@ fn select_rust_version() -> Result<String> {
     Ok(installed[idx].clone())
 }
 
+/// Interactive Java version selection — only versions installed under ven.
+fn select_java_version() -> Result<String> {
+    use crate::plugins::{JavaPlugin, LanguagePlugin};
+    let theme = ColorfulTheme::default();
+    let plugin = JavaPlugin;
+    let installed = plugin.list_installed().unwrap_or_default();
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No Java versions installed under ven.\n\
+             Install one first, e.g.:  ven install java 17\n\
+             Then run  ven init  again."
+        );
+    }
+    let items: Vec<String> = installed
+        .iter()
+        .map(|v| format!("{}  {}", v, "OpenJDK".dimmed()))
+        .collect();
+    let idx = Select::with_theme(&theme)
+        .with_prompt("Select Java version (installed)")
+        .items(&items)
+        .default(0)
+        .interact()?;
+    Ok(installed[idx].clone())
+}
+
 /// Health check & validation system
 fn run_validation(
     language: &str,
@@ -674,6 +701,19 @@ fn run_validation(
         } else {
             println!("  {} Rust {} not installed yet", "✗".red(), version);
             println!("    {} Run: ven install rust {}", "💡".yellow(), version);
+            all_checks_passed = false;
+        }
+    }
+
+    if language == "java" {
+        use crate::plugins::{JavaPlugin, LanguagePlugin};
+        let plugin = JavaPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        if installed.contains(&version.to_string()) {
+            println!("  {} Java {} installed", "✓".green(), version);
+        } else {
+            println!("  {} Java {} not installed yet", "✗".red(), version);
+            println!("    {} Run: ven install java {}", "💡".yellow(), version);
             all_checks_passed = false;
         }
     }
