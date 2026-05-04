@@ -144,19 +144,14 @@ pub fn cmd_install_interactive() -> Result<()> {
         .interact()?;
 
     let language = &languages[lang_idx];
-    let plugin = registry.require(language)?;
+    let _plugin = registry.require(language)?;
 
     println!("\n[OK] Selected: {}", language.bold());
 
-    // Step 2: Version selection (Python uses the same remote list UI as `ven install python`)
-    let version =
-        if *language == "python" || *language == "go" || *language == "rust" || *language == "java" {
-        let versions = fetch_available_versions(language)?;
-        display_version_list(&versions, language)?;
-        select_from_version_list(&versions, language)?
-    } else {
-        select_version_interactive(plugin, language)?
-    };
+    // Step 2: Version selection (use official remote list for every language)
+    let versions = fetch_available_versions(language)?;
+    display_version_list(&versions, language)?;
+    let version = select_from_version_list(&versions, language)?;
 
     println!(
         "\n{} Installing {} {}...",
@@ -238,97 +233,27 @@ fn display_version_list(versions: &[String], language: &str) -> Result<()> {
     let plugin = registry.require(language)?;
     let installed = plugin.list_installed().unwrap_or_default();
 
+    let installed_count = installed.len();
     println!();
-
-    // Show quick options first
-    println!("  {} Quick Options:", "[SPECIAL]".cyan().bold());
-    println!(
-        "    {}  - Install latest stable release",
-        "latest".bold().green()
-    );
-    if language == "node" {
+    if installed_count > 0 {
         println!(
-            "    {}    - Install latest LTS version",
-            "lts".bold().green()
-        );
-    }
-    println!();
-
-    // Show latest 10 versions
-    println!(
-        "  {} Latest Available Versions:",
-        "[VERSIONS]".cyan().bold()
-    );
-
-    let display_count = std::cmp::min(10, versions.len());
-
-    for (idx, version) in versions.iter().take(display_count).enumerate() {
-        let metadata = get_version_metadata(version, language);
-        let is_installed = installed.contains(&version.to_string());
-        let marker = if is_installed {
-            "[INSTALLED]"
-        } else {
-            "         "
-        };
-        let num = format!("{:2}.", idx + 1);
-
-        println!("    {} {} {}  {}", num, marker, version, metadata);
-    }
-
-    if versions.len() > 10 {
-        let hint = if language == "python" {
-            "3.12, 3.13, or 3"
-        } else if language == "go" {
-            "1.21, 1.22, or 1"
-        } else if language == "rust" {
-            "1.75, 1.76, or 1"
-        } else if language == "java" {
-            "11, 17, 21, or 21.0"
-        } else {
-            "20, 22, 18"
-        };
-        println!(
-            "\n  [INFO] ... and {} more versions (use a major or full version, e.g. {})",
-            versions.len() - 10,
-            hint
-        );
-    }
-
-    if language == "python" {
-        println!(
-            "\n{} Example: {} {}  (or full patch e.g. 3.12.7)",
-            "[TIP]".yellow(),
-            "ven install python".dimmed(),
-            "3.12".green()
-        );
-    } else if language == "go" {
-        println!(
-            "\n{} Example: {} {}  (or full patch e.g. 1.21.5)",
-            "[TIP]".yellow(),
-            "ven install go".dimmed(),
-            "1.21".green()
-        );
-    } else if language == "rust" {
-        println!(
-            "\n{} Example: {} {}  (or full patch e.g. 1.75.0)",
-            "[TIP]".yellow(),
-            "ven install rust".dimmed(),
-            "1.75".green()
-        );
-    } else if language == "java" {
-        println!(
-            "\n{} Example: {} {}  (or full patch e.g. 21.0.5)",
-            "[TIP]".yellow(),
-            "ven install java".dimmed(),
-            "21".green()
+            "  {} {} version(s) available, {} installed",
+            "[INFO]".cyan(),
+            versions.len(),
+            installed_count
         );
     } else {
+        println!("  {} {} version(s) available", "[INFO]".cyan(), versions.len());
+    }
+    if language == "node" {
         println!(
-            "\n{} Recommended: {} {} (LTS - Best compatibility)",
+            "  {} Use {} or {} to install quickly",
             "[TIP]".yellow(),
-            language.bold(),
-            "20".green()
+            "latest".green(),
+            "lts".green()
         );
+    } else {
+        println!("  {} Use {} to install quickly", "[TIP]".yellow(), "latest".green());
     }
 
     Ok(())
@@ -354,7 +279,7 @@ fn select_from_version_list(versions: &[String], language: &str) -> Result<Strin
         values.push("lts".to_string());
     }
 
-    items.push("--- Press ENTER to select ---".to_string()); // Separator
+    items.push("--- Versions ---".to_string()); // Separator
     values.push("".to_string());
 
     // Add latest 10 versions
@@ -366,9 +291,13 @@ fn select_from_version_list(versions: &[String], language: &str) -> Result<Strin
     }
 
     // Show selection menu
-    let default_idx = if language == "node" { 1 } else { 0 };
+    let default_idx = 0;
     let selection = Select::with_theme(&theme)
-        .with_prompt("Select version (use arrow keys)")
+        .with_prompt(format!(
+            "Select {} version ({} available)",
+            language,
+            versions.len()
+        ))
         .items(&items)
         .default(default_idx)
         .interact()?;
@@ -393,6 +322,8 @@ fn get_version_metadata_short(version: &str, language: &str) -> String {
         return "Rust".to_string();
     } else if language == "java" {
         return "OpenJDK".to_string();
+    } else if language == "deno" {
+        return "Deno".to_string();
     }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);
@@ -413,6 +344,7 @@ fn get_version_metadata_short(version: &str, language: &str) -> String {
 }
 
 /// Interactive version selection with metadata
+#[allow(dead_code)]
 fn select_version_interactive(plugin: &dyn LanguagePlugin, language: &str) -> Result<String> {
     let theme = ColorfulTheme::default();
 
@@ -506,6 +438,15 @@ fn get_version_metadata(version: &str, language: &str) -> String {
     }
     if language == "rust" {
         return format!("[Rust {}]", version);
+    }
+    if language == "java" {
+        return format!("[Java {}]", version);
+    }
+    if language == "deno" {
+        return format!("[Deno {}]", version);
+    }
+    if language != "node" {
+        return String::new();
     }
     let major = version.split('.').next().unwrap_or("0");
     let major_num: u32 = major.parse().unwrap_or(0);

@@ -433,7 +433,7 @@ fn print_installed_runtimes_banner() -> Result<()> {
     Ok(())
 }
 
-/// Interactive Node.js version selection — **only** versions already installed under ven.
+/// Interactive node version selection — **only** versions already installed under ven.
 fn select_node_version() -> Result<String> {
     use crate::plugins::{LanguagePlugin, NodePlugin};
 
@@ -443,7 +443,7 @@ fn select_node_version() -> Result<String> {
 
     if installed.is_empty() {
         anyhow::bail!(
-            "No Node.js versions installed under ven.\n\
+            "No node versions installed under ven.\n\
              Install one first, e.g.:  ven install node latest\n\
              Then run  ven init  again."
         );
@@ -465,7 +465,7 @@ fn select_node_version() -> Result<String> {
     let display_items: Vec<String> = options.iter().map(|o| o.display.clone()).collect();
 
     let version_idx = Select::with_theme(&theme)
-        .with_prompt("Select Node.js version (installed)")
+        .with_prompt("Select node version (installed)")
         .items(&display_items)
         .default(0)
         .interact()?;
@@ -665,7 +665,7 @@ fn run_validation(
     // Check 1: ven.toml created
     println!("  {} ven.toml created", "✓".green());
 
-    // Check 2: Node.js version installed
+    // Check 2: runtime version installed
     if language == "node" {
         let plugin = NodePlugin;
         let installed = plugin.list_installed().unwrap_or_default();
@@ -673,14 +673,14 @@ fn run_validation(
         if version == "latest" || version == "lts" || !version.contains('.') {
             // Alias - will be resolved during install
             println!(
-                "  {} Node.js {} (will resolve during install)",
+                "  {} node {} (will resolve during install)",
                 "⚠️".yellow(),
                 version
             );
         } else if installed.contains(&version.to_string()) {
-            println!("  {} Node.js {} installed", "✓".green(), version);
+            println!("  {} node {} installed", "✓".green(), version);
         } else {
-            println!("  {} Node.js {} not installed yet", "✗".red(), version);
+            println!("  {} node {} not installed yet", "✗".red(), version);
             println!("    {} Run: ven install node {}", "💡".yellow(), version);
             all_checks_passed = false;
         }

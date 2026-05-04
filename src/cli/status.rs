@@ -921,9 +921,9 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
     }
     if !config.runtime.node.is_empty() {
         if !is_version_installed(&config.runtime.node) {
-            issues.push(format!("Node.js {} not installed", config.runtime.node));
+            issues.push(format!("Node {} not installed", config.runtime.node));
         } else {
-            ok_items.push(format!("Node.js {} ready", config.runtime.node));
+            ok_items.push(format!("Node {} ready", config.runtime.node));
         }
     }
     if !config.runtime.python.is_empty() {
@@ -1006,7 +1006,7 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
 fn auto_install_version(spec: &str) -> Result<()> {
     println!("\n  {} Installing node {}...", "[AUTO-FIX]".cyan(), spec);
     crate::cli::install::cmd_install("node", spec)?;
-    println!("  {} Node.js {} installed", "✓".green(), spec);
+    println!("  {} node {} installed", "✓".green(), spec);
     Ok(())
 }
 

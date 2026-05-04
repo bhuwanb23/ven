@@ -111,7 +111,7 @@ pub fn cmd_add(
 
     println!("\n{}", "ven add".bold().cyan());
     println!("  {} {} package(s)", "[PLAN]".cyan(), packages.len());
-    println!("  {} Node.js {}", "[RUNTIME]".cyan(), node_version);
+    println!("  {} runtime node {}", "[RUNTIME]".cyan(), node_version);
 
     if dry_run {
         println!(
@@ -215,7 +215,7 @@ pub fn cmd_add(
 
                 if has_critical && !skip_check {
                     println!(
-                        "  {} {} is not compatible with Node.js {}",
+                        "  {} {} is not compatible with node {}",
                         "[ERROR]".red(),
                         pkg.name,
                         node_version
@@ -451,7 +451,7 @@ pub fn cmd_add(
 
         // FIXED: Use resolved version from dependency graph analysis
         // Instead of using "latest" or user's pinned version, use the version
-        // that was resolved during graph building (compatible with Node.js & existing packages)
+        // that was resolved during graph building (compatible with node & existing packages)
         let version_to_install = graph
             .nodes
             .get(pkg_name)

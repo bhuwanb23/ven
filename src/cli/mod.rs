@@ -14,8 +14,8 @@ pub mod upgrade;
 
 /// ven — Any-first intelligent version and dependency manager
 ///
-/// A modern, fast, and secure Node.js version and package manager.
-/// Manages Node.js versions and project dependencies with intelligent compatibility checking.
+/// A modern, fast, and secure runtime/version manager.
+/// Manages language runtimes and project tooling with intelligent compatibility checking.
 #[derive(Parser)]
 #[command(
     name = "ven",
@@ -53,7 +53,7 @@ pub enum Commands {
         version: Option<String>,
     },
 
-    /// List installed language runtimes (Node.js, Python, …)
+    /// List installed language runtimes (node, python, …)
     ///
     /// With no language argument, shows every registered language. Use a name
     /// to filter (e.g. `node`, `python`).
@@ -110,7 +110,7 @@ pub enum Commands {
     Deactivate,
 
     #[command(
-        long_about = "Show current project status and configuration\n\nDisplays ven.toml configuration, installed Node.js versions,\npackage status, environment variables, and project health information.\n\nExamples:\n  ven status                 # Show basic status\n  ven status --verbose       # Show detailed info with disk usage\n  ven status --json          # JSON output for CI/CD\n  ven status --fix           # Auto-fix detected issues"
+        long_about = "Show current project status and configuration\n\nDisplays ven.toml configuration, installed runtimes,\npackage status, environment variables, and project health information.\n\nExamples:\n  ven status                 # Show basic status\n  ven status --verbose       # Show detailed info with disk usage\n  ven status --json          # JSON output for CI/CD\n  ven status --fix           # Auto-fix detected issues"
     )]
     Status {
         /// Output as JSON for scripting and CI/CD pipelines
@@ -128,7 +128,7 @@ pub enum Commands {
 
     /// Initialize a new ven.toml configuration file
     ///
-    /// Creates a ven.toml file in the current directory with Node.js
+    /// Creates a ven.toml file in the current directory with a runtime
     /// version and package declarations for project isolation.
     ///
     /// Examples:
@@ -137,7 +137,7 @@ pub enum Commands {
     ///   ven init --with-packages   # Add packages interactively
     ///   ven init --validate        # Validate after creation
     #[command(
-        long_about = "Initialize a new ven.toml configuration file\n\nCreates a ven.toml file in the current directory with Node.js version\nand package declarations. This enables project-specific version management\nand dependency isolation.\n\nExamples:\n  ven init                   # Create with default settings\n  ven init --template        # Interactive template selection\n  ven init --with-packages   # Add packages interactively\n  ven init --validate        # Validate after creation"
+        long_about = "Initialize a new ven.toml configuration file\n\nCreates a ven.toml file in the current directory with a runtime version\nand optional package declarations. This enables project-specific version management\nand dependency isolation.\n\nExamples:\n  ven init                   # Create with default settings\n  ven init --template        # Interactive template selection\n  ven init --with-packages   # Add packages interactively\n  ven init --validate        # Validate after creation"
     )]
     Init {
         /// Use interactive template selection (React, Vue, Next.js, etc.)
@@ -148,7 +148,7 @@ pub enum Commands {
         #[arg(long)]
         with_packages: bool,
 
-        /// Validate the setup after creation (check Node.js is installed)
+        /// Validate the setup after creation (check runtime is installed)
         #[arg(long)]
         validate: bool,
 
@@ -159,24 +159,24 @@ pub enum Commands {
 
     /// Add package(s) to the project with compatibility checking
     ///
-    /// Installs npm packages and adds them to ven.toml with Node.js
+    /// Installs npm packages and adds them to ven.toml (node projects)
     /// compatibility verification.
     ///
     /// Examples:
     ///   ven add express              # Add latest Express
     ///   ven add express@4.18.2       # Add specific version
     ///   ven add react vite           # Add multiple packages
-    ///   ven add lodash --skip-check  # Skip Node.js compatibility check
+    ///   ven add lodash --skip-check  # Skip node compatibility check
     ///   ven add express --dry-run    # Preview before installing
     ///   ven add socket.io --verbose  # Show full dependency tree
     #[command(
-        long_about = "Add package(s) to the project with compatibility checking\n\nInstalls npm packages and automatically adds them to ven.toml.\nPerforms Node.js version compatibility checking to prevent issues.\n\nExamples:\n  ven add express              # Add latest Express\n  ven add express@4.18.2       # Add specific version\n  ven add react vite           # Add multiple packages\n  ven add lodash --skip-check  # Skip Node.js compatibility check\n  ven add express --dry-run    # Preview before installing\n  ven add socket.io --verbose  # Show full dependency tree"
+        long_about = "Add package(s) to the project with compatibility checking\n\nInstalls packages and automatically adds them to ven.toml.\nFor node projects, performs runtime compatibility checking to prevent issues.\n\nExamples:\n  ven add express              # Add latest Express\n  ven add express@4.18.2       # Add specific version\n  ven add react vite           # Add multiple packages\n  ven add lodash --skip-check  # Skip compatibility check\n  ven add express --dry-run    # Preview before installing\n  ven add socket.io --verbose  # Show full dependency tree"
     )]
     Add {
         /// Package name(s) with optional version, e.g., "express" or "express@4.18.2"
         #[arg(required = true)]
         packages: Vec<String>,
-        /// Skip Node.js compatibility checking (use with caution)
+        /// Skip compatibility checking (use with caution)
         #[arg(long)]
         skip_check: bool,
         /// Show dependency preview without installing
@@ -229,7 +229,7 @@ pub enum Commands {
     /// Upgrade packages to latest compatible versions
     ///
     /// Shows available upgrades and optionally applies them with
-    /// Node.js compatibility verification.
+    /// Runtime compatibility verification.
     ///
     /// Examples:
     ///   ven upgrade express          # Preview Express upgrade
@@ -239,7 +239,7 @@ pub enum Commands {
     ///   ven upgrade react --dry-run  # Preview without changes
     ///   ven upgrade --all --apply --force  # CI/CD mode (no prompts)
     #[command(
-        long_about = "Upgrade packages to latest compatible versions\n\nChecks for available package upgrades and verifies Node.js compatibility\nbefore applying them. Shows preview by default, use --apply to upgrade.\n\nExamples:\n  ven upgrade express          # Preview Express upgrade\n  ven upgrade express --apply  # Apply the upgrade\n  ven upgrade --all            # Preview all upgrades\n  ven upgrade --all --apply    # Upgrade all packages\n  ven upgrade react --dry-run  # Preview without changes\n  ven upgrade --all --apply --force  # CI/CD mode (no prompts)"
+        long_about = "Upgrade packages to latest compatible versions\n\nChecks for available package upgrades and verifies compatibility\nbefore applying them. Shows preview by default, use --apply to upgrade.\n\nExamples:\n  ven upgrade express          # Preview Express upgrade\n  ven upgrade express --apply  # Apply the upgrade\n  ven upgrade --all            # Preview all upgrades\n  ven upgrade --all --apply    # Upgrade all packages\n  ven upgrade react --dry-run  # Preview without changes\n  ven upgrade --all --apply --force  # CI/CD mode (no prompts)"
     )]
     Upgrade {
         /// Package name(s) to upgrade (supports multiple packages)
