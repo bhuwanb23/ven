@@ -1,3 +1,4 @@
+use crate::core::deno_install::{fetch_deno_release_versions, resolve_deno_version_spec};
 use crate::core::go_install::{fetch_go_release_versions, resolve_go_version_spec};
 use crate::core::java_install::{fetch_java_release_versions, resolve_java_version_spec};
 use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
@@ -74,6 +75,11 @@ pub fn cmd_install(language: &str, version: &str) -> Result<()> {
         let avail = fetch_python_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))?;
         resolve_python_version_spec(version, &avail)?
+    } else if language == "deno" {
+        println!("{} Resolving Deno from GitHub...", "[FETCH]".cyan());
+        let avail = fetch_deno_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Deno releases: {}", e))?;
+        resolve_deno_version_spec(version, &avail)?
     } else if language == "go" {
         println!("{} Resolving Go from go.dev...", "[FETCH]".cyan());
         let avail = fetch_go_release_versions()
@@ -215,6 +221,8 @@ fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
             .map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))
     } else if language == "java" {
         fetch_java_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Java releases: {}", e))
+    } else if language == "deno" {
+        fetch_deno_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Deno releases: {}", e))
     } else {
         Err(anyhow::anyhow!(
             "Version listing not yet supported for {}",
@@ -557,6 +565,13 @@ fn validate_installation(plugin: &dyn LanguagePlugin, language: &str, version: &
                 "java.exe"
             } else {
                 "java"
+            }
+        }
+        "deno" => {
+            if cfg!(target_os = "windows") {
+                "deno.exe"
+            } else {
+                "deno"
             }
         }
         _ => {

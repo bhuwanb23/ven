@@ -37,6 +37,16 @@ pub fn cmd_remove(
                 && c.runtime.rust.is_empty()
         })
         .unwrap_or(false);
+    let deno_mode = load_config(&cwd)?
+        .map(|c| {
+            !c.runtime.deno.is_empty()
+                && c.runtime.node.is_empty()
+                && c.runtime.python.is_empty()
+                && c.runtime.go.is_empty()
+                && c.runtime.rust.is_empty()
+                && c.runtime.java.is_empty()
+        })
+        .unwrap_or(false);
     if python_mode && !cleanup {
         return cmd_remove_python(packages, dry_run, json);
     }
@@ -45,6 +55,9 @@ pub fn cmd_remove(
     }
     if java_mode && !cleanup {
         return cmd_remove_java_notice(packages, dry_run, json);
+    }
+    if deno_mode && !cleanup {
+        return cmd_remove_deno_notice(packages, dry_run, json);
     }
 
     // Handle cleanup mode separately
@@ -243,6 +256,29 @@ fn cmd_remove_java_notice(packages: &[String], dry_run: bool, json: bool) -> Res
     }
     println!("\n  {}", "ven remove (java)".bold().cyan());
     println!("  {} Java dependency removal is managed by Maven/Gradle.", "[INFO]".cyan());
+    println!("  {} No direct removal performed by ven.", "[TIP]".cyan());
+    println!();
+    Ok(())
+}
+
+fn cmd_remove_deno_notice(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"deno",
+                "dry_run": dry_run,
+                "packages": packages,
+                "message":"Deno manages dependencies via imports/deno.json; ven does not remove packages"
+            }))?
+        );
+        return Ok(());
+    }
+    println!("\n  {}", "ven remove (deno)".bold().cyan());
+    println!(
+        "  {} Deno dependencies are managed by imports/deno.json (and optionally deno.lock).",
+        "[INFO]".cyan()
+    );
     println!("  {} No direct removal performed by ven.", "[TIP]".cyan());
     println!();
     Ok(())

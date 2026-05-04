@@ -52,6 +52,9 @@ pub struct RuntimeConfig {
     /// Java JDK version (installed under ~/.ven/java/<version>)
     #[serde(default)]
     pub java: String,
+    /// Deno runtime version (installed under ~/.ven/deno/<version>)
+    #[serde(default)]
+    pub deno: String,
 }
 
 /// Walks up the directory tree to find the nearest `ven.toml` file.
@@ -264,6 +267,37 @@ pub fn resolve_java_version(spec: &str, installed: &[String]) -> Result<String> 
                 .max_by(|a, b| version_cmp(a, b))
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Java {}.z installed.", spec))
+        }
+        _ => Ok(spec.to_string()),
+    }
+}
+
+/// Resolve ven.toml `runtime.deno` against versions installed under ~/.ven/deno
+pub fn resolve_deno_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim().trim_start_matches('v');
+    match spec {
+        "latest" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No Deno versions installed. Run: ven install deno latest")),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Deno {}.x installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Deno {}.z installed.", spec))
         }
         _ => Ok(spec.to_string()),
     }

@@ -60,6 +60,12 @@ pub fn cmd_upgrade(
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
         && cfg.runtime.rust.is_empty();
+    let deno_mode = !cfg.runtime.deno.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.go.is_empty()
+        && cfg.runtime.rust.is_empty()
+        && cfg.runtime.java.is_empty();
 
     // Handle --all flag: get all packages from ven.toml
     let target_packages = if all {
@@ -89,6 +95,9 @@ pub fn cmd_upgrade(
     }
     if java_mode {
         return cmd_upgrade_java_notice(&target_packages, apply, dry_run, json);
+    }
+    if deno_mode {
+        return cmd_upgrade_deno_notice(&target_packages, apply, dry_run, json);
     }
 
     if json {
@@ -315,6 +324,35 @@ fn cmd_upgrade_java_notice(
     }
     println!("\n  {}", "ven upgrade (java)".bold().cyan());
     println!("  {} Java upgrades are managed by Maven/Gradle.", "[INFO]".cyan());
+    println!("  {} No direct package upgrade performed by ven.", "[TIP]".cyan());
+    println!();
+    Ok(())
+}
+
+fn cmd_upgrade_deno_notice(
+    packages: &[String],
+    apply: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"deno",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages,
+                "message":"Deno manages dependencies via imports/deno.json; ven does not upgrade packages"
+            }))?
+        );
+        return Ok(());
+    }
+    println!("\n  {}", "ven upgrade (deno)".bold().cyan());
+    println!(
+        "  {} Deno dependencies are managed by imports/deno.json (and optionally deno.lock).",
+        "[INFO]".cyan()
+    );
     println!("  {} No direct package upgrade performed by ven.", "[TIP]".cyan());
     println!();
     Ok(())

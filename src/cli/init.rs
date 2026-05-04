@@ -80,7 +80,7 @@ pub fn cmd_init(
             println!("{} Configuring your empty project...", "→".cyan());
 
             // Show language selection
-            let languages = vec!["node", "python", "go", "rust", "java"];
+            let languages = vec!["node", "python", "go", "rust", "java", "deno"];
             let language_idx = Select::with_theme(&theme)
                 .with_prompt("Select language")
                 .items(&languages)
@@ -96,6 +96,7 @@ pub fn cmd_init(
                 "go" => select_go_version()?,
                 "rust" => select_rust_version()?,
                 "java" => select_java_version()?,
+                "deno" => select_deno_version()?,
                 _ => {
                     return Err(anyhow::anyhow!(
                         "Unsupported language: {}",
@@ -117,7 +118,7 @@ pub fn cmd_init(
         }
     } else {
         // MODE 2: Interactive language & version selection
-        let languages = vec!["node", "python", "go", "rust", "java"];
+        let languages = vec!["node", "python", "go", "rust", "java", "deno"];
         let language_idx = Select::with_theme(&theme)
             .with_prompt("Select language")
             .items(&languages)
@@ -133,6 +134,7 @@ pub fn cmd_init(
             "go" => select_go_version()?,
             "rust" => select_rust_version()?,
             "java" => select_java_version()?,
+            "deno" => select_deno_version()?,
             _ => {
                 return Err(anyhow::anyhow!(
                     "Unsupported language: {}",
@@ -624,6 +626,31 @@ fn select_java_version() -> Result<String> {
     Ok(installed[idx].clone())
 }
 
+/// Interactive Deno version selection — only versions installed under ven.
+fn select_deno_version() -> Result<String> {
+    use crate::plugins::{DenoPlugin, LanguagePlugin};
+    let theme = ColorfulTheme::default();
+    let plugin = DenoPlugin;
+    let installed = plugin.list_installed().unwrap_or_default();
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No Deno versions installed under ven.\n\
+             Install one first, e.g.:  ven install deno latest\n\
+             Then run  ven init  again."
+        );
+    }
+    let items: Vec<String> = installed
+        .iter()
+        .map(|v| format!("{}  {}", v, "Deno runtime".dimmed()))
+        .collect();
+    let idx = Select::with_theme(&theme)
+        .with_prompt("Select Deno version (installed)")
+        .items(&items)
+        .default(0)
+        .interact()?;
+    Ok(installed[idx].clone())
+}
+
 /// Health check & validation system
 fn run_validation(
     language: &str,
@@ -714,6 +741,19 @@ fn run_validation(
         } else {
             println!("  {} Java {} not installed yet", "✗".red(), version);
             println!("    {} Run: ven install java {}", "💡".yellow(), version);
+            all_checks_passed = false;
+        }
+    }
+
+    if language == "deno" {
+        use crate::plugins::{DenoPlugin, LanguagePlugin};
+        let plugin = DenoPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        if installed.contains(&version.to_string()) {
+            println!("  {} Deno {} installed", "✓".green(), version);
+        } else {
+            println!("  {} Deno {} not installed yet", "✗".red(), version);
+            println!("    {} Run: ven install deno {}", "💡".yellow(), version);
             all_checks_passed = false;
         }
     }

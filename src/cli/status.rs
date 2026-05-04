@@ -1,7 +1,7 @@
 use crate::core::config::VenConfig;
 use crate::core::{
-    find_ven_toml, parse_ven_toml, resolve_go_version, resolve_java_version, resolve_node_version,
-    resolve_python_version, resolve_rust_version,
+    find_ven_toml, parse_ven_toml, resolve_deno_version, resolve_go_version, resolve_java_version,
+    resolve_node_version, resolve_python_version, resolve_rust_version,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -55,6 +55,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
     let has_go = !config.runtime.go.is_empty();
     let has_rust = !config.runtime.rust.is_empty();
     let has_java = !config.runtime.java.is_empty();
+    let has_deno = !config.runtime.deno.is_empty();
 
     // Runtime section
     if has_node {
@@ -74,7 +75,7 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
         if !installed {
             println!("    {} Run: ven install node {}", "[!]".yellow(), node_spec);
         }
-    } else if !has_python && !has_go && !has_rust && !has_java {
+    } else if !has_python && !has_go && !has_rust && !has_java && !has_deno {
         println!("  {} node {}", "[!]".yellow(), "not specified".dimmed());
     }
     if has_python {
@@ -137,17 +138,35 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
             println!("    {} Run: ven install java {}", "[!]".yellow(), java_spec);
         }
     }
+    if has_deno {
+        let deno_spec = &config.runtime.deno;
+        let resolved = resolve_deno_for_display(deno_spec)?;
+        let installed = is_deno_installed(deno_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} deno {} {}",
+            status_icon,
+            deno_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install deno {}", "[!]".yellow(), deno_spec);
+        }
+    }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
-        let installed_count = if has_python && !has_node && !has_go && !has_rust && !has_java {
+        let installed_count = if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno
+        {
             config
                 .packages
                 .keys()
                 .filter(|pkg| is_python_package_installed(pkg))
                 .count()
+        } else if has_deno && !has_node && !has_python && !has_go && !has_rust && !has_java {
+            0
         } else {
             config
                 .packages
@@ -165,7 +184,12 @@ fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenConfig) -> Res
 
         // Show tip if packages are missing
         if installed_count < pkg_count {
-            if has_python && !has_node && !has_go && !has_rust && !has_java {
+            if has_deno && !has_node && !has_python && !has_go && !has_rust && !has_java {
+                println!(
+                    "    {} Deno manages dependencies via imports/deno.json (ven does not install packages).",
+                    "[TIP]".cyan()
+                );
+            } else if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno {
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
             } else {
                 println!(
@@ -307,6 +331,19 @@ fn display_verbose_status(
             }
         }
     }
+    if !config.runtime.deno.is_empty() {
+        let spec = &config.runtime.deno;
+        let installed = is_deno_installed(spec);
+        let resolved = resolve_deno_for_display(spec)?;
+        if installed {
+            println!("    {} deno {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!("    {} deno {} - {}", "✗".red(), spec.bold(), "not installed");
+            if fix {
+                println!("      {} Run: ven install deno {}", "[!]".yellow(), spec);
+            }
+        }
+    }
 
     println!();
 
@@ -314,6 +351,21 @@ fn display_verbose_status(
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         println!("  {}", "Packages".bold().underline());
+
+        if !config.runtime.deno.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.python.is_empty()
+            && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty()
+        {
+            println!(
+                "    {} Deno manages dependencies via imports/deno.json (ven does not install packages).",
+                "[INFO]".cyan()
+            );
+            println!();
+            return Ok(());
+        }
 
         let mut installed_count = 0;
         let mut missing_count = 0;
@@ -490,17 +542,36 @@ fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.deno.is_empty() {
+        let deno_spec = &config.runtime.deno;
+        let resolved = resolve_deno_for_display(deno_spec)?;
+        let installed = is_deno_installed(deno_spec);
+        runtime_info["deno"] = json!({
+            "version_required": deno_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
 
     // Build package list
     let mut pkg_list = Vec::new();
     let mut installed_count = 0;
 
     for (name, version) in &config.packages {
-        let is_installed = if !config.runtime.python.is_empty()
+        let is_installed = if !config.runtime.deno.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.python.is_empty()
+            && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty()
+        {
+            false
+        } else if !config.runtime.python.is_empty()
             && config.runtime.node.is_empty()
             && config.runtime.go.is_empty()
             && config.runtime.rust.is_empty()
             && config.runtime.java.is_empty()
+            && config.runtime.deno.is_empty()
         {
             is_python_package_installed(name)
         } else {
@@ -641,6 +712,17 @@ fn resolve_java_for_display(spec: &str) -> Result<String> {
     }
 }
 
+fn resolve_deno_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("deno")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_deno_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -692,6 +774,17 @@ fn is_java_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("java") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_java_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+fn is_deno_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("deno") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_deno_version(spec, &installed).is_ok()
     } else {
         false
     }
@@ -822,6 +915,7 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
         && config.runtime.go.is_empty()
         && config.runtime.rust.is_empty()
         && config.runtime.java.is_empty()
+        && config.runtime.deno.is_empty()
     {
         issues.push("No runtime version specified".to_string());
     }
@@ -858,6 +952,13 @@ fn print_health_summary(config: &VenConfig) -> Result<()> {
             issues.push(format!("Java {} not installed", config.runtime.java));
         } else {
             ok_items.push(format!("Java {} ready", config.runtime.java));
+        }
+    }
+    if !config.runtime.deno.is_empty() {
+        if !is_deno_installed(&config.runtime.deno) {
+            issues.push(format!("Deno {} not installed", config.runtime.deno));
+        } else {
+            ok_items.push(format!("Deno {} ready", config.runtime.deno));
         }
     }
 

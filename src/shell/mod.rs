@@ -2,10 +2,12 @@ use anyhow::Result;
 use std::path::Path;
 
 use crate::core::{
-    find_ven_toml, parse_ven_toml, project_venv, resolve_go_version, resolve_java_version,
-    resolve_node_version, resolve_python_version, resolve_rust_version,
+    find_ven_toml, parse_ven_toml, project_venv, resolve_deno_version, resolve_go_version,
+    resolve_java_version, resolve_node_version, resolve_python_version, resolve_rust_version,
 };
-use crate::plugins::{GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin, RustPlugin};
+use crate::plugins::{
+    DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin, RustPlugin,
+};
 
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
@@ -109,6 +111,7 @@ __ven_activate() {{
         unset VEN_GO_VERSION 2>/dev/null
         unset VEN_RUST_VERSION 2>/dev/null
         unset VEN_JAVA_VERSION 2>/dev/null
+        unset VEN_DENO_VERSION 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
         unset GOROOT 2>/dev/null
@@ -185,6 +188,7 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_GO_VERSION 2>/dev/null
         set -e VEN_RUST_VERSION 2>/dev/null
         set -e VEN_JAVA_VERSION 2>/dev/null
+        set -e VEN_DENO_VERSION 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
         set -e GOROOT 2>/dev/null
@@ -275,6 +279,7 @@ function global:__ven_activate {{
             if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
             if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
             if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
+if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
@@ -294,6 +299,7 @@ function global:__ven_activate {{
             if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
             if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
             if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
+if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
@@ -310,6 +316,7 @@ function global:__ven_activate {{
         if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
         if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
         if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
+        if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
         if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
         if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
         if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
@@ -446,15 +453,17 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let go_spec = config.runtime.go.trim();
     let rust_spec = config.runtime.rust.trim();
     let java_spec = config.runtime.java.trim();
+    let deno_spec = config.runtime.deno.trim();
 
     if node_spec.is_empty()
         && python_spec.is_empty()
         && go_spec.is_empty()
         && rust_spec.is_empty()
         && java_spec.is_empty()
+        && deno_spec.is_empty()
     {
         anyhow::bail!(
-            "ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust` and/or `java`"
+            "ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust` and/or `java` and/or `deno`"
         );
     }
 
@@ -472,6 +481,7 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
     let mut rust_root_for_env: Option<std::path::PathBuf> = None;
     let mut java_resolved: Option<String> = None;
     let mut java_home_for_env: Option<std::path::PathBuf> = None;
+    let mut deno_resolved: Option<String> = None;
     let mut virtual_env_root: Option<std::path::PathBuf> = None;
 
     if !python_spec.is_empty() {
@@ -672,6 +682,32 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         java_resolved = Some(resolved);
     }
 
+    if !deno_spec.is_empty() {
+        let plugin = DenoPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        let resolved = match resolve_deno_version(deno_spec, &installed) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(ComputeExportsOutcome::MissingToolchain {
+                    language: "deno".into(),
+                    install_with: deno_spec.to_string(),
+                });
+            }
+        };
+        let bin = match plugin.bin_path(&resolved) {
+            Ok(p) => p,
+            Err(_) => {
+                return Ok(ComputeExportsOutcome::MissingToolchain {
+                    language: "deno".into(),
+                    install_with: resolved.clone(),
+                });
+            }
+        };
+        // Deno install dir contains the single binary.
+        prepend_dirs.push(bin);
+        deno_resolved = Some(resolved);
+    }
+
     let toml_normalized = if cfg!(target_os = "windows") {
         toml_absolute.replace('/', "\\")
     } else {
@@ -698,6 +734,7 @@ if (Test-Path Env:VEN_PYTHON_VERSION) { Remove-Item Env:VEN_PYTHON_VERSION -Erro
 if (Test-Path Env:VEN_GO_VERSION) { Remove-Item Env:VEN_GO_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_RUST_VERSION) { Remove-Item Env:VEN_RUST_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_JAVA_VERSION) { Remove-Item Env:VEN_JAVA_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:VEN_DENO_VERSION) { Remove-Item Env:VEN_DENO_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:NODE_PATH) { Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue }
 if (Test-Path Env:VIRTUAL_ENV) { Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue }
 if (Test-Path Env:GOROOT) { Remove-Item Env:GOROOT -ErrorAction SilentlyContinue }
@@ -757,6 +794,9 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
         if let Some(ref home) = java_home_for_env {
             out.push_str(&format!("$env:JAVA_HOME = \"{}\"\n", path_for_env_value(home)));
         }
+        if let Some(ref v) = deno_resolved {
+            out.push_str(&format!("$env:VEN_DENO_VERSION = \"{}\"\n", v));
+        }
         if let Some(ref vr) = virtual_env_root {
             out.push_str(&format!(
                 "$env:VIRTUAL_ENV = \"{}\"\n",
@@ -775,6 +815,7 @@ unset VEN_PYTHON_VERSION 2>/dev/null || true
 unset VEN_GO_VERSION 2>/dev/null || true
 unset VEN_RUST_VERSION 2>/dev/null || true
 unset VEN_JAVA_VERSION 2>/dev/null || true
+unset VEN_DENO_VERSION 2>/dev/null || true
 unset NODE_PATH 2>/dev/null || true
 unset VIRTUAL_ENV 2>/dev/null || true
 unset GOROOT 2>/dev/null || true
@@ -833,6 +874,9 @@ unset JAVA_HOME 2>/dev/null || true
         }
         if let Some(ref home) = java_home_for_env {
             out.push_str(&format!("export JAVA_HOME=\"{}\"\n", path_for_env_value(home)));
+        }
+        if let Some(ref v) = deno_resolved {
+            out.push_str(&format!("export VEN_DENO_VERSION=\"{}\"\n", v));
         }
         if let Some(ref vr) = virtual_env_root {
             out.push_str(&format!(
