@@ -9,6 +9,10 @@ license = "MIT"
 name = "ven"
 path = "src/main.rs"
 
+[[bin]]
+name = "ven-launcher"
+path = "src/bin/launcher.rs"
+
 [dependencies]
 # CLI
 clap = { version = "4", features = ["derive"] }
