@@ -2,5 +2,6 @@
 
 pub mod env;
 pub mod shell;
+pub mod spawn;
 
 pub use shell::{detect_shell, ShellKind};

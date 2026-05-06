@@ -31,6 +31,8 @@ pub fn path_for_env_value(p: &Path) -> String {
 /// Resolved toolchain layout from a project directory (same inputs as shell activation).
 #[derive(Debug, Clone)]
 pub struct ActivationParts {
+    /// Directory containing `ven.toml` (canonical); shell `cwd` for the launcher child.
+    pub project_root: PathBuf,
     pub prepend_dirs: Vec<PathBuf>,
     pub node_bin_for_path: Option<PathBuf>,
     pub node_resolved: Option<String>,
@@ -367,6 +369,7 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
     };
 
     Ok(ActivationResolve::Ready(ActivationParts {
+        project_root: project_root.to_path_buf(),
         prepend_dirs,
         node_bin_for_path,
         node_resolved,
