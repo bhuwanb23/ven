@@ -21,13 +21,8 @@ pub fn spawn_project_shell(project_hint: &Path) -> Result<()> {
     match resolve_activation_environment(project_hint)? {
         ActivationResolve::NoToml => {
             let start = path_for_env_value(project_hint);
-            anyhow::bail!(
-                "ven-launcher: no ven.toml found when searching upward from \"{start}\".\n\
-                 Try from the project folder, or pass a path explicitly, for example:\n\
-                   ven-launcher\n\
-                   ven-launcher path/to/myapp\n\
-                   ven-launcher ./example"
-            )
+            let kind = detect_shell();
+            spawn_without_project(kind, project_hint, &start)?;
         }
         ActivationResolve::MissingToolchain {
             language,
@@ -49,6 +44,123 @@ pub fn spawn_project_shell(project_hint: &Path) -> Result<()> {
 
             let kind = detect_shell();
             spawn_for_shell(kind, &parts, &cwd)?;
+        }
+    }
+    Ok(())
+}
+
+fn missing_toml_message(start: &str) -> Vec<String> {
+    vec![
+        "ven-launcher: no ven.toml found for this folder tree.".to_string(),
+        format!("Search started from: {start}"),
+        "Tip: run from your project folder or pass a project path.".to_string(),
+        "Examples:".to_string(),
+        "  ven-launcher ./example".to_string(),
+        "  ven-launcher path/to/myapp".to_string(),
+    ]
+}
+
+#[cfg(windows)]
+fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+    let lines = missing_toml_message(start);
+
+    match kind {
+        ShellKind::PowerShell => {
+            let mut ps_cmds = Vec::new();
+            ps_cmds.push("Write-Host ''".to_string());
+            for line in lines {
+                ps_cmds.push(format!("Write-Host '{}'", line.replace('\'', "''")));
+            }
+            ps_cmds.push("Write-Host ''".to_string());
+            ps_cmds.push(format!(
+                "Set-Location -LiteralPath '{}'",
+                path_for_env_value(cwd).replace('\'', "''")
+            ));
+            let cmdline = ps_cmds.join("; ");
+
+            let mut cmd = Command::new("powershell.exe");
+            cmd.args(["-NoExit", "-NoLogo", "-Command", &cmdline])
+                .current_dir(cwd)
+                .creation_flags(CREATE_NEW_CONSOLE);
+            cmd.spawn()
+                .context("failed to open PowerShell for no-ven.toml message")?;
+        }
+        _ => {
+            let mut bat = tempfile::Builder::new()
+                .prefix("ven-launcher-missing-")
+                .suffix(".cmd")
+                .tempfile()
+                .context("temp cmd missing-toml script")?;
+            writeln!(bat, "@echo off").ok();
+            writeln!(bat).ok();
+            for line in lines {
+                writeln!(bat, "echo {}", line.replace('|', "^|")).ok();
+            }
+            writeln!(bat).ok();
+            writeln!(bat, "cd /d {}", cmd_quoted_path(cwd)).ok();
+            bat.flush().ok();
+            let kept = bat
+                .into_temp_path()
+                .keep()
+                .map_err(|e| anyhow::anyhow!("persist missing-toml cmd script: {}", e))?;
+            let comspec = std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".into());
+            let mut cmd = Command::new(comspec);
+            cmd.args(["/K", kept.to_string_lossy().as_ref()])
+                .current_dir(cwd)
+                .creation_flags(CREATE_NEW_CONSOLE);
+            cmd.spawn()
+                .context("failed to open cmd for no-ven.toml message")?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()> {
+    let lines = missing_toml_message(start);
+    let mut init = tempfile::Builder::new()
+        .prefix("ven-launcher-missing-")
+        .suffix(".sh")
+        .tempfile()
+        .context("temp missing-toml shell script")?;
+    for line in lines {
+        writeln!(
+            init,
+            "printf {} {}",
+            bash_single_quoted("%s\n"),
+            bash_single_quoted(&line)
+        )
+        .ok();
+    }
+    writeln!(init).ok();
+    writeln!(
+        init,
+        "cd {} || true",
+        bash_single_quoted(&path_for_env_value(cwd))
+    )
+    .ok();
+    init.flush().ok();
+    let kept = init
+        .into_temp_path()
+        .keep()
+        .map_err(|e| anyhow::anyhow!("persist missing-toml init script: {}", e))?;
+
+    match kind {
+        ShellKind::Zsh => {
+            Command::new("zsh")
+                .args(["--init-file", kept.to_string_lossy().as_ref(), "-i"])
+                .current_dir(cwd)
+                .spawn()
+                .context("failed to open zsh for no-ven.toml message")?;
+        }
+        _ => {
+            Command::new("bash")
+                .args(["--init-file", kept.to_string_lossy().as_ref(), "-i"])
+                .current_dir(cwd)
+                .spawn()
+                .context("failed to open bash for no-ven.toml message")?;
         }
     }
     Ok(())
