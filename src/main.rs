@@ -1,12 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-
-mod cli;
-mod core;
-mod plugins;
-mod shell;
+use ven::cli::{run, Cli};
 
 fn main() -> Result<()> {
-    let cli = cli::Cli::parse();
-    cli::run(cli)
+    run(Cli::parse())
 }

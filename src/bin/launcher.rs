@@ -1,3 +1,7 @@
-//! Entry point for `ven-launcher` — terminal spawner (logic added in later phases).
+//! Entry point for `ven-launcher` — terminal spawner.
 
-fn main() {}
+use ven::launcher::detect_shell;
+
+fn main() {
+    println!("Detected shell: {}", detect_shell());
+}
