@@ -7,9 +7,9 @@ use std::process::Command;
 use anyhow::{Context, Result};
 
 #[cfg(windows)]
-use crate::launcher::greeting::{greeting_lines, write_cmd_autorun, GreetingStyle};
+use crate::launcher::greeting::{generic_header_lines, greeting_lines, write_cmd_autorun, GreetingStyle};
 #[cfg(not(windows))]
-use crate::launcher::greeting::{greeting_lines, write_posix_printf_greeting, GreetingStyle};
+use crate::launcher::greeting::{generic_header_lines, greeting_lines, write_posix_printf_greeting, GreetingStyle};
 #[cfg(not(windows))]
 use crate::launcher::quote::bash_single_quoted;
 use crate::launcher::{detect_shell, ShellKind};
@@ -49,25 +49,35 @@ pub fn spawn_project_shell(project_hint: &Path) -> Result<()> {
     Ok(())
 }
 
-fn missing_toml_message(start: &str) -> Vec<String> {
-    vec![
-        "ven-launcher: no ven.toml found for this folder tree.".to_string(),
+fn missing_toml_message(start: &str, style: GreetingStyle) -> Vec<String> {
+    let mut lines = generic_header_lines(style);
+    lines.push(String::new());
+    lines.push("Project status".to_string());
+    lines.push("--------------------------".to_string());
+    let marker = match style {
+        GreetingStyle::Unicode => "  ▸",
+        GreetingStyle::Ascii => "  >",
+    };
+    lines.push(format!("{marker} No ven.toml detected in this folder tree."));
+    lines.push(String::new());
+    lines.extend(vec![
         format!("Search started from: {start}"),
         "Tip: run from your project folder or pass a project path.".to_string(),
         "Examples:".to_string(),
         "  ven-launcher ./example".to_string(),
         "  ven-launcher path/to/myapp".to_string(),
-    ]
+    ]);
+    lines
 }
 
 #[cfg(windows)]
 fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()> {
     use std::os::windows::process::CommandExt;
     const CREATE_NEW_CONSOLE: u32 = 0x00000010;
-    let lines = missing_toml_message(start);
 
     match kind {
         ShellKind::PowerShell => {
+            let lines = missing_toml_message(start, GreetingStyle::Unicode);
             let mut ps_cmds = Vec::new();
             ps_cmds.push("Write-Host ''".to_string());
             for line in lines {
@@ -88,6 +98,7 @@ fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()>
                 .context("failed to open PowerShell for no-ven.toml message")?;
         }
         _ => {
+            let lines = missing_toml_message(start, GreetingStyle::Ascii);
             let mut bat = tempfile::Builder::new()
                 .prefix("ven-launcher-missing-")
                 .suffix(".cmd")
@@ -119,12 +130,12 @@ fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()>
 
 #[cfg(not(windows))]
 fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()> {
-    let lines = missing_toml_message(start);
     let mut init = tempfile::Builder::new()
         .prefix("ven-launcher-missing-")
         .suffix(".sh")
         .tempfile()
         .context("temp missing-toml shell script")?;
+    let lines = missing_toml_message(start, GreetingStyle::Unicode);
     for line in lines {
         writeln!(
             init,

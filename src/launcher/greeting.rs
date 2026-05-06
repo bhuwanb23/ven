@@ -13,10 +13,9 @@ pub enum GreetingStyle {
 
 const INNER_WIDTH: usize = 54;
 
-/// Lines to print (ends with one blank line for spacing).
-pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<String> {
+/// Shared top banner so launcher looks the same regardless of project detection state.
+pub fn generic_header_lines(style: GreetingStyle) -> Vec<String> {
     let mut lines = Vec::new();
-
     match style {
         GreetingStyle::Unicode => {
             let rule = "═".repeat(INNER_WIDTH);
@@ -45,6 +44,12 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
             lines.push(format!("+{rule}+"));
         }
     }
+    lines
+}
+
+/// Lines to print (ends with one blank line for spacing).
+pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<String> {
+    let mut lines = generic_header_lines(style);
 
     lines.push(String::new());
 
