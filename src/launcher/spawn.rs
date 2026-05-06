@@ -7,9 +7,9 @@ use std::process::Command;
 use anyhow::{Context, Result};
 
 #[cfg(windows)]
-use crate::launcher::greeting::{write_cmd_autorun, write_powershell_profile_init};
+use crate::launcher::greeting::{greeting_lines, write_cmd_autorun, GreetingStyle};
 #[cfg(not(windows))]
-use crate::launcher::greeting::{write_posix_printf_greeting, write_powershell_profile_init};
+use crate::launcher::greeting::{greeting_lines, write_posix_printf_greeting, GreetingStyle};
 #[cfg(not(windows))]
 use crate::launcher::quote::bash_single_quoted;
 use crate::launcher::{detect_shell, ShellKind};
@@ -66,30 +66,12 @@ fn spawn_for_shell(
 
     match kind {
         ShellKind::PowerShell => {
-            let mut ps1 = tempfile::Builder::new()
-                .prefix("ven-launcher-")
-                .suffix(".ps1")
-                .tempfile()
-                .context("temp PowerShell profile")?;
-            let loc = path_for_env_value(cwd);
-            write_powershell_profile_init(&mut ps1, parts, &loc).context("write PowerShell profile")?;
-            ps1.flush().ok();
-            let kept = ps1
-                .into_temp_path()
-                .keep()
-                .map_err(|e| anyhow::anyhow!("persist PowerShell profile: {}", e))?;
+            let cmdline = powershell_inline_command(parts, cwd);
 
             let mut cmd = Command::new("powershell.exe");
-            cmd.args([
-                "-NoExit",
-                "-NoLogo",
-                "-File",
-                kept.to_str().ok_or_else(|| {
-                    anyhow::anyhow!("PowerShell profile path is not valid UTF-8")
-                })?,
-            ])
-            .current_dir(cwd)
-            .creation_flags(CREATE_NEW_CONSOLE);
+            cmd.args(["-NoExit", "-NoLogo", "-Command", &cmdline])
+                .current_dir(cwd)
+                .creation_flags(CREATE_NEW_CONSOLE);
             apply_activation_env(&mut cmd, parts);
             cmd.spawn()
                 .context("failed to start PowerShell (try: powershell.exe on PATH)")?;
@@ -123,6 +105,20 @@ fn spawn_for_shell(
         }
     }
     Ok(())
+}
+
+fn powershell_inline_command(parts: &crate::shell::ActivationParts, cwd: &Path) -> String {
+    let mut commands = Vec::new();
+    commands.push("Write-Host ''".to_string());
+    for line in greeting_lines(parts, GreetingStyle::Unicode) {
+        commands.push(format!("Write-Host '{}'", line.replace('\'', "''")));
+    }
+    commands.push("Write-Host ''".to_string());
+    commands.push(format!(
+        "Set-Location -LiteralPath '{}'",
+        path_for_env_value(cwd).replace('\'', "''")
+    ));
+    commands.join("; ")
 }
 
 #[cfg(windows)]
@@ -197,30 +193,12 @@ fn spawn_for_shell(
             cmd.spawn().context("failed to start zsh")?;
         }
         ShellKind::PowerShell => {
-            let mut ps1 = tempfile::Builder::new()
-                .prefix("ven-launcher-")
-                .suffix(".ps1")
-                .tempfile()
-                .context("temp PowerShell profile")?;
-            let loc = path_for_env_value(cwd);
-            write_powershell_profile_init(&mut ps1, parts, &loc).context("write PowerShell profile")?;
-            ps1.flush().ok();
-            let kept = ps1
-                .into_temp_path()
-                .keep()
-                .map_err(|e| anyhow::anyhow!("persist PowerShell profile: {}", e))?;
+            let cmdline = powershell_inline_command(parts, cwd);
 
             let mut run = |program: &str| -> Result<()> {
                 let mut cmd = Command::new(program);
-                cmd.args([
-                    "-NoExit",
-                    "-NoLogo",
-                    "-File",
-                    kept.to_str().ok_or_else(|| {
-                        anyhow::anyhow!("PowerShell profile path is not valid UTF-8")
-                    })?,
-                ])
-                .current_dir(cwd);
+                cmd.args(["-NoExit", "-NoLogo", "-Command", &cmdline])
+                    .current_dir(cwd);
                 apply_activation_env(&mut cmd, parts);
                 cmd.spawn().context(format!("failed to start {program}"))?;
                 Ok(())
