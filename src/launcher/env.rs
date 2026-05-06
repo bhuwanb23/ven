@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
 
+use crate::launcher::greeting::write_greeting_to_stdout;
 use crate::shell::{
     activation_path_overlay, path_for_env_value, resolve_activation_environment, ActivationParts,
     ActivationResolve,
@@ -84,22 +85,28 @@ pub fn print_environment_preview(project_dir: &Path) -> Result<()> {
             let start = path_for_env_value(project_dir);
             anyhow::bail!(
                 "ven-launcher: no ven.toml found when searching upward from \"{start}\".\n\
-                 Hint: use `ven-launcher --show-env` with a directory that contains or is under ven.toml.",
+                 Try from the project folder, or pass a path explicitly, for example:\n\
+                   ven-launcher\n\
+                   ven-launcher path/to/myapp\n\
+                   ven-launcher ./example",
             )
         }
         ActivationResolve::MissingToolchain {
             language,
             install_with,
         } => {
+            let start = path_for_env_value(project_dir);
             anyhow::bail!(
-                "'{}' {} is missing under ven (install then retry). Hint: ven install {} {}",
-                language,
-                install_with,
-                language,
-                install_with
+                "ven-launcher: required runtime is not installed for this machine.\n\
+                 • Language: {language}\n\
+                 • Requested in ven.toml: {install_with}\n\
+                 • Search started from: {start}\n\
+                 Install it, then retry:\n\
+                   ven install {language} {install_with}"
             );
         }
         ActivationResolve::Ready(parts) => {
+            write_greeting_to_stdout(&parts);
             println!("PATH should be: {}", activation_path_overlay(&parts));
 
             if let Some(ref bin) = parts.node_bin_for_path {

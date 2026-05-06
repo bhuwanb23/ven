@@ -1,10 +1,17 @@
 //! Spawn an interactive shell with the same env as `ven shell activate` (Phase 4).
 
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
 use anyhow::{Context, Result};
 
+#[cfg(windows)]
+use crate::launcher::greeting::{write_cmd_autorun, write_powershell_profile_init};
+#[cfg(not(windows))]
+use crate::launcher::greeting::{write_posix_printf_greeting, write_powershell_profile_init};
+#[cfg(not(windows))]
+use crate::launcher::quote::bash_single_quoted;
 use crate::launcher::{detect_shell, ShellKind};
 use crate::launcher::env::apply_activation_env;
 use crate::shell::{path_for_env_value, resolve_activation_environment, ActivationResolve};
@@ -16,10 +23,10 @@ pub fn spawn_project_shell(project_hint: &Path) -> Result<()> {
             let start = path_for_env_value(project_hint);
             anyhow::bail!(
                 "ven-launcher: no ven.toml found when searching upward from \"{start}\".\n\
-                 Try from the project folder, or pass a path explicitly, e.g.\n\
+                 Try from the project folder, or pass a path explicitly, for example:\n\
                    ven-launcher\n\
-                   ven-launcher D:\\projects\\myapp\n\
-                   ven-launcher .\\example"
+                   ven-launcher path/to/myapp\n\
+                   ven-launcher ./example"
             )
         }
         ActivationResolve::MissingToolchain {
@@ -28,13 +35,12 @@ pub fn spawn_project_shell(project_hint: &Path) -> Result<()> {
         } => {
             let start = path_for_env_value(project_hint);
             anyhow::bail!(
-                "ven-launcher: '{}' ({}) is not installed for this machine (near \"{}\").\n\
-                 Hint: ven install {} {}",
-                language,
-                install_with,
-                start,
-                language,
-                install_with
+                "ven-launcher: required runtime is not installed for this machine.\n\
+                 • Language: {language}\n\
+                 • Requested in ven.toml: {install_with}\n\
+                 • Search started from: {start}\n\
+                 Install it, then retry:\n\
+                   ven install {language} {install_with}"
             )
         }
         ActivationResolve::Ready(parts) => {
@@ -60,27 +66,58 @@ fn spawn_for_shell(
 
     match kind {
         ShellKind::PowerShell => {
+            let mut ps1 = tempfile::Builder::new()
+                .prefix("ven-launcher-")
+                .suffix(".ps1")
+                .tempfile()
+                .context("temp PowerShell profile")?;
             let loc = path_for_env_value(cwd);
-            let cmdline = format!(
-                "Set-Location -LiteralPath '{}'",
-                loc.replace('\'', "''")
-            );
+            write_powershell_profile_init(&mut ps1, parts, &loc).context("write PowerShell profile")?;
+            ps1.flush().ok();
+            let kept = ps1
+                .into_temp_path()
+                .keep()
+                .map_err(|e| anyhow::anyhow!("persist PowerShell profile: {}", e))?;
+
             let mut cmd = Command::new("powershell.exe");
-            cmd.args(["-NoExit", "-NoLogo", "-Command", &cmdline])
-                .current_dir(cwd)
-                .creation_flags(CREATE_NEW_CONSOLE);
+            cmd.args([
+                "-NoExit",
+                "-NoLogo",
+                "-File",
+                kept.to_str().ok_or_else(|| {
+                    anyhow::anyhow!("PowerShell profile path is not valid UTF-8")
+                })?,
+            ])
+            .current_dir(cwd)
+            .creation_flags(CREATE_NEW_CONSOLE);
             apply_activation_env(&mut cmd, parts);
             cmd.spawn()
                 .context("failed to start PowerShell (try: powershell.exe on PATH)")?;
         }
         ShellKind::Cmd | ShellKind::Bash | ShellKind::Zsh | ShellKind::Other(_) => {
-            // Cmd is the reliable “new console + stay open” path on Windows.
+            let cwd_q = cmd_quoted_path(cwd);
+            let mut bat = tempfile::Builder::new()
+                .prefix("ven-launcher-")
+                .suffix(".cmd")
+                .tempfile()
+                .context("temp cmd autorun")?;
+            write_cmd_autorun(&mut bat, parts, &cwd_q).context("write cmd autorun")?;
+            bat.flush().ok();
+            let kept = bat
+                .into_temp_path()
+                .keep()
+                .map_err(|e| anyhow::anyhow!("persist cmd script: {}", e))?;
+
             let comspec = std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".into());
-            let cd_arg = format!("cd /d {}", cmd_quoted_path(cwd));
             let mut cmd = Command::new(comspec);
-            cmd.args(["/K", &cd_arg])
-                .current_dir(cwd)
-                .creation_flags(CREATE_NEW_CONSOLE);
+            cmd.args([
+                "/K",
+                kept.to_str().ok_or_else(|| {
+                    anyhow::anyhow!("cmd script path is not valid UTF-8")
+                })?,
+            ])
+            .current_dir(cwd)
+            .creation_flags(CREATE_NEW_CONSOLE);
             apply_activation_env(&mut cmd, parts);
             cmd.spawn().context("failed to start cmd.exe")?;
         }
@@ -109,6 +146,7 @@ fn spawn_for_shell(
                 .suffix("-init.bash")
                 .tempfile()
                 .context("temp init file")?;
+            write_posix_printf_greeting(&mut tmp, parts).context("write bash greeting")?;
             tmp.write_all(cd_line.as_bytes())
                 .context("write bash init")?;
             tmp.flush().ok();
@@ -136,6 +174,7 @@ fn spawn_for_shell(
                 .suffix("-init.zsh")
                 .tempfile()
                 .context("temp init file")?;
+            write_posix_printf_greeting(&mut tmp, parts).context("write zsh greeting")?;
             tmp.write_all(cd_line.as_bytes())
                 .context("write zsh init")?;
             tmp.flush().ok();
@@ -158,17 +197,39 @@ fn spawn_for_shell(
             cmd.spawn().context("failed to start zsh")?;
         }
         ShellKind::PowerShell => {
-            let mut cmd = Command::new("pwsh");
-            cmd.args(["-NoExit", "-NoLogo"]).current_dir(cwd);
-            apply_activation_env(&mut cmd, parts);
-            let _ = cmd.spawn().or_else(|_| {
-                let mut c = Command::new("powershell");
-                c.args(["-NoExit", "-NoLogo"])
-                    .current_dir(cwd);
-                apply_activation_env(&mut c, parts);
-                c.spawn()
-            })
-            .context("failed to start pwsh/powershell")?;
+            let mut ps1 = tempfile::Builder::new()
+                .prefix("ven-launcher-")
+                .suffix(".ps1")
+                .tempfile()
+                .context("temp PowerShell profile")?;
+            let loc = path_for_env_value(cwd);
+            write_powershell_profile_init(&mut ps1, parts, &loc).context("write PowerShell profile")?;
+            ps1.flush().ok();
+            let kept = ps1
+                .into_temp_path()
+                .keep()
+                .map_err(|e| anyhow::anyhow!("persist PowerShell profile: {}", e))?;
+
+            let mut run = |program: &str| -> Result<()> {
+                let mut cmd = Command::new(program);
+                cmd.args([
+                    "-NoExit",
+                    "-NoLogo",
+                    "-File",
+                    kept.to_str().ok_or_else(|| {
+                        anyhow::anyhow!("PowerShell profile path is not valid UTF-8")
+                    })?,
+                ])
+                .current_dir(cwd);
+                apply_activation_env(&mut cmd, parts);
+                cmd.spawn().context(format!("failed to start {program}"))?;
+                Ok(())
+            };
+
+            match run("pwsh") {
+                Ok(()) => {}
+                Err(_) => run("powershell")?,
+            }
         }
         ShellKind::Other(exe) => {
             if Path::new(&exe).is_file() {
@@ -178,24 +239,13 @@ fn spawn_for_shell(
                 cmd.spawn()
                     .with_context(|| format!("failed to start {}", exe))?;
             } else {
-                anyhow::bail!("SHELL is set to '{exe}' but that file is missing; use bash or zsh.");
+                anyhow::bail!(
+                    "ven-launcher: SHELL is set to '{}' but that program was not found.\n\
+                     Set SHELL to bash or zsh, or run ven-launcher from PowerShell/cmd on Windows.",
+                    exe
+                );
             }
         }
     }
     Ok(())
-}
-
-#[cfg(unix)]
-fn bash_single_quoted(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('\'');
-    for c in s.chars() {
-        if c == '\'' {
-            out.push_str("'\"'\"'");
-        } else {
-            out.push(c);
-        }
-    }
-    out.push('\'');
-    out
 }
