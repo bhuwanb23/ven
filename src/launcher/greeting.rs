@@ -11,7 +11,7 @@ pub enum GreetingStyle {
     Ascii,
 }
 
-const INNER_WIDTH: usize = 34;
+const INNER_WIDTH: usize = 54;
 
 /// Lines to print (ends with one blank line for spacing).
 pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<String> {
@@ -23,7 +23,11 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
             lines.push(format!("╔{rule}╗"));
             lines.push(format!(
                 "║{}║",
-                pad_inner("   Ven Environment Active", INNER_WIDTH)
+                pad_inner("  VEN LAUNCHER  •  Environment Ready", INNER_WIDTH)
+            ));
+            lines.push(format!(
+                "║{}║",
+                pad_inner("  Fast project shell with managed runtimes", INNER_WIDTH)
             ));
             lines.push(format!("╚{rule}╝"));
         }
@@ -32,7 +36,11 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
             lines.push(format!("+{rule}+"));
             lines.push(format!(
                 "|{}|",
-                pad_inner("   Ven Environment Active", INNER_WIDTH)
+                pad_inner("  VEN LAUNCHER - Environment Ready", INNER_WIDTH)
+            ));
+            lines.push(format!(
+                "|{}|",
+                pad_inner("  Fast project shell with managed runtimes", INNER_WIDTH)
             ));
             lines.push(format!("+{rule}+"));
         }
@@ -50,13 +58,44 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
         "Location: {}",
         path_for_env_value(&parts.project_root)
     ));
+    lines.push(String::new());
+    lines.push("Active runtimes".to_string());
+    lines.push("-".repeat(26));
 
-    push_runtime(&mut lines, "Node", parts.node_resolved.as_ref());
-    push_runtime(&mut lines, "Python", parts.python_resolved.as_ref());
-    push_runtime(&mut lines, "Go", parts.go_resolved.as_ref());
-    push_runtime(&mut lines, "Rust", parts.rust_resolved.as_ref());
-    push_runtime(&mut lines, "Java", parts.java_resolved.as_ref());
-    push_runtime(&mut lines, "Deno", parts.deno_resolved.as_ref());
+    push_runtime(&mut lines, "Node", "JS runtime", parts.node_resolved.as_ref(), style);
+    push_runtime(
+        &mut lines,
+        "Python",
+        "Scripting runtime",
+        parts.python_resolved.as_ref(),
+        style,
+    );
+    push_runtime(&mut lines, "Go", "Toolchain", parts.go_resolved.as_ref(), style);
+    push_runtime(
+        &mut lines,
+        "Rust",
+        "Toolchain",
+        parts.rust_resolved.as_ref(),
+        style,
+    );
+    push_runtime(&mut lines, "Java", "JDK", parts.java_resolved.as_ref(), style);
+    push_runtime(&mut lines, "Deno", "Runtime", parts.deno_resolved.as_ref(), style);
+
+    lines.push(String::new());
+    lines.push("Quick start".to_string());
+    lines.push("-".repeat(26));
+    match style {
+        GreetingStyle::Unicode => {
+            lines.push("  • node --version".to_string());
+            lines.push("  • python --version".to_string());
+            lines.push("  • ven status --verbose".to_string());
+        }
+        GreetingStyle::Ascii => {
+            lines.push("  - node --version".to_string());
+            lines.push("  - python --version".to_string());
+            lines.push("  - ven status --verbose".to_string());
+        }
+    }
 
     lines.push(String::new());
     lines
@@ -71,11 +110,21 @@ fn pad_inner(s: &str, width: usize) -> String {
     }
 }
 
-fn push_runtime(lines: &mut Vec<String>, label: &str, v: Option<&String>) {
+fn push_runtime(
+    lines: &mut Vec<String>,
+    label: &str,
+    desc: &str,
+    v: Option<&String>,
+    style: GreetingStyle,
+) {
+    let bullet = match style {
+        GreetingStyle::Unicode => "  ▸",
+        GreetingStyle::Ascii => "  >",
+    };
     if let Some(s) = v {
         let t = s.trim();
         if !t.is_empty() {
-            lines.push(format!("{label}: {t}"));
+            lines.push(format!("{bullet} {label:<8} {t:<12} ({desc})"));
         }
     }
 }
@@ -158,9 +207,11 @@ mod tests {
             ven_user_env: HashMap::new(),
         };
         let text = greeting_lines(&parts, GreetingStyle::Unicode).join("\n");
-        assert!(text.contains("Ven Environment Active"));
+        assert!(text.contains("VEN LAUNCHER"));
         assert!(text.contains("Project: my-app"));
-        assert!(text.contains("Node: 20.20.2"));
-        assert!(text.contains("Python: 3.11.5"));
+        assert!(text.contains("Node"));
+        assert!(text.contains("20.20.2"));
+        assert!(text.contains("Python"));
+        assert!(text.contains("3.11.5"));
     }
 }
