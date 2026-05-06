@@ -81,7 +81,11 @@ pub fn apply_activation_env(cmd: &mut Command, parts: &ActivationParts) {
 pub fn print_environment_preview(project_dir: &Path) -> Result<()> {
     match resolve_activation_environment(project_dir)? {
         ActivationResolve::NoToml => {
-            eprintln!("ven-launcher: no ven.toml found (walk up from this directory).");
+            let start = path_for_env_value(project_dir);
+            anyhow::bail!(
+                "ven-launcher: no ven.toml found when searching upward from \"{start}\".\n\
+                 Hint: use `ven-launcher --show-env` with a directory that contains or is under ven.toml.",
+            )
         }
         ActivationResolve::MissingToolchain {
             language,

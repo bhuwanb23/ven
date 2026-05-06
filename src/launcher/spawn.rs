@@ -13,19 +13,29 @@ use crate::shell::{path_for_env_value, resolve_activation_environment, Activatio
 pub fn spawn_project_shell(project_hint: &Path) -> Result<()> {
     match resolve_activation_environment(project_hint)? {
         ActivationResolve::NoToml => {
-            anyhow::bail!("no ven.toml found (walking up from the given directory)")
+            let start = path_for_env_value(project_hint);
+            anyhow::bail!(
+                "ven-launcher: no ven.toml found when searching upward from \"{start}\".\n\
+                 Try from the project folder, or pass a path explicitly, e.g.\n\
+                   ven-launcher\n\
+                   ven-launcher D:\\projects\\myapp\n\
+                   ven-launcher .\\example"
+            )
         }
         ActivationResolve::MissingToolchain {
             language,
             install_with,
         } => {
+            let start = path_for_env_value(project_hint);
             anyhow::bail!(
-                "'{}' {} is missing under ven. Install then retry (`ven install {} {}`).",
+                "ven-launcher: '{}' ({}) is not installed for this machine (near \"{}\").\n\
+                 Hint: ven install {} {}",
                 language,
                 install_with,
+                start,
                 language,
                 install_with
-            );
+            )
         }
         ActivationResolve::Ready(parts) => {
             let cwd = std::fs::canonicalize(&parts.project_root)

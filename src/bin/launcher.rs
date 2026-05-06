@@ -1,46 +1,41 @@
 //! Entry point for `ven-launcher` — terminal spawner.
+//!
+//! Usage:
+//! - `ven-launcher` — use current directory as the search root for `ven.toml`
+//! - `ven-launcher C:\path\to\project` or `ven-launcher .\relative` — search from that path
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
-use ven::launcher::{detect_shell, env, spawn};
+use ven::launcher::{detect_shell, env, paths, spawn};
 
 #[derive(Parser)]
-#[command(name = "ven-launcher", disable_version_flag = true)]
+#[command(
+    name = "ven-launcher",
+    disable_version_flag = true,
+    about = "Open a new terminal with ven runtimes for the nearest ven.toml (walks up from PROJECT or cwd)."
+)]
 struct LauncherCli {
-    /// Print resolved PATH / env (Phase 3) instead of opening a terminal.
+    /// Print resolved PATH / env instead of opening a terminal.
     #[arg(long)]
     show_env: bool,
 
-    /// Project directory (default: current working directory).
+    /// Project directory or path to `ven.toml` (default: current working directory).
+    #[arg(value_name = "PROJECT")]
     project: Option<PathBuf>,
-}
-
-fn resolve_project(cli: &LauncherCli) -> Result<PathBuf> {
-    match &cli.project {
-        Some(p) => {
-            if p.is_absolute() {
-                Ok(p.clone())
-            } else {
-                Ok(std::env::current_dir()
-                    .context("cannot determine current directory")?
-                    .join(p))
-            }
-        }
-        None => std::env::current_dir().context("cannot determine current directory"),
-    }
 }
 
 fn main() -> Result<()> {
     let cli = LauncherCli::parse();
     println!("Detected shell: {}", detect_shell());
 
-    let dir = resolve_project(&cli)?;
+    let start = paths::resolve_activation_start_dir(cli.project.as_deref())?;
+
     if cli.show_env {
-        env::print_environment_preview(&dir)?;
+        env::print_environment_preview(&start)?;
     } else {
-        spawn::spawn_project_shell(&dir)?;
+        spawn::spawn_project_shell(&start)?;
     }
     Ok(())
 }
