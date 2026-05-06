@@ -379,7 +379,7 @@ pub fn run(cli: Cli) -> Result<()> {
 // All command implementations have been moved to their own modules:
 // - src/cli/install.rs
 // - src/cli/list.rs
-// - src/cli/status.rs
+// - src/cli/status/
 // - src/cli/setup.rs
 // - src/cli/shell.rs
 // - src/cli/init.rs
