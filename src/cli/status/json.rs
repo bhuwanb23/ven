@@ -72,19 +72,40 @@ pub(super) fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.ruby.is_empty() {
+        let ruby_spec = &config.runtime.ruby;
+        let resolved = resolve_ruby_for_display(ruby_spec)?;
+        let installed = is_ruby_installed(ruby_spec);
+        runtime_info["ruby"] = json!({
+            "version_required": ruby_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
 
     // Build package list
     let mut pkg_list = Vec::new();
     let mut installed_count = 0;
 
     for (name, version) in &config.packages {
-        let is_installed = if !config.runtime.deno.is_empty()
-            && config.runtime.node.is_empty()
-            && config.runtime.python.is_empty()
-            && config.runtime.go.is_empty()
-            && config.runtime.rust.is_empty()
-            && config.runtime.java.is_empty()
-        {
+        let deno_without_npm_semantics =
+            !config.runtime.deno.is_empty()
+                && config.runtime.ruby.is_empty()
+                && config.runtime.node.is_empty()
+                && config.runtime.python.is_empty()
+                && config.runtime.go.is_empty()
+                && config.runtime.rust.is_empty()
+                && config.runtime.java.is_empty();
+        let ruby_without_npm_semantics =
+            !config.runtime.ruby.is_empty()
+                && config.runtime.node.is_empty()
+                && config.runtime.python.is_empty()
+                && config.runtime.go.is_empty()
+                && config.runtime.rust.is_empty()
+                && config.runtime.java.is_empty()
+                && config.runtime.deno.is_empty();
+
+        let is_installed = if deno_without_npm_semantics || ruby_without_npm_semantics {
             false
         } else if !config.runtime.python.is_empty()
             && config.runtime.node.is_empty()
@@ -92,6 +113,7 @@ pub(super) fn output_json_status(
             && config.runtime.rust.is_empty()
             && config.runtime.java.is_empty()
             && config.runtime.deno.is_empty()
+            && config.runtime.ruby.is_empty()
         {
             is_python_package_installed(name)
         } else {

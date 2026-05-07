@@ -146,6 +146,24 @@ pub(super) fn display_verbose_status(
             }
         }
     }
+    if !config.runtime.ruby.is_empty() {
+        let spec = &config.runtime.ruby;
+        let installed = is_ruby_installed(spec);
+        let resolved = resolve_ruby_for_display(spec)?;
+        if installed {
+            println!("    {} ruby {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!(
+                "    {} ruby {} - {}",
+                "✗".red(),
+                spec.bold(),
+                "not installed"
+            );
+            if fix {
+                println!("      {} Run: ven install ruby {}", "[!]".yellow(), spec);
+            }
+        }
+    }
 
     println!();
 
@@ -155,6 +173,7 @@ pub(super) fn display_verbose_status(
         println!("  {}", "Packages".bold().underline());
 
         if !config.runtime.deno.is_empty()
+            && config.runtime.ruby.is_empty()
             && config.runtime.node.is_empty()
             && config.runtime.python.is_empty()
             && config.runtime.go.is_empty()
@@ -163,6 +182,22 @@ pub(super) fn display_verbose_status(
         {
             println!(
                 "    {} Deno manages dependencies via imports/deno.json (ven does not install packages).",
+                "[INFO]".cyan()
+            );
+            println!();
+            return Ok(());
+        }
+
+        if !config.runtime.ruby.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.python.is_empty()
+            && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty()
+            && config.runtime.deno.is_empty()
+        {
+            println!(
+                "    {} Ruby uses Gemfile/Bundler — ven does not reconcile [packages] with gem yet.",
                 "[INFO]".cyan()
             );
             println!();

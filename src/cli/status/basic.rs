@@ -20,6 +20,14 @@ pub(super) fn display_basic_status(
     let has_rust = !config.runtime.rust.is_empty();
     let has_java = !config.runtime.java.is_empty();
     let has_deno = !config.runtime.deno.is_empty();
+    let has_ruby = !config.runtime.ruby.is_empty();
+    let has_any_runtime = has_node
+        || has_python
+        || has_go
+        || has_rust
+        || has_java
+        || has_deno
+        || has_ruby;
 
     // Runtime section
     if has_node {
@@ -39,8 +47,12 @@ pub(super) fn display_basic_status(
         if !installed {
             println!("    {} Run: ven install node {}", "[!]".yellow(), node_spec);
         }
-    } else if !has_python && !has_go && !has_rust && !has_java && !has_deno {
-        println!("  {} node {}", "[!]".yellow(), "not specified".dimmed());
+    } else if !has_any_runtime {
+        println!(
+            "  {} {}",
+            "[!]".yellow(),
+            "no runtime pinned in [runtime]".dimmed()
+        );
     }
     if has_python {
         let py_spec = &config.runtime.python;
@@ -133,19 +145,44 @@ pub(super) fn display_basic_status(
             );
         }
     }
+    if has_ruby {
+        let ruby_spec = &config.runtime.ruby;
+        let resolved = resolve_ruby_for_display(ruby_spec)?;
+        let installed = is_ruby_installed(ruby_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} ruby {} {}",
+            status_icon,
+            ruby_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!(
+                "    {} Run: ven install ruby {}",
+                "[!]".yellow(),
+                ruby_spec
+            );
+        }
+    }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
+        let ruby_only =
+            has_ruby && !has_node && !has_python && !has_go && !has_rust && !has_java && !has_deno;
         let installed_count =
-            if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno {
+            if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno && !has_ruby
+            {
                 config
                     .packages
                     .keys()
                     .filter(|pkg| is_python_package_installed(pkg))
                     .count()
-            } else if has_deno && !has_node && !has_python && !has_go && !has_rust && !has_java {
+            } else if has_deno && !has_node && !has_python && !has_go && !has_rust && !has_java && !has_ruby
+            {
+                0
+            } else if ruby_only {
                 0
             } else {
                 config
@@ -164,12 +201,18 @@ pub(super) fn display_basic_status(
 
         // Show tip if packages are missing
         if installed_count < pkg_count {
-            if has_deno && !has_node && !has_python && !has_go && !has_rust && !has_java {
+            if has_deno && !has_node && !has_python && !has_go && !has_rust && !has_java && !has_ruby {
                 println!(
                     "    {} Deno manages dependencies via imports/deno.json (ven does not install packages).",
                     "[TIP]".cyan()
                 );
-            } else if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno {
+            } else if ruby_only {
+                println!(
+                    "    {} Ruby gems use Gemfile/Bundler — ven does not map [packages] to gem yet.",
+                    "[TIP]".cyan()
+                );
+            } else if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno && !has_ruby
+            {
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
             } else {
                 println!(

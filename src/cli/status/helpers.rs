@@ -1,7 +1,7 @@
 use crate::core::config::VenConfig;
 use crate::core::{
     resolve_deno_version, resolve_go_version, resolve_java_version, resolve_node_version,
-    resolve_python_version, resolve_rust_version,
+    resolve_python_version, resolve_ruby_version, resolve_rust_version,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -76,6 +76,17 @@ pub(super) fn resolve_deno_for_display(spec: &str) -> Result<String> {
     }
 }
 
+pub(super) fn resolve_ruby_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("ruby")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_ruby_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 pub(super) fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -138,6 +149,17 @@ pub(super) fn is_deno_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("deno") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_deno_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+pub(super) fn is_ruby_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("ruby") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_ruby_version(spec, &installed).is_ok()
     } else {
         false
     }
@@ -269,6 +291,7 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
         && config.runtime.rust.is_empty()
         && config.runtime.java.is_empty()
         && config.runtime.deno.is_empty()
+        && config.runtime.ruby.is_empty()
     {
         issues.push("No runtime version specified".to_string());
     }
@@ -312,6 +335,13 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
             issues.push(format!("Deno {} not installed", config.runtime.deno));
         } else {
             ok_items.push(format!("Deno {} ready", config.runtime.deno));
+        }
+    }
+    if !config.runtime.ruby.is_empty() {
+        if !is_ruby_installed(&config.runtime.ruby) {
+            issues.push(format!("Ruby {} not installed", config.runtime.ruby));
+        } else {
+            ok_items.push(format!("Ruby {} ready", config.runtime.ruby));
         }
     }
 
