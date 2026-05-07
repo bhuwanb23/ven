@@ -279,7 +279,7 @@ pub fn resolve_java_version(spec: &str, installed: &[String]) -> Result<String> 
 pub fn resolve_ruby_version(spec: &str, installed: &[String]) -> Result<String> {
     let spec = spec.trim().trim_start_matches('v');
     match spec {
-        "latest" => installed
+        "latest" | "lts" => installed
             .iter()
             .max_by(|a, b| version_cmp(a, b))
             .cloned()

@@ -20,6 +20,8 @@ After changing shells or reinstalling ven, re-run **`ven setup`** and follow pri
 
 Low-level commands exist for hook scripts (`ven shell activate`, `ven shell deactivate`, `ven shell hook …`). Normal users should prefer **`ven setup`** + **`ven-use`**.
 
+When **`[runtime].ruby`** is set, hooks also export **`GEM_HOME`**, **`GEM_PATH`**, and **`VEN_RUBY_VERSION`** alongside **`PATH`** (same as `ven shell activate` output).
+
 ## Launcher
 
 To spawn a **new** terminal with env applied without touching the current session, use **`ven-launcher`** (see [ven-launcher.md](ven-launcher.md)).

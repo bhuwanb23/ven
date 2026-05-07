@@ -115,7 +115,7 @@ pub fn fetch_ruby_release_versions() -> Result<Vec<String>> {
 
 pub fn resolve_ruby_version_spec(spec: &str, available: &[String]) -> Result<String> {
     let spec = spec.trim().trim_start_matches('v');
-    if spec.eq_ignore_ascii_case("latest") {
+    if spec.eq_ignore_ascii_case("latest") || spec.eq_ignore_ascii_case("lts") {
         return available
             .first()
             .cloned()
