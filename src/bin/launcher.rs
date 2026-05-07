@@ -14,7 +14,7 @@ use ven::launcher::{detect_shell, env, paths, spawn};
 #[command(
     name = "ven-launcher",
     disable_version_flag = true,
-    about = "Open a new terminal with ven runtimes for the nearest ven.toml (walks up from PROJECT or cwd)."
+    about = "Open a new terminal with ven runtimes for the nearest ven.toml (walks up from PROJECT or cwd). See docs/ven-launcher.md."
 )]
 struct LauncherCli {
     /// Print resolved PATH / env instead of opening a terminal.

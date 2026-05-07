@@ -1,29 +1,38 @@
 # ven
 
-Rust CLI for **per-project Node.js runtime + npm deps** driven by **`ven.toml`**. Runtimes live under **`~/.ven`** (or **`%USERPROFILE%\.ven`** on Windows).
+Rust CLI for **per-project language runtimes and dependencies**, driven by **`ven.toml`**. Installed runtimes live under **`~/.ven`** (or **`%USERPROFILE%\.ven`** on Windows).
+
+## Supported runtimes
+
+ven registers multiple **`LanguagePlugin`** implementations: **node**, **python**, **go**, **rust**, **java**, **deno**. Use **`ven install <language> [version]`** and **`ven list [language]`**; omit the version for interactive selection where supported.
+
+Full notes: **[docs/languages.md](docs/languages.md)**.
 
 ## Commands (overview)
 
 | Area | Commands | Notes |
 |------|-----------|--------|
-| Runtimes | `ven install`, `ven list` | **Node** only today; **`ven install`** uses nodejs.org + SHA256 when available (`src/core/download.rs`). **Python** is not implemented yet (`LanguagePlugin` is Node-only). |
-| Shell | `ven setup`, `ven shell hook|activate|install|deactivate`, **`ven use`**, **`ven deactivate`** | Hooks auto-switch on **`cd`** / **`Set-Location`** + prompt (PowerShell/bash/zsh) or **`fish_prompt`**. Outputs of `activate` / `use` / `deactivate` must be evaluated in-shell (hooks define **`ven-use`**). Optional **`VEN_STORAGE_PATH`** overrides `~/.ven`. |
-| Packages | `ven add`, `ven remove`, `ven upgrade` | npm + **`ven.toml`** sync (**pip** not wired). |
-| Project | `ven init`, `ven status` | Nearest **`ven.toml`** upward (subdir “inherits” ancestor file; **no multi-file merge**). |
+| Runtimes | `ven install`, `ven list` | Per-language installs (see docs). |
+| Shell | `ven setup`, `ven use`, `ven deactivate`, `ven shell …` | Hooks define **`ven-use`** after **`ven setup`**. Evaluate `ven use` output if not using hooks. Optional **`VEN_STORAGE_PATH`** overrides `~/.ven`. |
+| Packages | `ven add`, `ven remove`, `ven upgrade` | Ecosystem-specific sync into **`ven.toml`** (npm, pip, etc., per active runtime). |
+| Project | `ven init`, `ven status` | Nearest **`ven.toml`** upward from cwd (no multi-file merge). |
+
+**Companion binary:** **`ven-launcher`** opens a new terminal with env for the nearest **`ven.toml`** — see **[docs/ven-launcher.md](docs/ven-launcher.md)**.
+
+### Documentation index
+
+- **[docs/README.md](docs/README.md)** — table of contents  
+- **[docs/commands-reference.md](docs/commands-reference.md)** — all commands  
+- **[docs/ven-toml.md](docs/ven-toml.md)** — configuration  
+- **[docs/shell-integration.md](docs/shell-integration.md)** — hooks and activation  
 
 ### First-time shell setup
 
-1. `cargo build --release` and put **`ven`** on **`PATH`**.
-2. Run **`ven setup`** (or **`ven shell install`** on Windows profiles).
-3. Open a **new** terminal — or **`ven-use`** / **`eval "$(ven shell activate .)"`** / **`iex …`** to apply manually.
+1. Build or install **`ven`** and put it on **`PATH`** (`cargo build --release` from this repo if developing).
+2. Run **`ven setup`** and follow the printed steps for your shell.
+3. Open a **new** terminal, or run **`ven-use`** / evaluate **`ven use`** manually.
 
-See **`src/shell/mod.rs`** for hook behavior.
-
-## Features (shipping vs roadmap)
-
-**In place:** Multi-version Node under **`~/.ven`**, checksum verification when upstream SHASUMS load, **`ven.toml`** **`[runtime].node`**, **`[packages]`**, **`[env]`**, PATH activation scripts, **`ven add/remove/upgrade`**, **`ven init`** / **`status`**.
-
-**Not in this codebase yet:** Install/manage **Python** runtimes via **`ven install`**; **`pip`** in **`ven add`**. Planned via **`LanguagePlugin`** (`src/plugins/registry.rs`).
+For CLI details in the terminal: **`ven --help`**, **`ven <command> --help`**.
 
 ## License
 

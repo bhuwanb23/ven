@@ -22,7 +22,7 @@ pub mod upgrade;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, …)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation: https://github.com/your-org/ven"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, …)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -80,19 +80,15 @@ pub enum Commands {
         json: bool,
     },
 
-    /// Show current project status and configuration
+    /// Apply nearest ven.toml runtime to your shell session (prints exports; evaluate in shell)
     ///
-    /// Displays ven.toml configuration, installed versions,
-    /// package status, and project health information.
+    /// Same behavior as `ven shell activate`. After `ven setup`, hooks define **`ven-use`** so you
+    /// rarely call this by hand.
     ///
     /// Examples:
-    ///   ven status                 # Show basic status
-    ///   ven status --verbose       # Show detailed info with disk usage
-    ///   ven status --json          # JSON output for CI/CD
-    ///   ven status --fix           # Auto-fix detected issues
-    /// Apply nearest ven.toml runtime to your shell session (prints exports; see stderr hint).
-    ///
-    /// Same behavior as `ven shell activate`; after `ven setup` / hooks, interactive shells can run `ven-use` instead.
+    ///   ven use
+    ///   ven use .
+    ///   ven use path/to/project
     #[command(
         long_about = "Apply nearest ven.toml runtime settings for a directory.\n\nPrints PATH/env assignments for your shell — they must be evaluated in-process\n(Run `ven-use` once hooks are installed, or pipe to Invoke-Expression / eval).\n\nExamples:\n  ven use .\n  ven use ~/my-app"
     )]
@@ -109,6 +105,16 @@ pub enum Commands {
     )]
     Deactivate,
 
+    /// Show current project status and configuration
+    ///
+    /// Displays ven.toml configuration, installed runtimes, package status (when applicable),
+    /// environment variables, and a short health summary.
+    ///
+    /// Examples:
+    ///   ven status                 # Show basic status
+    ///   ven status --verbose       # Show detailed info with disk usage
+    ///   ven status --json          # JSON output for CI/CD
+    ///   ven status --fix           # Auto-fix detected issues (where supported)
     #[command(
         long_about = "Show current project status and configuration\n\nDisplays ven.toml configuration, installed runtimes,\npackage status, environment variables, and project health information.\n\nExamples:\n  ven status                 # Show basic status\n  ven status --verbose       # Show detailed info with disk usage\n  ven status --json          # JSON output for CI/CD\n  ven status --fix           # Auto-fix detected issues"
     )]
