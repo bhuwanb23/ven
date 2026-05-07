@@ -16,8 +16,9 @@ Version pins **per language**. Only set keys for runtimes this project uses; emp
 | **`rust`** | Rust toolchain version. |
 | **`java`** | JDK version. |
 | **`deno`** | Deno version. |
+| **`ruby`** | MRI Ruby (`X.Y.Z` under `ven install`). Sets `GEM_HOME` / `GEM_PATH` plus `VEN_RUBY_VERSION` when active. |
 
-Activation builds a **PATH prepend list** (and toolchain vars like `JAVA_HOME`, `GOROOT`, …) from **every** non-empty `[runtime]` field that resolves to an installed toolchain. Use **`ven status`** and **`ven-launcher --show-env`** to verify what your project applies.
+Activation builds a **PATH prepend list** (and toolchain vars like `JAVA_HOME`, `GEM_HOME`, `GOROOT`, …) from **every** non-empty `[runtime]` field that resolves to an installed toolchain. Use **`ven status`** and **`ven-launcher --show-env`** to verify what your project applies.
 
 Example:
 

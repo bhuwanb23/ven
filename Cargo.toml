@@ -47,6 +47,8 @@ async-trait = "0.1"
 zip = "0.6"
 flate2 = "1.0"
 tar = "0.4"
+# MRI Ruby Windows archives (RubyInstaller2)
+sevenz-rust = { version = "0.6", default-features = false }
 # Checksum verification
 sha2 = "0.10"
 

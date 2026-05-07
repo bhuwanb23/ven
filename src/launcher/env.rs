@@ -63,6 +63,14 @@ pub fn apply_activation_env(cmd: &mut Command, parts: &ActivationParts) {
     if let Some(ref v) = parts.deno_resolved {
         cmd.env("VEN_DENO_VERSION", v);
     }
+    if let Some(ref v) = parts.ruby_resolved {
+        cmd.env("VEN_RUBY_VERSION", v);
+    }
+    if let Some(ref gh) = parts.ruby_gem_home_for_env {
+        let ghv = path_for_env_value(gh);
+        cmd.env("GEM_HOME", &ghv);
+        cmd.env("GEM_PATH", &ghv);
+    }
     if let Some(ref vr) = parts.virtual_env_root {
         cmd.env("VIRTUAL_ENV", path_for_env_value(vr));
     }
@@ -146,6 +154,14 @@ pub fn print_environment_preview(project_dir: &Path) -> Result<()> {
             }
             if let Some(ref v) = parts.deno_resolved {
                 println!("VEN_DENO_VERSION should be: {v}");
+            }
+            if let Some(ref v) = parts.ruby_resolved {
+                println!("VEN_RUBY_VERSION should be: {v}");
+            }
+            if let Some(ref gh) = parts.ruby_gem_home_for_env {
+                let ghv = path_for_env_value(gh);
+                println!("GEM_HOME should be: {ghv}");
+                println!("GEM_PATH should be: {ghv}");
             }
             println!("VEN_TOML should be: {}", parts.toml_normalized);
 

@@ -19,7 +19,7 @@ Unless noted, paths default to the **current working directory**; many commands 
 | `ven list [runtime]` | List installed versions (`runtime` optional filter). |
 | `ven use [PATH]` | Print shell exports to apply nearest `ven.toml`; **evaluate** output (`eval "$(ven use)"`, PowerShell: parse stderr hint / use hooks). |
 | `ven deactivate` | Print exports that undo `ven use` overlay for current shell session. |
-| `ven add <packages…>` | Add npm/PyPI/etc. packages per `[packages]` / runtime rules; sync `ven.toml`. |
+| `ven add <packages…>` | Add npm/PyPI/etc. packages per `[packages]` / runtime rules; sync `ven.toml`. (Rubygems / Bundler: use **`gem`** / **`bundle`** in the activated shell.) |
 | `ven remove [packages…]` | Remove packages; `--cleanup` removes orphans. |
 | `ven upgrade [packages…]` | Upgrade pins; `--all`, `--apply`, `--dry-run`. |
 

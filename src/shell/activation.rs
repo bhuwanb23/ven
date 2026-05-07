@@ -5,12 +5,15 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::core::ruby_install::ruby_gem_home_for_layout;
 use crate::core::{
     find_ven_toml, parse_ven_toml, project_venv, resolve_deno_version, resolve_go_version,
-    resolve_java_version, resolve_node_version, resolve_python_version, resolve_rust_version,
+    resolve_java_version, resolve_node_version, resolve_python_version, resolve_ruby_version,
+    resolve_rust_version,
 };
 use crate::plugins::{
-    DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin, RustPlugin,
+    DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin, RubyPlugin,
+    RustPlugin,
 };
 
 /// Normalizes a [`Path`] for inclusion in `$env:*` assignments (matching `shell activate`).
@@ -44,6 +47,8 @@ pub struct ActivationParts {
     pub java_resolved: Option<String>,
     pub java_home_for_env: Option<PathBuf>,
     pub deno_resolved: Option<String>,
+    pub ruby_resolved: Option<String>,
+    pub ruby_gem_home_for_env: Option<PathBuf>,
     pub virtual_env_root: Option<PathBuf>,
     pub toml_normalized: String,
     pub ven_user_env: HashMap<String, String>,
@@ -114,6 +119,7 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
     let rust_spec = config.runtime.rust.trim();
     let java_spec = config.runtime.java.trim();
     let deno_spec = config.runtime.deno.trim();
+    let ruby_spec = config.runtime.ruby.trim();
 
     if node_spec.is_empty()
         && python_spec.is_empty()
@@ -121,9 +127,10 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
         && rust_spec.is_empty()
         && java_spec.is_empty()
         && deno_spec.is_empty()
+        && ruby_spec.is_empty()
     {
         anyhow::bail!(
-            "ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust` and/or `java` and/or `deno`"
+            "ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust` and/or `java` and/or `deno` and/or `ruby`"
         );
     }
 
@@ -142,6 +149,8 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
     let mut java_resolved: Option<String> = None;
     let mut java_home_for_env: Option<PathBuf> = None;
     let mut deno_resolved: Option<String> = None;
+    let mut ruby_resolved: Option<String> = None;
+    let mut ruby_gem_home_for_env: Option<PathBuf> = None;
     let mut virtual_env_root: Option<PathBuf> = None;
 
     if !python_spec.is_empty() {
@@ -362,6 +371,34 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
         deno_resolved = Some(resolved);
     }
 
+    if !ruby_spec.is_empty() {
+        let plugin = RubyPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        let resolved = match resolve_ruby_version(ruby_spec, &installed) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(ActivationResolve::MissingToolchain {
+                    language: "ruby".into(),
+                    install_with: ruby_spec.to_string(),
+                });
+            }
+        };
+        let bin = match plugin.bin_path(&resolved) {
+            Ok(p) => p,
+            Err(_) => {
+                return Ok(ActivationResolve::MissingToolchain {
+                    language: "ruby".into(),
+                    install_with: resolved.clone(),
+                });
+            }
+        };
+        if let Some(root) = bin.parent() {
+            ruby_gem_home_for_env = Some(ruby_gem_home_for_layout(root));
+        }
+        prepend_dirs.push(bin);
+        ruby_resolved = Some(resolved);
+    }
+
     let toml_normalized = if cfg!(target_os = "windows") {
         toml_absolute.replace('/', "\\")
     } else {
@@ -381,6 +418,8 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
         java_resolved,
         java_home_for_env,
         deno_resolved,
+        ruby_resolved,
+        ruby_gem_home_for_env,
         virtual_env_root,
         toml_normalized,
         ven_user_env: config.env.clone(),
@@ -399,6 +438,9 @@ if (Test-Path Env:VEN_GO_VERSION) { Remove-Item Env:VEN_GO_VERSION -ErrorAction 
 if (Test-Path Env:VEN_RUST_VERSION) { Remove-Item Env:VEN_RUST_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_JAVA_VERSION) { Remove-Item Env:VEN_JAVA_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_DENO_VERSION) { Remove-Item Env:VEN_DENO_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:VEN_RUBY_VERSION) { Remove-Item Env:VEN_RUBY_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:GEM_HOME) { Remove-Item Env:GEM_HOME -ErrorAction SilentlyContinue }
+if (Test-Path Env:GEM_PATH) { Remove-Item Env:GEM_PATH -ErrorAction SilentlyContinue }
 if (Test-Path Env:NODE_PATH) { Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue }
 if (Test-Path Env:VIRTUAL_ENV) { Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue }
 if (Test-Path Env:GOROOT) { Remove-Item Env:GOROOT -ErrorAction SilentlyContinue }
@@ -464,6 +506,14 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
         if let Some(ref v) = parts.deno_resolved {
             out.push_str(&format!("$env:VEN_DENO_VERSION = \"{}\"\n", v));
         }
+        if let Some(ref v) = parts.ruby_resolved {
+            out.push_str(&format!("$env:VEN_RUBY_VERSION = \"{}\"\n", v));
+        }
+        if let Some(ref gh) = parts.ruby_gem_home_for_env {
+            let ghv = path_for_env_value(gh);
+            out.push_str(&format!("$env:GEM_HOME = \"{ghv}\"\n"));
+            out.push_str(&format!("$env:GEM_PATH = \"{ghv}\"\n"));
+        }
         if let Some(ref vr) = parts.virtual_env_root {
             out.push_str(&format!(
                 "$env:VIRTUAL_ENV = \"{}\"\n",
@@ -486,6 +536,9 @@ unset VEN_GO_VERSION 2>/dev/null || true
 unset VEN_RUST_VERSION 2>/dev/null || true
 unset VEN_JAVA_VERSION 2>/dev/null || true
 unset VEN_DENO_VERSION 2>/dev/null || true
+unset VEN_RUBY_VERSION 2>/dev/null || true
+unset GEM_HOME 2>/dev/null || true
+unset GEM_PATH 2>/dev/null || true
 unset NODE_PATH 2>/dev/null || true
 unset VIRTUAL_ENV 2>/dev/null || true
 unset GOROOT 2>/dev/null || true
@@ -550,6 +603,14 @@ unset JAVA_HOME 2>/dev/null || true
         }
         if let Some(ref v) = parts.deno_resolved {
             out.push_str(&format!("export VEN_DENO_VERSION=\"{}\"\n", v));
+        }
+        if let Some(ref v) = parts.ruby_resolved {
+            out.push_str(&format!("export VEN_RUBY_VERSION=\"{}\"\n", v));
+        }
+        if let Some(ref gh) = parts.ruby_gem_home_for_env {
+            let ghv = path_for_env_value(gh);
+            out.push_str(&format!("export GEM_HOME=\"{ghv}\"\n"));
+            out.push_str(&format!("export GEM_PATH=\"{ghv}\"\n"));
         }
         if let Some(ref vr) = parts.virtual_env_root {
             out.push_str(&format!(

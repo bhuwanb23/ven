@@ -85,6 +85,7 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
     );
     push_runtime(&mut lines, "Java", "JDK", parts.java_resolved.as_ref(), style);
     push_runtime(&mut lines, "Deno", "Runtime", parts.deno_resolved.as_ref(), style);
+    push_runtime(&mut lines, "Ruby", "MRI", parts.ruby_resolved.as_ref(), style);
 
     lines.push(String::new());
     lines.push("Quick start".to_string());
@@ -93,11 +94,13 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
         GreetingStyle::Unicode => {
             lines.push("  • node --version".to_string());
             lines.push("  • python --version".to_string());
+            lines.push("  • ruby --version".to_string());
             lines.push("  • ven status --verbose".to_string());
         }
         GreetingStyle::Ascii => {
             lines.push("  - node --version".to_string());
             lines.push("  - python --version".to_string());
+            lines.push("  - ruby --version".to_string());
             lines.push("  - ven status --verbose".to_string());
         }
     }
@@ -207,6 +210,8 @@ mod tests {
             java_resolved: None,
             java_home_for_env: None,
             deno_resolved: None,
+            ruby_resolved: None,
+            ruby_gem_home_for_env: None,
             virtual_env_root: None,
             toml_normalized: String::new(),
             ven_user_env: HashMap::new(),

@@ -4,7 +4,7 @@ Rust CLI for **per-project language runtimes and dependencies**, driven by **`ve
 
 ## Supported runtimes
 
-ven registers multiple **`LanguagePlugin`** implementations: **node**, **python**, **go**, **rust**, **java**, **deno**. Use **`ven install <language> [version]`** and **`ven list [language]`**; omit the version for interactive selection where supported.
+ven registers multiple **`LanguagePlugin`** implementations: **node**, **python**, **go**, **rust**, **java**, **deno**, **ruby**. Use **`ven install <language> [version]`** and **`ven list [language]`**; omit the version for interactive selection where supported.
 
 Full notes: **[docs/languages.md](docs/languages.md)**.
 

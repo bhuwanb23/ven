@@ -10,11 +10,13 @@ pub mod project_venv;
 pub mod python_install;
 pub mod resolver;
 pub mod rust_install;
+pub mod ruby_install;
 pub mod security;
 
 pub use config::{
     find_ven_toml, load_config, parse_ven_toml, resolve_deno_version, resolve_go_version,
-    resolve_java_version, resolve_node_version, resolve_python_version, resolve_rust_version,
+    resolve_java_version, resolve_node_version, resolve_python_version, resolve_ruby_version,
+    resolve_rust_version,
 };
 pub use download::NodeDownloader;
 pub use extract::install_node as install_node_native;
@@ -29,6 +31,11 @@ pub use python_install::{install_python as install_python_native, PythonDownload
 pub use resolver::DependencyGraph;
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use rust_install::{install_rust as install_rust_native, RustDownloader};
+#[allow(unused_imports)]
+pub use ruby_install::{
+    fetch_ruby_release_versions, install_ruby as install_ruby_native, resolve_ruby_version_spec,
+    RubyDownloader,
+};
 pub use security::SecurityScanner;
 
 // Note: All implementation functions have been moved to config.rs and packages.rs

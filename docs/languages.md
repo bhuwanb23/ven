@@ -40,6 +40,15 @@ General workflow:
 - **Install**: `ven install deno 2.x` etc.
 - **Packages**: JSR/npm compatibility layers follow Deno conventions in `[packages]` mapping.
 
+## Ruby (`ruby`)
+
+- **Install**: `ven install ruby 3.4.2`, `ven install ruby latest`, or `ven install ruby` for an interactive picker.
+  - **Windows** (x64 / ARM): official **RubyInstaller2** bundles (`.7z` from GitHub releases), extracted under `~/.ven/ruby/<version>/`.
+  - **macOS / Linux**: curated **MRI** tarball matrix from **`ruby/ruby-builder`** (tags `ruby-X.Y.Z`) so no local compiler is required.
+- **`PATH`**: prepends `<prefix>/bin` (`ruby`, `gem`, tooling shipped with that build).
+- **Gems isolation**: activation sets **`GEM_HOME`** and **`GEM_PATH`** to the version’s default gems directory (`lib/ruby/gems/...`) so `gem install` does not collide with system Ruby.
+- **Bundler / Rails**: create a **`Gemfile`** at the project root and run **`bundle install`** as usual; `ven add` does not automate Ruby gems yet (same pattern plan as richer ecosystem support).
+
 ---
 
 If `ven install <lang>` fails, check `ven install <lang> --dry-run -v` and ensure your OS/architecture is supported by that plugin’s fetch logic.

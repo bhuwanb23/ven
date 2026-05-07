@@ -55,6 +55,9 @@ pub struct RuntimeConfig {
     /// Deno runtime version (installed under ~/.ven/deno/<version>)
     #[serde(default)]
     pub deno: String,
+    /// MRI Ruby version (installed under ~/.ven/ruby/<version>)
+    #[serde(default)]
+    pub ruby: String,
 }
 
 /// Walks up the directory tree to find the nearest `ven.toml` file.
@@ -267,6 +270,37 @@ pub fn resolve_java_version(spec: &str, installed: &[String]) -> Result<String> 
                 .max_by(|a, b| version_cmp(a, b))
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Java {}.z installed.", spec))
+        }
+        _ => Ok(spec.to_string()),
+    }
+}
+
+/// Resolve ven.toml `runtime.ruby` against versions installed under ~/.ven/ruby
+pub fn resolve_ruby_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim().trim_start_matches('v');
+    match spec {
+        "latest" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No Ruby versions installed. Run: ven install ruby latest")),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Ruby {}.x installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Ruby {}.z installed.", spec))
         }
         _ => Ok(spec.to_string()),
     }

@@ -5,6 +5,7 @@ use super::LanguagePlugin;
 use super::NodePlugin;
 use super::PythonPlugin;
 use super::RustPlugin;
+use super::RubyPlugin;
 use std::collections::HashMap;
 
 /// Plugin Registry - manages all language plugins
@@ -27,6 +28,7 @@ impl PluginRegistry {
         registry.register("deno", Box::new(DenoPlugin));
         registry.register("java", Box::new(JavaPlugin));
         registry.register("rust", Box::new(RustPlugin));
+        registry.register("ruby", Box::new(RubyPlugin));
 
         registry
     }

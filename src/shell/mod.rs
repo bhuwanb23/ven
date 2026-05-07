@@ -111,6 +111,9 @@ __ven_activate() {{
         unset VEN_RUST_VERSION 2>/dev/null
         unset VEN_JAVA_VERSION 2>/dev/null
         unset VEN_DENO_VERSION 2>/dev/null
+        unset VEN_RUBY_VERSION 2>/dev/null
+        unset GEM_HOME 2>/dev/null
+        unset GEM_PATH 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
         unset GOROOT 2>/dev/null
@@ -188,6 +191,9 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_RUST_VERSION 2>/dev/null
         set -e VEN_JAVA_VERSION 2>/dev/null
         set -e VEN_DENO_VERSION 2>/dev/null
+        set -e VEN_RUBY_VERSION 2>/dev/null
+        set -e GEM_HOME 2>/dev/null
+        set -e GEM_PATH 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
         set -e GOROOT 2>/dev/null
@@ -278,7 +284,10 @@ function global:__ven_activate {{
             if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
             if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
             if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
+            if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
+            if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
+            if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
+            if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
@@ -298,7 +307,10 @@ if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
             if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
             if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
             if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
+            if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
+            if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
+            if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
+            if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
             if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
             if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
             if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
@@ -316,6 +328,9 @@ if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
         if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
         if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
         if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
+        if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
+        if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
+        if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
         if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
         if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
         if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}

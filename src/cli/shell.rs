@@ -204,6 +204,9 @@ Remove-Item Env:VEN_GO_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_RUST_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_JAVA_VERSION -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_DENO_VERSION -ErrorAction SilentlyContinue
+Remove-Item Env:VEN_RUBY_VERSION -ErrorAction SilentlyContinue
+Remove-Item Env:GEM_HOME -ErrorAction SilentlyContinue
+Remove-Item Env:GEM_PATH -ErrorAction SilentlyContinue
 Remove-Item Env:VEN_TOML -ErrorAction SilentlyContinue
 Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue
 Remove-Item Env:GOROOT -ErrorAction SilentlyContinue
@@ -228,6 +231,9 @@ unset VEN_GO_VERSION 2>/dev/null || true
 unset VEN_RUST_VERSION 2>/dev/null || true
 unset VEN_JAVA_VERSION 2>/dev/null || true
 unset VEN_DENO_VERSION 2>/dev/null || true
+unset VEN_RUBY_VERSION 2>/dev/null || true
+unset GEM_HOME 2>/dev/null || true
+unset GEM_PATH 2>/dev/null || true
 unset VEN_TOML 2>/dev/null || true
 unset VIRTUAL_ENV 2>/dev/null || true
 unset GOROOT 2>/dev/null || true
