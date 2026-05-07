@@ -73,22 +73,33 @@ impl BunDownloader {
 }
 
 pub fn fetch_bun_release_versions() -> Result<Vec<String>> {
-    let tags: Value = Client::new()
-        .get("https://api.github.com/repos/oven-sh/bun/tags?per_page=100")
+    // Use GitHub Releases instead of tags so we get the canonical shipped versions.
+    let releases: Value = Client::new()
+        .get("https://api.github.com/repos/oven-sh/bun/releases?per_page=100")
         .header("User-Agent", "ven")
         .send()
-        .context("Cannot reach GitHub for bun tags")?
+        .context("Cannot reach GitHub for bun releases")?
         .error_for_status()?
         .json()
-        .context("Failed to parse bun tags list")?;
+        .context("Failed to parse bun releases list")?;
     let mut out = Vec::new();
-    if let Some(arr) = tags.as_array() {
-        for t in arr {
-            if let Some(name) = t.get("name").and_then(|x| x.as_str()) {
-                let v = name.trim_start_matches('v').to_string();
-                if v.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
-                    out.push(v);
-                }
+    if let Some(arr) = releases.as_array() {
+        for r in arr {
+            // Prefer tag_name (e.g. "bun-v1.2.20"), fallback to release "name".
+            let raw = r
+                .get("tag_name")
+                .and_then(|x| x.as_str())
+                .or_else(|| r.get("name").and_then(|x| x.as_str()))
+                .unwrap_or("");
+
+            // Normalize: "bun-v1.2.20" / "v1.2.20" / "1.2.20" => "1.2.20"
+            let mut v = raw.trim();
+            v = v.trim_start_matches("bun-v");
+            v = v.trim_start_matches('v');
+
+            // Keep only strict stable semver X.Y.Z
+            if is_strict_semver(v) {
+                out.push(v.to_string());
             }
         }
     }
@@ -216,4 +227,18 @@ fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
             .collect::<Vec<_>>()
     };
     parse(a).cmp(&parse(b))
+}
+
+fn is_strict_semver(v: &str) -> bool {
+    let mut parts = v.split('.');
+    let a = parts.next();
+    let b = parts.next();
+    let c = parts.next();
+    let no_more = parts.next().is_none();
+    match (a, b, c, no_more) {
+        (Some(x), Some(y), Some(z), true) => {
+            x.parse::<u32>().is_ok() && y.parse::<u32>().is_ok() && z.parse::<u32>().is_ok()
+        }
+        _ => false,
+    }
 }
