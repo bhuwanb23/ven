@@ -8,7 +8,8 @@ use colored::Colorize;
 use std::collections::HashMap;
 
 use languages::{
-    cmd_add_deno_notice, cmd_add_go, cmd_add_java_notice, cmd_add_python, cmd_add_rust,
+    cmd_add_deno_notice, cmd_add_go, cmd_add_java_notice, cmd_add_python, cmd_add_ruby,
+    cmd_add_rust,
 };
 pub use toml::update_ven_toml_packages;
 
@@ -68,23 +69,38 @@ pub fn cmd_add(
     let rust_version = cfg.runtime.rust.clone();
     let java_version = cfg.runtime.java.clone();
     let deno_version = cfg.runtime.deno.clone();
+    let ruby_version = cfg.runtime.ruby.clone();
     let python_mode = !python_version.is_empty() && node_version.is_empty();
-    let go_mode = !go_version.is_empty() && node_version.is_empty() && python_version.is_empty();
+    let go_mode = !go_version.is_empty()
+        && node_version.is_empty()
+        && python_version.is_empty()
+        && ruby_version.is_empty();
     let rust_mode = !rust_version.is_empty()
         && node_version.is_empty()
         && python_version.is_empty()
-        && go_version.is_empty();
+        && go_version.is_empty()
+        && ruby_version.is_empty();
     let java_mode = !java_version.is_empty()
         && node_version.is_empty()
         && python_version.is_empty()
         && go_version.is_empty()
-        && rust_version.is_empty();
+        && rust_version.is_empty()
+        && ruby_version.is_empty();
     let deno_mode = !deno_version.is_empty()
         && node_version.is_empty()
         && python_version.is_empty()
         && go_version.is_empty()
         && rust_version.is_empty()
-        && java_version.is_empty();
+        && java_version.is_empty()
+        && ruby_version.is_empty();
+
+    let ruby_mode = !ruby_version.is_empty()
+        && node_version.is_empty()
+        && python_version.is_empty()
+        && go_version.is_empty()
+        && rust_version.is_empty()
+        && java_version.is_empty()
+        && deno_version.is_empty();
 
     if python_mode {
         return cmd_add_python(package_specs, dry_run);
@@ -100,6 +116,9 @@ pub fn cmd_add(
     }
     if deno_mode {
         return cmd_add_deno_notice(package_specs, dry_run);
+    }
+    if ruby_mode {
+        return cmd_add_ruby(package_specs, dry_run);
     }
 
     let existing_packages = load_existing_packages()?;

@@ -7,7 +7,8 @@ use colored::Colorize;
 use std::collections::HashSet;
 use std::path::Path;
 use languages::{
-    cmd_remove_deno_notice, cmd_remove_java_notice, cmd_remove_python, cmd_remove_rust,
+    cmd_remove_deno_notice, cmd_remove_java_notice, cmd_remove_python, cmd_remove_ruby,
+    cmd_remove_rust,
 };
 
 /// Remove packages with batch support and advanced features
@@ -29,6 +30,7 @@ pub fn cmd_remove(
                 && c.runtime.node.is_empty()
                 && c.runtime.python.is_empty()
                 && c.runtime.go.is_empty()
+                && c.runtime.ruby.is_empty()
         })
         .unwrap_or(false);
     let java_mode = load_config(&cwd)?
@@ -38,6 +40,7 @@ pub fn cmd_remove(
                 && c.runtime.python.is_empty()
                 && c.runtime.go.is_empty()
                 && c.runtime.rust.is_empty()
+                && c.runtime.ruby.is_empty()
         })
         .unwrap_or(false);
     let deno_mode = load_config(&cwd)?
@@ -48,10 +51,25 @@ pub fn cmd_remove(
                 && c.runtime.go.is_empty()
                 && c.runtime.rust.is_empty()
                 && c.runtime.java.is_empty()
+                && c.runtime.ruby.is_empty()
+        })
+        .unwrap_or(false);
+    let ruby_mode = load_config(&cwd)?
+        .map(|c| {
+            !c.runtime.ruby.is_empty()
+                && c.runtime.node.is_empty()
+                && c.runtime.python.is_empty()
+                && c.runtime.go.is_empty()
+                && c.runtime.rust.is_empty()
+                && c.runtime.java.is_empty()
+                && c.runtime.deno.is_empty()
         })
         .unwrap_or(false);
     if python_mode && !cleanup {
         return cmd_remove_python(packages, dry_run, json);
+    }
+    if ruby_mode && !cleanup {
+        return cmd_remove_ruby(packages, dry_run, json);
     }
     if rust_mode && !cleanup {
         return cmd_remove_rust(packages, dry_run, json);

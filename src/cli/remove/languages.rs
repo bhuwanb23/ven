@@ -3,7 +3,65 @@ use colored::Colorize;
 use std::path::PathBuf;
 use std::process::Command;
 
+use crate::core::ruby_gems;
+
 use super::remove_from_ven_toml;
+
+pub(super) fn cmd_remove_ruby(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
+    if packages.is_empty() {
+        if json {
+            println!("{{\"error\":\"No packages specified\"}}");
+        } else {
+            println!("  {} No packages specified", "[ERROR]".red());
+        }
+        return Ok(());
+    }
+    if dry_run {
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "mode":"ruby_dry_run",
+                    "packages": packages
+                }))?
+            );
+        } else {
+            println!(
+                "\n  {} {}",
+                "ven remove".bold().cyan(),
+                "[RUBY DRY RUN]".yellow()
+            );
+            for pkg in packages {
+                println!("  {} Would gem uninstall {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            println!();
+        }
+        return Ok(());
+    }
+
+    let mut removed: Vec<String> = Vec::new();
+    for pkg in packages {
+        match ruby_gems::gem_uninstall_all(pkg) {
+            Ok(()) => {
+                println!("  {} Removed {}", "[OK]".green(), pkg.bold());
+                removed.push(pkg.clone());
+                let _ = remove_from_ven_toml(pkg);
+            }
+            Err(_) => println!("  {} Failed to remove {} (maybe not installed)", "[WARN]".yellow(), pkg),
+        }
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"ruby",
+                "removed": removed
+            }))?
+        );
+    }
+    println!();
+    Ok(())
+}
 
 pub(super) fn cmd_remove_python(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
     if packages.is_empty() {

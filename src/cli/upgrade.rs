@@ -6,7 +6,8 @@ use anyhow::Result;
 use colored::Colorize;
 use std::path::Path;
 use languages::{
-    cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python, cmd_upgrade_rust,
+    cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python, cmd_upgrade_ruby,
+    cmd_upgrade_rust,
 };
 /// Semantic upgrade type classification
 #[derive(Debug)]
@@ -57,18 +58,28 @@ pub fn cmd_upgrade(
     let rust_mode = !cfg.runtime.rust.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
-        && cfg.runtime.go.is_empty();
+        && cfg.runtime.go.is_empty()
+        && cfg.runtime.ruby.is_empty();
     let java_mode = !cfg.runtime.java.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
-        && cfg.runtime.rust.is_empty();
+        && cfg.runtime.rust.is_empty()
+        && cfg.runtime.ruby.is_empty();
     let deno_mode = !cfg.runtime.deno.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
         && cfg.runtime.rust.is_empty()
-        && cfg.runtime.java.is_empty();
+        && cfg.runtime.java.is_empty()
+        && cfg.runtime.ruby.is_empty();
+    let ruby_mode = !cfg.runtime.ruby.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.go.is_empty()
+        && cfg.runtime.rust.is_empty()
+        && cfg.runtime.java.is_empty()
+        && cfg.runtime.deno.is_empty();
 
     // Handle --all flag: get all packages from ven.toml
     let target_packages = if all {
@@ -92,6 +103,9 @@ pub fn cmd_upgrade(
 
     if python_mode {
         return cmd_upgrade_python(&target_packages, apply, dry_run, json);
+    }
+    if ruby_mode {
+        return cmd_upgrade_ruby(&target_packages, apply, dry_run, json);
     }
     if rust_mode {
         return cmd_upgrade_rust(&target_packages, apply, dry_run, json);

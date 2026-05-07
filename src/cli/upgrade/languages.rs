@@ -4,6 +4,114 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::cli::add::update_ven_toml_packages;
+use crate::core::ruby_gems;
+
+pub(super) fn cmd_upgrade_ruby(
+    packages: &[String],
+    apply: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<()> {
+    let mut outdated: Vec<serde_json::Value> = Vec::new();
+    for pkg in packages {
+        match rubygems_current_and_latest(pkg) {
+            Ok((current_opt, latest)) => {
+                let up_to_date = current_opt.as_deref() == Some(latest.as_str());
+                outdated.push(serde_json::json!({
+                    "name": pkg,
+                    "current": current_opt,
+                    "latest": latest,
+                    "upgrade_available": !up_to_date
+                }));
+            }
+            Err(e) => outdated.push(serde_json::json!({
+                "name": pkg,
+                "error": e.to_string()
+            })),
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"ruby",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages,
+                "gems": outdated
+            }))?
+        );
+    } else {
+        println!("\n  {}", "ven upgrade (ruby)".bold().cyan());
+    }
+
+    for pkg in packages {
+        let Ok((current, latest)) = rubygems_current_and_latest(pkg) else {
+            if !json {
+                println!("  {} {}", "[ERROR]".red(), pkg.bold());
+            }
+            continue;
+        };
+
+        let up_to_date = current.as_deref() == Some(latest.as_str());
+
+        match (up_to_date, dry_run || !apply) {
+            (true, _) => {
+                if !json {
+                    println!("  {} {} is up to date ({})", "✓".green(), pkg.bold(), latest);
+                }
+                continue;
+            }
+            (_, true) => {
+                if !json {
+                    let cur_disp = current.as_deref().unwrap_or("not installed");
+                    println!(
+                        "  {} {} {} → {}",
+                        "[UPGRADE]".yellow(),
+                        pkg.bold(),
+                        cur_disp,
+                        latest.green()
+                    );
+                }
+                continue;
+            }
+            _ => {}
+        }
+
+        match ruby_gems::gem_install(pkg, None) {
+            Ok(()) => {
+                let installed = ruby_gems::gem_local_version(pkg)?
+                    .unwrap_or_else(|| latest.clone());
+                if !json {
+                    println!(
+                        "  {} Upgraded {} to {}",
+                        "[OK]".green(),
+                        pkg.bold(),
+                        installed.green()
+                    );
+                }
+                let _ = update_ven_toml_packages(&[(pkg.to_string(), format!(">={}", installed))]);
+            }
+            Err(e) => {
+                if !json {
+                    println!("  {} {} — {}", "[ERROR]".red(), pkg, e);
+                }
+            }
+        }
+    }
+
+    if !json {
+        println!();
+    }
+    Ok(())
+}
+
+fn rubygems_current_and_latest(pkg: &str) -> Result<(Option<String>, String)> {
+    let latest = ruby_gems::rubygems_latest_version(pkg)?;
+    let current = ruby_gems::gem_local_version(pkg)?;
+    Ok((current, latest))
+}
 
 pub(super) fn cmd_upgrade_python(
     packages: &[String],

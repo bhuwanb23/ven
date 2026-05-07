@@ -11,6 +11,7 @@ pub mod python_install;
 pub mod resolver;
 pub mod rust_install;
 pub mod ruby_install;
+pub mod ruby_gems;
 pub mod security;
 
 pub use config::{

@@ -5,6 +5,8 @@ use std::process::Command;
 
 use super::update_ven_toml_packages;
 
+use crate::core::ruby_gems;
+
 pub(super) fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<()> {
     let mut installed = Vec::new();
     println!("\n{}", "ven add (python)".bold().cyan());
@@ -147,6 +149,75 @@ pub(super) fn cmd_add_java_notice(package_specs: &[String], dry_run: bool) -> Re
     );
     println!();
     Ok(())
+}
+
+pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()> {
+    println!("\n{}", "ven add (ruby)".bold().cyan());
+    println!("  {} {} gem(s)", "[PLAN]".cyan(), package_specs.len());
+    if dry_run {
+        println!(
+            "  {} Dry run mode — no changes will be made",
+            "[DRY-RUN]".yellow()
+        );
+        println!();
+        for spec in package_specs {
+            let (name, declared) = parse_ruby_gem_spec(spec);
+            let decl = declared.as_deref().unwrap_or("*");
+            println!(
+                "  {} {} => {}",
+                "[PREVIEW]".cyan(),
+                name.bold(),
+                decl
+            );
+        }
+        println!();
+        return Ok(());
+    }
+
+    let mut installed = Vec::new();
+    for spec in package_specs {
+        let (name, _) = parse_ruby_gem_spec(spec);
+        let ver = gem_version_arg_from_spec(spec);
+        match ruby_gems::gem_install(&name, ver.as_deref()) {
+            Ok(()) => {
+                println!(
+                    "  {} {}",
+                    "[OK]".green(),
+                    format!("Installed {}", spec.bold())
+                );
+                let declared = ruby_gems::gem_local_version(&name)?
+                    .filter(|v| !v.is_empty())
+                    .map(|v| format!(">={v}"))
+                    .unwrap_or_else(|| "*".into());
+                installed.push((name, declared));
+            }
+            Err(e) => println!("  {} {} — {}", "[ERROR]".red(), spec, e),
+        }
+    }
+
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
+    println!();
+    Ok(())
+}
+
+/// Version string for `gem install -v`, or omit for latest (None).
+fn gem_version_arg_from_spec(spec: &str) -> Option<String> {
+    let (_, v_opt) = parse_ruby_gem_spec(spec);
+    match v_opt.as_deref() {
+        None | Some("*") | Some("latest") | Some("") => None,
+        Some(v) => Some(v.to_string()),
+    }
+}
+
+fn parse_ruby_gem_spec(spec: &str) -> (String, Option<String>) {
+    if let Some((name, version)) = spec.rsplit_once('@') {
+        if !name.is_empty() && !version.is_empty() {
+            return (name.to_string(), Some(version.to_string()));
+        }
+    }
+    (spec.to_string(), None)
 }
 
 pub(super) fn cmd_add_deno_notice(package_specs: &[String], dry_run: bool) -> Result<()> {
