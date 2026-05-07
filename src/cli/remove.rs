@@ -7,7 +7,7 @@ use colored::Colorize;
 use std::collections::HashSet;
 use std::path::Path;
 use languages::{
-    cmd_remove_deno_notice, cmd_remove_java_notice, cmd_remove_python, cmd_remove_ruby,
+    cmd_remove_bun, cmd_remove_deno_notice, cmd_remove_java_notice, cmd_remove_python, cmd_remove_ruby,
     cmd_remove_rust,
 };
 
@@ -22,7 +22,7 @@ pub fn cmd_remove(
 ) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let python_mode = load_config(&cwd)?
-        .map(|c| !c.runtime.python.is_empty() && c.runtime.node.is_empty())
+        .map(|c| !c.runtime.python.is_empty() && c.runtime.node.is_empty() && c.runtime.bun.is_empty())
         .unwrap_or(false);
     let rust_mode = load_config(&cwd)?
         .map(|c| {
@@ -31,6 +31,7 @@ pub fn cmd_remove(
                 && c.runtime.python.is_empty()
                 && c.runtime.go.is_empty()
                 && c.runtime.ruby.is_empty()
+                && c.runtime.bun.is_empty()
         })
         .unwrap_or(false);
     let java_mode = load_config(&cwd)?
@@ -41,6 +42,7 @@ pub fn cmd_remove(
                 && c.runtime.go.is_empty()
                 && c.runtime.rust.is_empty()
                 && c.runtime.ruby.is_empty()
+                && c.runtime.bun.is_empty()
         })
         .unwrap_or(false);
     let deno_mode = load_config(&cwd)?
@@ -51,6 +53,19 @@ pub fn cmd_remove(
                 && c.runtime.go.is_empty()
                 && c.runtime.rust.is_empty()
                 && c.runtime.java.is_empty()
+                && c.runtime.ruby.is_empty()
+                && c.runtime.bun.is_empty()
+        })
+        .unwrap_or(false);
+    let bun_mode = load_config(&cwd)?
+        .map(|c| {
+            !c.runtime.bun.is_empty()
+                && c.runtime.node.is_empty()
+                && c.runtime.python.is_empty()
+                && c.runtime.go.is_empty()
+                && c.runtime.rust.is_empty()
+                && c.runtime.java.is_empty()
+                && c.runtime.deno.is_empty()
                 && c.runtime.ruby.is_empty()
         })
         .unwrap_or(false);
@@ -63,6 +78,7 @@ pub fn cmd_remove(
                 && c.runtime.rust.is_empty()
                 && c.runtime.java.is_empty()
                 && c.runtime.deno.is_empty()
+                && c.runtime.bun.is_empty()
         })
         .unwrap_or(false);
     if python_mode && !cleanup {
@@ -79,6 +95,9 @@ pub fn cmd_remove(
     }
     if deno_mode && !cleanup {
         return cmd_remove_deno_notice(packages, dry_run, json);
+    }
+    if bun_mode && !cleanup {
+        return cmd_remove_bun(packages, dry_run, json);
     }
 
     // Handle cleanup mode separately

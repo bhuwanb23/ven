@@ -244,6 +244,42 @@ pub(super) fn cmd_add_deno_notice(package_specs: &[String], dry_run: bool) -> Re
     Ok(())
 }
 
+pub(super) fn cmd_add_bun(package_specs: &[String], dry_run: bool) -> Result<()> {
+    println!("\n{}", "ven add (bun)".bold().cyan());
+    println!("  {} {} package(s)", "[PLAN]".cyan(), package_specs.len());
+    if dry_run {
+        println!(
+            "  {} Dry run mode - no changes will be made",
+            "[DRY-RUN]".yellow()
+        );
+        println!();
+        for spec in package_specs {
+            println!("  {} bun add {}", "[PREVIEW]".cyan(), spec.bold());
+        }
+        println!();
+        return Ok(());
+    }
+
+    let mut installed = Vec::new();
+    for spec in package_specs {
+        let status = Command::new("bun").args(["add", spec]).status();
+        match status {
+            Ok(s) if s.success() => {
+                println!("  {} {}", "[OK]".green(), format!("Added {}", spec.bold()));
+                let (name, declared) = parse_go_spec(spec);
+                installed.push((name, declared));
+            }
+            Ok(_) => println!("  {} Failed to add {}", "[ERROR]".red(), spec),
+            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+        }
+    }
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
+    println!();
+    Ok(())
+}
+
 fn ensure_go_mod() -> Result<()> {
     let cwd = std::env::current_dir()?;
     let go_mod = cwd.join("go.mod");

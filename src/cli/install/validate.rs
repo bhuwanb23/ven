@@ -56,6 +56,13 @@ pub(super) fn validate_installation(
                 "deno"
             }
         }
+        "bun" => {
+            if cfg!(target_os = "windows") {
+                "bun.exe"
+            } else {
+                "bun"
+            }
+        }
         "ruby" => {
             if cfg!(target_os = "windows") {
                 "ruby.exe"

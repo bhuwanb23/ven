@@ -1,4 +1,5 @@
 use super::DenoPlugin;
+use super::BunPlugin;
 use super::GoPlugin;
 use super::JavaPlugin;
 use super::LanguagePlugin;
@@ -26,6 +27,7 @@ impl PluginRegistry {
         registry.register("python", Box::new(PythonPlugin));
         registry.register("go", Box::new(GoPlugin));
         registry.register("deno", Box::new(DenoPlugin));
+        registry.register("bun", Box::new(BunPlugin));
         registry.register("java", Box::new(JavaPlugin));
         registry.register("rust", Box::new(RustPlugin));
         registry.register("ruby", Box::new(RubyPlugin));

@@ -210,6 +210,7 @@ mod tests {
             java_resolved: None,
             java_home_for_env: None,
             deno_resolved: None,
+            bun_resolved: None,
             ruby_resolved: None,
             ruby_gem_home_for_env: None,
             virtual_env_root: None,

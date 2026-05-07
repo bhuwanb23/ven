@@ -22,6 +22,7 @@ pub trait LanguagePlugin: Send + Sync {
 }
 
 pub mod go;
+pub mod bun;
 pub mod deno;
 pub mod java;
 pub mod node;
@@ -31,6 +32,7 @@ pub mod ruby;
 pub mod rust;
 
 pub use deno::DenoPlugin;
+pub use bun::BunPlugin;
 pub use go::GoPlugin;
 pub use java::JavaPlugin;
 pub use node::NodePlugin;

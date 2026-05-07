@@ -2,6 +2,7 @@ pub mod config;
 pub mod download;
 pub mod extract;
 pub mod deno_install;
+pub mod bun_install;
 pub mod go_install;
 pub mod java_install;
 pub mod npm_registry;
@@ -15,7 +16,7 @@ pub mod ruby_gems;
 pub mod security;
 
 pub use config::{
-    find_ven_toml, load_config, parse_ven_toml, resolve_deno_version, resolve_go_version,
+    find_ven_toml, load_config, parse_ven_toml, resolve_bun_version, resolve_deno_version, resolve_go_version,
     resolve_java_version, resolve_node_version, resolve_python_version, resolve_ruby_version,
     resolve_rust_version,
 };
@@ -23,6 +24,8 @@ pub use download::NodeDownloader;
 pub use extract::install_node as install_node_native;
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use deno_install::{install_deno as install_deno_native, DenoDownloader};
+#[allow(unused_imports)] // crate root re-exports for `ven` as a library
+pub use bun_install::{install_bun as install_bun_native, BunDownloader};
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use go_install::{install_go as install_go_native, GoDownloader};
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library

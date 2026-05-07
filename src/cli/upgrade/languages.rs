@@ -6,6 +6,58 @@ use std::process::Command;
 use crate::cli::add::update_ven_toml_packages;
 use crate::core::ruby_gems;
 
+pub(super) fn cmd_upgrade_bun(
+    packages: &[String],
+    apply: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"bun",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages
+            }))?
+        );
+    } else {
+        println!("\n  {}", "ven upgrade (bun)".bold().cyan());
+    }
+    for pkg in packages {
+        if dry_run || !apply {
+            if !json {
+                println!("  {} bun update {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            continue;
+        }
+        let status = Command::new("bun").args(["update", pkg]).status();
+        match status {
+            Ok(s) if s.success() => {
+                if !json {
+                    println!("  {} Updated {}", "[OK]".green(), pkg.bold());
+                }
+                let _ = update_ven_toml_packages(&[(pkg.clone(), "latest".to_string())]);
+            }
+            Ok(_) => {
+                if !json {
+                    println!("  {} Failed to update {}", "[WARN]".yellow(), pkg);
+                }
+            }
+            Err(e) => {
+                if !json {
+                    println!("  {} {}", "[ERROR]".red(), e);
+                }
+            }
+        }
+    }
+    if !json {
+        println!();
+    }
+    Ok(())
+}
+
 pub(super) fn cmd_upgrade_ruby(
     packages: &[String],
     apply: bool,

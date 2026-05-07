@@ -257,3 +257,56 @@ pub(super) fn cmd_remove_deno_notice(packages: &[String], dry_run: bool, json: b
     println!();
     Ok(())
 }
+
+pub(super) fn cmd_remove_bun(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
+    if packages.is_empty() {
+        if json {
+            println!("{{\"error\":\"No packages specified\"}}");
+        } else {
+            println!("  {} No packages specified", "[ERROR]".red());
+        }
+        return Ok(());
+    }
+    if dry_run {
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "mode":"bun_dry_run",
+                    "packages": packages
+                }))?
+            );
+        } else {
+            println!("\n  {} {}", "ven remove".bold().cyan(), "[BUN DRY RUN]".yellow());
+            for pkg in packages {
+                println!("  {} Would remove {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            println!();
+        }
+        return Ok(());
+    }
+    let mut removed: Vec<String> = Vec::new();
+    for pkg in packages {
+        let status = Command::new("bun").args(["remove", pkg]).status();
+        match status {
+            Ok(s) if s.success() => {
+                println!("  {} Removed {}", "[OK]".green(), pkg.bold());
+                removed.push(pkg.clone());
+                let _ = remove_from_ven_toml(pkg);
+            }
+            Ok(_) => println!("  {} Failed to remove {}", "[WARN]".yellow(), pkg),
+            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+        }
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"bun",
+                "removed": removed
+            }))?
+        );
+    }
+    println!();
+    Ok(())
+}

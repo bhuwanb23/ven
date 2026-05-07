@@ -63,6 +63,9 @@ pub fn apply_activation_env(cmd: &mut Command, parts: &ActivationParts) {
     if let Some(ref v) = parts.deno_resolved {
         cmd.env("VEN_DENO_VERSION", v);
     }
+    if let Some(ref v) = parts.bun_resolved {
+        cmd.env("VEN_BUN_VERSION", v);
+    }
     if let Some(ref v) = parts.ruby_resolved {
         cmd.env("VEN_RUBY_VERSION", v);
     }
@@ -154,6 +157,9 @@ pub fn print_environment_preview(project_dir: &Path) -> Result<()> {
             }
             if let Some(ref v) = parts.deno_resolved {
                 println!("VEN_DENO_VERSION should be: {v}");
+            }
+            if let Some(ref v) = parts.bun_resolved {
+                println!("VEN_BUN_VERSION should be: {v}");
             }
             if let Some(ref v) = parts.ruby_resolved {
                 println!("VEN_RUBY_VERSION should be: {v}");

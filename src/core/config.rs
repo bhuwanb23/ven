@@ -55,6 +55,9 @@ pub struct RuntimeConfig {
     /// Deno runtime version (installed under ~/.ven/deno/<version>)
     #[serde(default)]
     pub deno: String,
+    /// Bun runtime version (installed under ~/.ven/bun/<version>)
+    #[serde(default)]
+    pub bun: String,
     /// MRI Ruby version (installed under ~/.ven/ruby/<version>)
     #[serde(default)]
     pub ruby: String,
@@ -301,6 +304,37 @@ pub fn resolve_ruby_version(spec: &str, installed: &[String]) -> Result<String> 
                 .max_by(|a, b| version_cmp(a, b))
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Ruby {}.z installed.", spec))
+        }
+        _ => Ok(spec.to_string()),
+    }
+}
+
+/// Resolve ven.toml `runtime.bun` against versions installed under ~/.ven/bun
+pub fn resolve_bun_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim().trim_start_matches('v');
+    match spec {
+        "latest" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No Bun versions installed. Run: ven install bun latest")),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Bun {}.x installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No Bun {}.z installed.", spec))
         }
         _ => Ok(spec.to_string()),
     }

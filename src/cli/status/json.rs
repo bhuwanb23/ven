@@ -72,6 +72,16 @@ pub(super) fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.bun.is_empty() {
+        let bun_spec = &config.runtime.bun;
+        let resolved = resolve_bun_for_display(bun_spec)?;
+        let installed = is_bun_installed(bun_spec);
+        runtime_info["bun"] = json!({
+            "version_required": bun_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
     if !config.runtime.ruby.is_empty() {
         let ruby_spec = &config.runtime.ruby;
         let resolved = resolve_ruby_for_display(ruby_spec)?;
@@ -104,9 +114,19 @@ pub(super) fn output_json_status(
                 && config.runtime.rust.is_empty()
                 && config.runtime.java.is_empty()
                 && config.runtime.deno.is_empty();
+        let bun_runtime = !config.runtime.bun.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.python.is_empty()
+            && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty()
+            && config.runtime.deno.is_empty()
+            && config.runtime.ruby.is_empty();
 
         let is_installed = if deno_without_npm_semantics || ruby_without_npm_semantics {
             false
+        } else if bun_runtime {
+            is_package_installed(name)
         } else if !config.runtime.python.is_empty()
             && config.runtime.node.is_empty()
             && config.runtime.go.is_empty()

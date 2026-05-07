@@ -6,7 +6,7 @@ use anyhow::Result;
 use colored::Colorize;
 use std::path::Path;
 use languages::{
-    cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python, cmd_upgrade_ruby,
+    cmd_upgrade_bun, cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python, cmd_upgrade_ruby,
     cmd_upgrade_rust,
 };
 /// Semantic upgrade type classification
@@ -54,24 +54,35 @@ pub fn cmd_upgrade(
     let cwd = std::env::current_dir()?;
     let cfg =
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
-    let python_mode = !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty();
+    let python_mode = !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty() && cfg.runtime.bun.is_empty();
     let rust_mode = !cfg.runtime.rust.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
-        && cfg.runtime.ruby.is_empty();
+        && cfg.runtime.ruby.is_empty()
+        && cfg.runtime.bun.is_empty();
     let java_mode = !cfg.runtime.java.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
         && cfg.runtime.rust.is_empty()
-        && cfg.runtime.ruby.is_empty();
+        && cfg.runtime.ruby.is_empty()
+        && cfg.runtime.bun.is_empty();
     let deno_mode = !cfg.runtime.deno.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
         && cfg.runtime.rust.is_empty()
         && cfg.runtime.java.is_empty()
+        && cfg.runtime.ruby.is_empty()
+        && cfg.runtime.bun.is_empty();
+    let bun_mode = !cfg.runtime.bun.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.go.is_empty()
+        && cfg.runtime.rust.is_empty()
+        && cfg.runtime.java.is_empty()
+        && cfg.runtime.deno.is_empty()
         && cfg.runtime.ruby.is_empty();
     let ruby_mode = !cfg.runtime.ruby.is_empty()
         && cfg.runtime.node.is_empty()
@@ -115,6 +126,9 @@ pub fn cmd_upgrade(
     }
     if deno_mode {
         return cmd_upgrade_deno_notice(&target_packages, apply, dry_run, json);
+    }
+    if bun_mode {
+        return cmd_upgrade_bun(&target_packages, apply, dry_run, json);
     }
 
     if json {

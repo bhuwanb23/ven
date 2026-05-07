@@ -20,6 +20,7 @@ pub(super) fn display_basic_status(
     let has_rust = !config.runtime.rust.is_empty();
     let has_java = !config.runtime.java.is_empty();
     let has_deno = !config.runtime.deno.is_empty();
+    let has_bun = !config.runtime.bun.is_empty();
     let has_ruby = !config.runtime.ruby.is_empty();
     let has_any_runtime = has_node
         || has_python
@@ -27,6 +28,7 @@ pub(super) fn display_basic_status(
         || has_rust
         || has_java
         || has_deno
+        || has_bun
         || has_ruby;
 
     // Runtime section
@@ -164,13 +166,30 @@ pub(super) fn display_basic_status(
             );
         }
     }
+    if has_bun {
+        let bun_spec = &config.runtime.bun;
+        let resolved = resolve_bun_for_display(bun_spec)?;
+        let installed = is_bun_installed(bun_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} bun {} {}",
+            status_icon,
+            bun_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install bun {}", "[!]".yellow(), bun_spec);
+        }
+    }
 
     // Packages section
     let pkg_count = config.packages.len();
     if pkg_count > 0 {
         // Count installed packages
         let ruby_only =
-            has_ruby && !has_node && !has_python && !has_go && !has_rust && !has_java && !has_deno;
+            has_ruby && !has_node && !has_python && !has_go && !has_rust && !has_java && !has_deno && !has_bun;
+        let bun_only =
+            has_bun && !has_node && !has_python && !has_go && !has_rust && !has_java && !has_deno && !has_ruby;
         let installed_count =
             if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno && !has_ruby
             {
@@ -184,6 +203,12 @@ pub(super) fn display_basic_status(
                 0
             } else if ruby_only {
                 0
+            } else if bun_only {
+                config
+                    .packages
+                    .keys()
+                    .filter(|pkg| is_package_installed(pkg))
+                    .count()
             } else {
                 config
                     .packages
@@ -211,6 +236,8 @@ pub(super) fn display_basic_status(
                     "    {} Ruby gems use Gemfile/Bundler — ven does not map [packages] to gem yet.",
                     "[TIP]".cyan()
                 );
+            } else if bun_only {
+                println!("    {} Install missing: ven add <package>  (uses bun add)", "[TIP]".cyan());
             } else if has_python && !has_node && !has_go && !has_rust && !has_java && !has_deno && !has_ruby
             {
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());

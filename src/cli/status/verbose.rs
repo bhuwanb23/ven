@@ -164,6 +164,19 @@ pub(super) fn display_verbose_status(
             }
         }
     }
+    if !config.runtime.bun.is_empty() {
+        let spec = &config.runtime.bun;
+        let installed = is_bun_installed(spec);
+        let resolved = resolve_bun_for_display(spec)?;
+        if installed {
+            println!("    {} bun {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!("    {} bun {} - {}", "✗".red(), spec.bold(), "not installed");
+            if fix {
+                println!("      {} Run: ven install bun {}", "[!]".yellow(), spec);
+            }
+        }
+    }
 
     println!();
 
@@ -179,6 +192,7 @@ pub(super) fn display_verbose_status(
             && config.runtime.go.is_empty()
             && config.runtime.rust.is_empty()
             && config.runtime.java.is_empty()
+            && config.runtime.bun.is_empty()
         {
             println!(
                 "    {} Deno manages dependencies via imports/deno.json (ven does not install packages).",
@@ -195,6 +209,7 @@ pub(super) fn display_verbose_status(
             && config.runtime.rust.is_empty()
             && config.runtime.java.is_empty()
             && config.runtime.deno.is_empty()
+            && config.runtime.bun.is_empty()
         {
             println!(
                 "    {} Ruby uses Gemfile/Bundler — ven does not reconcile [packages] with gem yet.",
@@ -209,7 +224,19 @@ pub(super) fn display_verbose_status(
         let mut incompatible_count = 0;
 
         for (pkg_name, pkg_version) in &config.packages {
-            let is_installed = is_package_installed(pkg_name);
+            let bun_runtime = !config.runtime.bun.is_empty()
+                && config.runtime.node.is_empty()
+                && config.runtime.python.is_empty()
+                && config.runtime.go.is_empty()
+                && config.runtime.rust.is_empty()
+                && config.runtime.java.is_empty()
+                && config.runtime.deno.is_empty()
+                && config.runtime.ruby.is_empty();
+            let is_installed = if bun_runtime {
+                is_package_installed(pkg_name)
+            } else {
+                is_package_installed(pkg_name)
+            };
 
             if is_installed {
                 installed_count += 1;
