@@ -9,6 +9,7 @@ pub mod init;
 pub mod install;
 pub mod list;
 pub mod remove;
+pub mod resolve;
 pub mod setup;
 pub mod shell;
 pub mod status;
@@ -323,6 +324,16 @@ pub enum Commands {
         force: bool,
     },
 
+    /// Automatically resolve dependency conflicts and apply fixes
+    ///
+    /// Scans the current dependency graph, identifies package and engine
+    /// conflicts, computes an optimal version resolution set, and applies
+    /// fixes with one command.
+    #[command(
+        long_about = "Automatically resolve dependency conflicts and apply fixes.\n\nScans the current dependency graph, estimates the best resolution set,\nand updates package versions to restore compatibility.\n\nExample:\n  ven resolve"
+    )]
+    Resolve,
+
     /// One-time setup: Install shell hooks for automatic version switching
     ///
     /// Configures your shell (bash, zsh, fish, PowerShell) to automatically
@@ -422,6 +433,7 @@ pub fn run(cli: Cli) -> Result<()> {
             all,
             force,
         } => upgrade::cmd_upgrade(&packages, apply, dry_run, json, verbose, all, force),
+        Commands::Resolve => resolve::cmd_resolve(),
         Commands::Setup => setup::cmd_setup(),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
