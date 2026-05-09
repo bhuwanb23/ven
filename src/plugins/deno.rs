@@ -34,4 +34,3 @@ impl LanguagePlugin for DenoPlugin {
             .ok_or_else(|| anyhow!("Could not determine latest Deno release"))
     }
 }
-

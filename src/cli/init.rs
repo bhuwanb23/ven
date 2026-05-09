@@ -80,7 +80,9 @@ pub fn cmd_init(
             println!("{} Configuring your empty project...", "→".cyan());
 
             // Show language selection
-            let languages = vec!["node", "python", "go", "rust", "java", "deno", "bun", "ruby"];
+            let languages = vec![
+                "node", "python", "go", "rust", "java", "deno", "bun", "ruby",
+            ];
             let language_idx = Select::with_theme(&theme)
                 .with_prompt("Select language")
                 .items(&languages)
@@ -120,7 +122,9 @@ pub fn cmd_init(
         }
     } else {
         // MODE 2: Interactive language & version selection
-        let languages = vec!["node", "python", "go", "rust", "java", "deno", "bun", "ruby"];
+        let languages = vec![
+            "node", "python", "go", "rust", "java", "deno", "bun", "ruby",
+        ];
         let language_idx = Select::with_theme(&theme)
             .with_prompt("Select language")
             .items(&languages)

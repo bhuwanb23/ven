@@ -14,7 +14,11 @@ impl DenoDownloader {
     pub fn new() -> Result<Self> {
         let storage_root = std::env::var("VEN_STORAGE_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| dirs::home_dir().expect("Cannot find home directory").join(".ven"));
+            .unwrap_or_else(|_| {
+                dirs::home_dir()
+                    .expect("Cannot find home directory")
+                    .join(".ven")
+            });
         let cache_dir = storage_root.join(".cache");
         Ok(Self {
             storage_root,
@@ -87,7 +91,11 @@ pub fn fetch_deno_release_versions() -> Result<Vec<String>> {
         for t in arr {
             if let Some(name) = t.get("name").and_then(|x| x.as_str()) {
                 let v = name.trim_start_matches('v').to_string();
-                if v.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                if v.chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false)
+                {
                     out.push(v);
                 }
             }
@@ -213,4 +221,3 @@ fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
     };
     parse(a).cmp(&parse(b))
 }
-

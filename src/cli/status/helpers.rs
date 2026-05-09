@@ -1,7 +1,7 @@
 use crate::core::config::VenConfig;
 use crate::core::{
-    resolve_bun_version, resolve_deno_version, resolve_go_version, resolve_java_version, resolve_node_version,
-    resolve_python_version, resolve_ruby_version, resolve_rust_version,
+    resolve_bun_version, resolve_deno_version, resolve_go_version, resolve_java_version,
+    resolve_node_version, resolve_python_version, resolve_ruby_version, resolve_rust_version,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -219,9 +219,7 @@ fn resolve_python_cmd() -> PathBuf {
     #[cfg(target_os = "windows")]
     {
         if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
-            let p = PathBuf::from(venv)
-                .join("Scripts")
-                .join("python.exe");
+            let p = PathBuf::from(venv).join("Scripts").join("python.exe");
             if p.is_file() {
                 return p;
             }
@@ -412,8 +410,7 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
 
     if !config.runtime.node.is_empty() || !config.runtime.bun.is_empty() {
         if let Ok(cwd) = std::env::current_dir() {
-            let key =
-                crate::intelligence::engine::DependencyIntelligenceService::project_key(&cwd);
+            let key = crate::intelligence::engine::DependencyIntelligenceService::project_key(&cwd);
             if let Ok(Some(snap)) =
                 crate::intelligence::engine::DependencyIntelligenceService::load_snapshot(&key)
             {
@@ -439,11 +436,7 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
 }
 
 pub(super) fn auto_install_version(spec: &str) -> Result<()> {
-    println!(
-        "\n  {} Installing node {}...",
-        "[AUTO-FIX]".cyan(),
-        spec
-    );
+    println!("\n  {} Installing node {}...", "[AUTO-FIX]".cyan(), spec);
     crate::cli::install::cmd_install("node", spec)?;
     println!("  {} node {} installed", "✓".green(), spec);
     Ok(())
@@ -460,11 +453,6 @@ pub(super) fn auto_install_package(pkg_name: &str, pkg_version: &str) -> Result<
     let packages = vec![format!("{}@{}", pkg_name, pkg_version)];
     crate::cli::add::cmd_add(&packages, false, false, false)?;
 
-    println!(
-        "  {} {}@{} installed",
-        "✓".green(),
-        pkg_name,
-        pkg_version
-    );
+    println!("  {} {}@{} installed", "✓".green(), pkg_name, pkg_version);
     Ok(())
 }

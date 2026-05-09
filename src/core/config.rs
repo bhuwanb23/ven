@@ -255,7 +255,9 @@ pub fn resolve_java_version(spec: &str, installed: &[String]) -> Result<String> 
             .iter()
             .max_by(|a, b| version_cmp(a, b))
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No Java versions installed. Run: ven install java latest")),
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Java versions installed. Run: ven install java latest")
+            }),
         _ if !spec.contains('.') => {
             let prefix = format!("{}.", spec);
             installed
@@ -286,7 +288,9 @@ pub fn resolve_ruby_version(spec: &str, installed: &[String]) -> Result<String> 
             .iter()
             .max_by(|a, b| version_cmp(a, b))
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No Ruby versions installed. Run: ven install ruby latest")),
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Ruby versions installed. Run: ven install ruby latest")
+            }),
         _ if !spec.contains('.') => {
             let prefix = format!("{}.", spec);
             installed
@@ -317,7 +321,9 @@ pub fn resolve_bun_version(spec: &str, installed: &[String]) -> Result<String> {
             .iter()
             .max_by(|a, b| version_cmp(a, b))
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No Bun versions installed. Run: ven install bun latest")),
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Bun versions installed. Run: ven install bun latest")
+            }),
         _ if !spec.contains('.') => {
             let prefix = format!("{}.", spec);
             installed
@@ -348,7 +354,9 @@ pub fn resolve_deno_version(spec: &str, installed: &[String]) -> Result<String> 
             .iter()
             .max_by(|a, b| version_cmp(a, b))
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No Deno versions installed. Run: ven install deno latest")),
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Deno versions installed. Run: ven install deno latest")
+            }),
         _ if !spec.contains('.') => {
             let prefix = format!("{}.", spec);
             installed

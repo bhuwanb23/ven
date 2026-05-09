@@ -171,7 +171,12 @@ pub(super) fn display_verbose_status(
         if installed {
             println!("    {} bun {} ({})", "✓".green(), spec.bold(), resolved);
         } else {
-            println!("    {} bun {} - {}", "✗".red(), spec.bold(), "not installed");
+            println!(
+                "    {} bun {} - {}",
+                "✗".red(),
+                spec.bold(),
+                "not installed"
+            );
             if fix {
                 println!("      {} Run: ven install bun {}", "[!]".yellow(), spec);
             }
@@ -264,12 +269,7 @@ pub(super) fn display_verbose_status(
                             );
                         }
                     } else {
-                        println!(
-                            "    {} {}@{}",
-                            "✓".green(),
-                            pkg_name,
-                            installed_ver
-                        );
+                        println!("    {} {}@{}", "✓".green(), pkg_name, installed_ver);
                     }
 
                     // Verbose: show more details (we're already in verbose mode)
@@ -305,10 +305,7 @@ pub(super) fn display_verbose_status(
         );
 
         if missing_count > 0 && !fix {
-            println!(
-                "    {} Run: ven add <pkg>  or  npm install",
-                "[TIP]".cyan()
-            );
+            println!("    {} Run: ven add <pkg>  or  npm install", "[TIP]".cyan());
         }
     }
 

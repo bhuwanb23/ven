@@ -15,7 +15,11 @@ impl JavaDownloader {
     pub fn new() -> Result<Self> {
         let storage_root = std::env::var("VEN_STORAGE_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| dirs::home_dir().expect("Cannot find home directory").join(".ven"));
+            .unwrap_or_else(|_| {
+                dirs::home_dir()
+                    .expect("Cannot find home directory")
+                    .join(".ven")
+            });
         let cache_dir = storage_root.join(".cache");
         Ok(Self {
             storage_root,
@@ -24,7 +28,9 @@ impl JavaDownloader {
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root.join("java").join(version.trim().to_string())
+        self.storage_root
+            .join("java")
+            .join(version.trim().to_string())
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -155,8 +161,8 @@ pub fn install_java(downloader: &JavaDownloader, version: &str) -> Result<()> {
     if !archive.is_file() {
         let resp = Client::new()
             .get(&link)
-        .timeout(Duration::from_secs(600))
-        .send()
+            .timeout(Duration::from_secs(600))
+            .send()
             .with_context(|| format!("Failed to download Java archive from {}", link))?
             .error_for_status()?;
         fs::write(&archive, resp.bytes()?)?;
@@ -191,7 +197,9 @@ fn resolve_download_link(spec: &str) -> Result<(String, String)> {
         .error_for_status()?
         .json()
         .context("Failed to parse Java asset response")?;
-    let arr = v.as_array().ok_or_else(|| anyhow!("Unexpected Java API format"))?;
+    let arr = v
+        .as_array()
+        .ok_or_else(|| anyhow!("Unexpected Java API format"))?;
     for item in arr {
         let semver = item
             .get("version_data")

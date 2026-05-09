@@ -2,7 +2,9 @@
 
 use crate::core::config::VenConfig;
 use crate::core::npm_registry::NpmRegistry;
-use crate::intelligence::adapters::{adapter_from_ven_config, find_highest_node_compatible_version};
+use crate::intelligence::adapters::{
+    adapter_from_ven_config, find_highest_node_compatible_version,
+};
 use crate::intelligence::graph::{CheckAddResult, IntelGraph, SimulationResult};
 use crate::intelligence::store::IntelligenceStore;
 use anyhow::Result;

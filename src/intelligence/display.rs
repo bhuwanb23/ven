@@ -47,13 +47,7 @@ fn print_node_recursive(
         format!(" ({})", meta.join(", ").dimmed())
     };
 
-    println!(
-        "{}{}{}{}",
-        indent,
-        connector,
-        name_version.bold(),
-        meta_s
-    );
+    println!("{}{}{}{}", indent, connector, name_version.bold(), meta_s);
 
     let children = direct_children(graph, &node.name);
     let n = children.len();
@@ -89,12 +83,143 @@ fn direct_children(graph: &IntelGraph, package_name: &str) -> Vec<String> {
     out
 }
 
+pub fn print_full_intel_tree(
+    graph: &IntelGraph,
+    root_packages: &[String],
+    conflict_packages: &HashSet<String>,
+    orphan_packages: &HashSet<String>,
+) {
+    let mut roots: Vec<String> = root_packages
+        .iter()
+        .filter(|name| graph.nodes.contains_key(*name))
+        .cloned()
+        .collect();
+    if roots.is_empty() {
+        roots = graph.nodes.keys().cloned().collect();
+        roots.sort();
+    }
+
+    for (i, root_name) in roots.iter().enumerate() {
+        if let Some(root_node) = graph.nodes.get(root_name) {
+            let is_last = i + 1 == roots.len();
+            let mut visited = HashSet::new();
+            print_node_recursive_full(
+                graph,
+                root_node,
+                0,
+                is_last,
+                &mut visited,
+                "",
+                conflict_packages,
+                orphan_packages,
+            );
+            if !is_last {
+                println!("");
+            }
+        }
+    }
+}
+
+fn print_node_recursive_full(
+    graph: &IntelGraph,
+    node: &IntelNode,
+    depth: u32,
+    is_last: bool,
+    visited: &mut HashSet<String>,
+    constraint: &str,
+    conflict_packages: &HashSet<String>,
+    orphan_packages: &HashSet<String>,
+) {
+    if !visited.insert(node.name.clone()) {
+        return;
+    }
+
+    let indent = "  ".repeat(depth as usize);
+    let connector = if depth == 0 {
+        ""
+    } else if is_last {
+        "└─ "
+    } else {
+        "├─ "
+    };
+
+    let mut label = format!("{}@{}", node.name, node.version);
+    if conflict_packages.contains(&node.name) {
+        label = label.red().bold().to_string();
+    }
+
+    let mut extra = Vec::new();
+    if !constraint.is_empty() {
+        extra.push(constraint.to_string());
+    }
+    if orphan_packages.contains(&node.name) {
+        extra.push("orphan".yellow().to_string());
+    }
+    if let Some(ref dep) = node.deprecated {
+        extra.push(format!("deprecated: {}", dep).dimmed().to_string());
+    }
+    if let Some(ref eng) = node.engines_node {
+        extra.push(format!("engines.node: {}", eng).dimmed().to_string());
+    }
+
+    let extras = if extra.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", extra.join(", "))
+    };
+
+    println!("{}{}{}{}", indent, connector, label, extras);
+
+    let children = direct_child_edges(graph, &node.name);
+    let n = children.len();
+    for (i, (child_name, child_constraint)) in children.into_iter().enumerate() {
+        if let Some(child) = graph.nodes.get(&child_name) {
+            print_node_recursive_full(
+                graph,
+                child,
+                depth + 1,
+                i + 1 == n,
+                visited,
+                &child_constraint,
+                conflict_packages,
+                orphan_packages,
+            );
+        }
+    }
+}
+
+fn direct_child_edges(graph: &IntelGraph, package_name: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for IntelEdge {
+        from,
+        to,
+        constraint,
+        kind,
+    } in &graph.edges
+    {
+        if *kind != crate::intelligence::graph::EdgeKind::Dependency {
+            continue;
+        }
+        let Some((from_pkg, _)) = from.rsplit_once('@') else {
+            continue;
+        };
+        if from_pkg != package_name {
+            continue;
+        }
+        let Some((to_pkg, _)) = to.rsplit_once('@') else {
+            continue;
+        };
+        if seen.insert(to_pkg.to_string()) {
+            out.push((to_pkg.to_string(), constraint.clone()));
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
 pub fn print_intel_summary(graph: &IntelGraph) {
-    let total: u64 = graph
-        .nodes
-        .values()
-        .filter_map(|n| n.size_bytes)
-        .sum();
+    let total: u64 = graph.nodes.values().filter_map(|n| n.size_bytes).sum();
     println!(
         "    {} {} packages, {} edges, ~{} unpacked (where known)",
         "Summary:".dimmed(),

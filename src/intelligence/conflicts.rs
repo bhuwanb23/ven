@@ -1,8 +1,6 @@
 //! Constraint verification and conflict chain construction.
 
-use crate::intelligence::graph::{
-    ConflictChain, IntelGraph, ResolutionAction, ResolutionOption,
-};
+use crate::intelligence::graph::{ConflictChain, IntelGraph, ResolutionAction, ResolutionOption};
 use semver::{Version, VersionReq};
 use std::collections::HashMap;
 
@@ -110,10 +108,7 @@ pub fn analyze_npm_graph(
                 chains.push(ConflictChain {
                     steps: vec![
                         format!("ven.toml pins {} = \"{}\"", existing_name, existing_ver),
-                        format!(
-                            "Simulated graph resolves {}@{}",
-                            existing_name, n.version
-                        ),
+                        format!("Simulated graph resolves {}@{}", existing_name, n.version),
                         format!(
                             "Constraint \"{}\" is not satisfied by {}",
                             existing_ver, n.version

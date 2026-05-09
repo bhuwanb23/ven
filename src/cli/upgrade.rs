@@ -6,11 +6,11 @@ use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
-use std::path::Path;
 use languages::{
-    cmd_upgrade_bun, cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python, cmd_upgrade_ruby,
-    cmd_upgrade_rust,
+    cmd_upgrade_bun, cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python,
+    cmd_upgrade_ruby, cmd_upgrade_rust,
 };
+use std::path::Path;
 /// Semantic upgrade type classification
 #[derive(Debug)]
 enum UpgradeType {
@@ -56,7 +56,8 @@ pub fn cmd_upgrade(
     let cwd = std::env::current_dir()?;
     let cfg =
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
-    let python_mode = !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty() && cfg.runtime.bun.is_empty();
+    let python_mode =
+        !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty() && cfg.runtime.bun.is_empty();
     let rust_mode = !cfg.runtime.rust.is_empty()
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
@@ -257,12 +258,13 @@ fn process_single_upgrade(
 
     // Fetch latest compatible version
     let cwd = std::env::current_dir()?;
-    let cfg = load_config(&cwd)?
-        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let cfg =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
     let latest = DependencyIntelligenceService::npm_latest_compatible(package, node_version)?
         .ok_or_else(|| anyhow::anyhow!("No compatible version found"))?;
 
-    let sim = DependencyIntelligenceService::simulate_upgrade(&cfg, package, "latest", &cfg.packages)?;
+    let sim =
+        DependencyIntelligenceService::simulate_upgrade(&cfg, package, "latest", &cfg.packages)?;
     if !sim.compatible && !force {
         println!(
             "  {} Dependency intelligence blocked upgrade for {}:",
@@ -598,8 +600,8 @@ fn output_json_upgrade(
     let node_version = load_config(&cwd)?
         .map(|c| c.runtime.node)
         .unwrap_or_else(|| "0".to_string());
-    let cfg_full = load_config(&cwd)?
-        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let cfg_full =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
 
     let mut output = json!({
         "mode": if dry_run { "dry_run" } else if apply { "apply" } else { "preview" },
@@ -641,8 +643,7 @@ fn output_json_upgrade(
                         Ok(ref sim) if !sim.compatible => {
                             pkg_info["status"] = json!("simulation_failed");
                             pkg_info["success"] = json!(false);
-                            pkg_info["error"] =
-                                json!("dependency intelligence reported conflicts");
+                            pkg_info["error"] = json!("dependency intelligence reported conflicts");
                         }
                         Ok(_) => match npm_install(package, &latest) {
                             Ok(_) => {

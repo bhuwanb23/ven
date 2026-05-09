@@ -1,12 +1,12 @@
-use super::DenoPlugin;
 use super::BunPlugin;
+use super::DenoPlugin;
 use super::GoPlugin;
 use super::JavaPlugin;
 use super::LanguagePlugin;
 use super::NodePlugin;
 use super::PythonPlugin;
-use super::RustPlugin;
 use super::RubyPlugin;
+use super::RustPlugin;
 use std::collections::HashMap;
 
 /// Plugin Registry - manages all language plugins

@@ -19,7 +19,11 @@ pub(super) fn display_version_list(versions: &[String], language: &str) -> Resul
             installed_count
         );
     } else {
-        println!("  {} {} version(s) available", "[INFO]".cyan(), versions.len());
+        println!(
+            "  {} {} version(s) available",
+            "[INFO]".cyan(),
+            versions.len()
+        );
     }
     if language == "node" {
         println!(
@@ -29,7 +33,11 @@ pub(super) fn display_version_list(versions: &[String], language: &str) -> Resul
             "lts".green()
         );
     } else {
-        println!("  {} Use {} to install quickly", "[TIP]".yellow(), "latest".green());
+        println!(
+            "  {} Use {} to install quickly",
+            "[TIP]".yellow(),
+            "latest".green()
+        );
     }
 
     Ok(())

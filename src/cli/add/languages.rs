@@ -163,12 +163,7 @@ pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()
         for spec in package_specs {
             let (name, declared) = parse_ruby_gem_spec(spec);
             let decl = declared.as_deref().unwrap_or("*");
-            println!(
-                "  {} {} => {}",
-                "[PREVIEW]".cyan(),
-                name.bold(),
-                decl
-            );
+            println!("  {} {} => {}", "[PREVIEW]".cyan(), name.bold(), decl);
         }
         println!();
         return Ok(());

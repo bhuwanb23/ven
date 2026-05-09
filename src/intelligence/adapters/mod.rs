@@ -3,7 +3,7 @@
 mod npm;
 
 pub use npm::{
-    find_highest_node_compatible_version, resolve_version, NpmGraphBuilder, npm_check_add,
+    find_highest_node_compatible_version, npm_check_add, resolve_version, NpmGraphBuilder,
 };
 
 use crate::core::config::VenConfig;
@@ -71,8 +71,7 @@ impl NpmFamilyAdapter {
         version_spec: &str,
         existing_packages: &HashMap<String, String>,
     ) -> Result<SimulationResult> {
-        let mut builder =
-            NpmGraphBuilder::new(self.runtime_version.clone(), self.kind.clone())?;
+        let mut builder = NpmGraphBuilder::new(self.runtime_version.clone(), self.kind.clone())?;
         let graph = builder
             .build(package, version_spec, existing_packages)
             .await?;
@@ -127,31 +126,11 @@ impl DependencyRuntimeAdapter for NpmFamilyAdapter {
         &self,
         manifest_packages: &HashMap<String, String>,
     ) -> Result<IntelGraph> {
-        let mut nodes = HashMap::new();
-        for (name, pinned) in manifest_packages {
-            let version =
-                crate::core::packages::get_installed_version(name).unwrap_or_else(|_| pinned.clone());
-            nodes.insert(
-                name.clone(),
-                IntelNode {
-                    name: name.clone(),
-                    version,
-                    depth: 0,
-                    dependencies: HashMap::new(),
-                    engines_node: None,
-                    deprecated: None,
-                    license: None,
-                    size_bytes: None,
-                    required_by: Vec::new(),
-                },
-            );
-        }
-        Ok(IntelGraph {
-            runtime_kind: self.kind.clone(),
-            runtime_version: self.runtime_version.clone(),
-            nodes,
-            edges: Vec::new(),
-        })
+        let mut builder = NpmGraphBuilder::new(self.runtime_version.clone(), self.kind.clone())?;
+        let graph = builder
+            .build_workspace(manifest_packages, manifest_packages)
+            .await?;
+        Ok(graph)
     }
 
     async fn check_add(
@@ -274,7 +253,10 @@ impl DependencyRuntimeAdapter for GenericStubAdapter {
 pub fn adapter_from_ven_config(cfg: &VenConfig) -> Box<dyn DependencyRuntimeAdapter> {
     let r = &cfg.runtime;
     if !r.python.is_empty() && r.node.is_empty() && r.bun.is_empty() {
-        return Box::new(GenericStubAdapter::new(RuntimeKind::Python, r.python.clone()));
+        return Box::new(GenericStubAdapter::new(
+            RuntimeKind::Python,
+            r.python.clone(),
+        ));
     }
     if !r.go.is_empty()
         && r.node.is_empty()

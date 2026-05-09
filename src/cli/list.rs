@@ -3,11 +3,11 @@ mod helpers;
 use crate::plugins::PluginRegistry;
 use anyhow::Result;
 use colored::Colorize;
-use serde::Serialize;
 use helpers::{
     calculate_dir_size, detect_active_version, format_bytes, get_installation_date,
     get_version_path, get_version_status,
 };
+use serde::Serialize;
 
 // ── ven list [language] ───────────────────────────────────────────────
 pub fn cmd_list(language: Option<&str>, verbose: bool, json: bool) -> Result<()> {
@@ -105,7 +105,6 @@ fn list_all_languages(registry: &PluginRegistry, verbose: bool, json: bool) -> R
     Ok(())
 }
 
-
 /// Display versions with metadata and active indicator
 fn display_versions_with_metadata(
     language: &str,
@@ -186,7 +185,6 @@ fn display_versions_with_metadata(
     println!();
     Ok(())
 }
-
 
 /// Verbose mode: show disk size and installation dates
 fn display_verbose_mode(

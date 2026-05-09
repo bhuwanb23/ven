@@ -111,7 +111,12 @@ pub(super) fn cmd_upgrade_ruby(
         match (up_to_date, dry_run || !apply) {
             (true, _) => {
                 if !json {
-                    println!("  {} {} is up to date ({})", "✓".green(), pkg.bold(), latest);
+                    println!(
+                        "  {} {} is up to date ({})",
+                        "✓".green(),
+                        pkg.bold(),
+                        latest
+                    );
                 }
                 continue;
             }
@@ -133,8 +138,8 @@ pub(super) fn cmd_upgrade_ruby(
 
         match ruby_gems::gem_install(pkg, None) {
             Ok(()) => {
-                let installed = ruby_gems::gem_local_version(pkg)?
-                    .unwrap_or_else(|| latest.clone());
+                let installed =
+                    ruby_gems::gem_local_version(pkg)?.unwrap_or_else(|| latest.clone());
                 if !json {
                     println!(
                         "  {} Upgraded {} to {}",
@@ -389,7 +394,10 @@ pub(super) fn cmd_upgrade_java_notice(
         "  {} Java upgrades are managed by Maven/Gradle.",
         "[INFO]".cyan()
     );
-    println!("  {} No direct package upgrade performed by ven.", "[TIP]".cyan());
+    println!(
+        "  {} No direct package upgrade performed by ven.",
+        "[TIP]".cyan()
+    );
     println!();
     Ok(())
 }
@@ -418,7 +426,10 @@ pub(super) fn cmd_upgrade_deno_notice(
         "  {} Deno dependencies are managed by imports/deno.json (and optionally deno.lock).",
         "[INFO]".cyan()
     );
-    println!("  {} No direct package upgrade performed by ven.", "[TIP]".cyan());
+    println!(
+        "  {} No direct package upgrade performed by ven.",
+        "[TIP]".cyan()
+    );
     println!();
     Ok(())
 }

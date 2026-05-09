@@ -21,9 +21,9 @@ pub trait LanguagePlugin: Send + Sync {
     fn latest_version(&self) -> Result<String>;
 }
 
-pub mod go;
 pub mod bun;
 pub mod deno;
+pub mod go;
 pub mod java;
 pub mod node;
 pub mod python;
@@ -31,12 +31,12 @@ pub mod registry;
 pub mod ruby;
 pub mod rust;
 
-pub use deno::DenoPlugin;
 pub use bun::BunPlugin;
+pub use deno::DenoPlugin;
 pub use go::GoPlugin;
 pub use java::JavaPlugin;
 pub use node::NodePlugin;
 pub use python::PythonPlugin;
 pub use registry::PluginRegistry;
-pub use rust::RustPlugin;
 pub use ruby::RubyPlugin;
+pub use rust::RustPlugin;

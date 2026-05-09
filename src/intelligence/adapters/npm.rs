@@ -33,25 +33,54 @@ impl NpmGraphBuilder {
         root_version: &str,
         existing_packages: &HashMap<String, String>,
     ) -> Result<IntelGraph> {
-        let metadata = self.registry.fetch_package_metadata(root_package).await?;
-        let resolved_version = resolve_version(&metadata, root_version)?;
-        self.add_node(
-            root_package,
-            &resolved_version,
-            &metadata,
-            0,
-            None,
-        )?;
-        Box::pin(self.fetch_deps(root_package, &resolved_version, 0)).await?;
+        self.build_package(root_package, root_version, existing_packages)
+            .await?;
         self.add_peer_edges().await?;
 
-        let _ = existing_packages;
         Ok(IntelGraph {
             runtime_kind: self.runtime_kind.clone(),
             runtime_version: self.runtime_version.clone(),
             nodes: self.nodes.clone(),
             edges: self.edges.clone(),
         })
+    }
+
+    pub async fn build_workspace(
+        &mut self,
+        root_packages: &HashMap<String, String>,
+        existing_packages: &HashMap<String, String>,
+    ) -> Result<IntelGraph> {
+        let mut names: Vec<_> = root_packages.keys().collect();
+        names.sort();
+        for name in names {
+            let version = root_packages.get(name).unwrap_or(&"latest".to_string());
+            if self.nodes.contains_key(name) {
+                continue;
+            }
+            self.build_package(name, version, existing_packages).await?;
+        }
+        self.add_peer_edges().await?;
+
+        Ok(IntelGraph {
+            runtime_kind: self.runtime_kind.clone(),
+            runtime_version: self.runtime_version.clone(),
+            nodes: self.nodes.clone(),
+            edges: self.edges.clone(),
+        })
+    }
+
+    async fn build_package(
+        &mut self,
+        root_package: &str,
+        root_version: &str,
+        existing_packages: &HashMap<String, String>,
+    ) -> Result<()> {
+        let metadata = self.registry.fetch_package_metadata(root_package).await?;
+        let resolved_version = resolve_version(&metadata, root_version)?;
+        self.add_node(root_package, &resolved_version, &metadata, 0, None)?;
+        Box::pin(self.fetch_deps(root_package, &resolved_version, 0)).await?;
+        let _ = existing_packages;
+        Ok(())
     }
 
     async fn add_peer_edges(&mut self) -> Result<()> {
@@ -122,7 +151,13 @@ impl NpmGraphBuilder {
                     node.required_by.push(edge_from);
                 }
             } else {
-                self.add_node(dep_name, &dep_version, &dep_metadata, depth + 1, Some(&edge_from))?;
+                self.add_node(
+                    dep_name,
+                    &dep_version,
+                    &dep_metadata,
+                    depth + 1,
+                    Some(&edge_from),
+                )?;
                 Box::pin(self.fetch_deps(dep_name, &dep_version, depth + 1)).await?;
             }
         }

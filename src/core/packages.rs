@@ -122,4 +122,3 @@ pub fn fetch_release_notes(package: &str, _from_ver: &str, to_ver: &str) -> Stri
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
-

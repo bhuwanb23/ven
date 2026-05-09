@@ -98,22 +98,20 @@ pub(super) fn output_json_status(
     let mut installed_count = 0;
 
     for (name, version) in &config.packages {
-        let deno_without_npm_semantics =
-            !config.runtime.deno.is_empty()
-                && config.runtime.ruby.is_empty()
-                && config.runtime.node.is_empty()
-                && config.runtime.python.is_empty()
-                && config.runtime.go.is_empty()
-                && config.runtime.rust.is_empty()
-                && config.runtime.java.is_empty();
-        let ruby_without_npm_semantics =
-            !config.runtime.ruby.is_empty()
-                && config.runtime.node.is_empty()
-                && config.runtime.python.is_empty()
-                && config.runtime.go.is_empty()
-                && config.runtime.rust.is_empty()
-                && config.runtime.java.is_empty()
-                && config.runtime.deno.is_empty();
+        let deno_without_npm_semantics = !config.runtime.deno.is_empty()
+            && config.runtime.ruby.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.python.is_empty()
+            && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty();
+        let ruby_without_npm_semantics = !config.runtime.ruby.is_empty()
+            && config.runtime.node.is_empty()
+            && config.runtime.python.is_empty()
+            && config.runtime.go.is_empty()
+            && config.runtime.rust.is_empty()
+            && config.runtime.java.is_empty()
+            && config.runtime.deno.is_empty();
         let bun_runtime = !config.runtime.bun.is_empty()
             && config.runtime.node.is_empty()
             && config.runtime.python.is_empty()

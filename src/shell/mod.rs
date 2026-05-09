@@ -4,8 +4,8 @@ use std::path::Path;
 mod activation;
 
 pub use activation::{
-    activation_path_overlay, resolve_activation_environment, ActivationParts, ActivationResolve,
-    path_for_env_value,
+    activation_path_overlay, path_for_env_value, resolve_activation_environment, ActivationParts,
+    ActivationResolve,
 };
 
 // ── Detect which shell is running ────────────────────────────────────

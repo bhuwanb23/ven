@@ -34,23 +34,14 @@ pub fn resolve_activation_start_dir(project: Option<&Path>) -> Result<PathBuf> {
 /// Search root for `find_ven_toml`: directory as-is; files use their parent; a path ending in
 /// `ven.toml` (even if missing) uses the parent so we don't treat the file segment as a folder name.
 fn start_directory_for_walk(base: PathBuf) -> PathBuf {
-    let looks_like_ven_toml_file = base
-        .file_name()
-        .and_then(|n| n.to_str())
-        == Some("ven.toml");
+    let looks_like_ven_toml_file = base.file_name().and_then(|n| n.to_str()) == Some("ven.toml");
 
     if looks_like_ven_toml_file {
-        return base
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or(base);
+        return base.parent().map(Path::to_path_buf).unwrap_or(base);
     }
 
     if base.is_file() {
-        return base
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or(base);
+        return base.parent().map(Path::to_path_buf).unwrap_or(base);
     }
 
     base

@@ -7,13 +7,13 @@ use std::path::{Path, PathBuf};
 
 use crate::core::ruby_install::ruby_gem_home_for_layout;
 use crate::core::{
-    find_ven_toml, parse_ven_toml, project_venv, resolve_bun_version, resolve_deno_version, resolve_go_version,
-    resolve_java_version, resolve_node_version, resolve_python_version, resolve_ruby_version,
-    resolve_rust_version,
+    find_ven_toml, parse_ven_toml, project_venv, resolve_bun_version, resolve_deno_version,
+    resolve_go_version, resolve_java_version, resolve_node_version, resolve_python_version,
+    resolve_ruby_version, resolve_rust_version,
 };
 use crate::plugins::{
-    BunPlugin, DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin, RubyPlugin,
-    RustPlugin,
+    BunPlugin, DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin,
+    RubyPlugin, RustPlugin,
 };
 
 /// Normalizes a [`Path`] for inclusion in `$env:*` assignments (matching `shell activate`).
@@ -68,7 +68,11 @@ pub enum ActivationResolve {
 
 /// Concatenate runtime bin dirs the same order `ven shell activate` prepends before `$__VEN_ORIGINAL_PATH`.
 pub fn activation_path_overlay(parts: &ActivationParts) -> String {
-    let sep = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let sep = if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    };
     parts
         .prepend_dirs
         .iter()
@@ -171,8 +175,7 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
                     python_resolved = Some(
                         project_venv::local_venv_python_version(&venv_dir)
                             .or_else(|| {
-                                let installed =
-                                    PythonPlugin.list_installed().unwrap_or_default();
+                                let installed = PythonPlugin.list_installed().unwrap_or_default();
                                 resolve_python_version(python_spec, &installed).ok()
                             })
                             .unwrap_or_else(|| python_spec.to_string()),
@@ -553,10 +556,7 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
                 path_for_env_value(vr)
             ));
         }
-        out.push_str(&format!(
-            "$env:VEN_TOML = \"{}\"\n",
-            parts.toml_normalized
-        ));
+        out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", parts.toml_normalized));
         for (key, val) in &parts.ven_user_env {
             out.push_str(&format!("$env:{} = \"{}\"\n", key, val));
         }
@@ -655,10 +655,7 @@ unset JAVA_HOME 2>/dev/null || true
                 path_for_env_value(vr)
             ));
         }
-        out.push_str(&format!(
-            "export VEN_TOML=\"{}\"\n",
-            parts.toml_normalized
-        ));
+        out.push_str(&format!("export VEN_TOML=\"{}\"\n", parts.toml_normalized));
         for (key, val) in &parts.ven_user_env {
             out.push_str(&format!("export {}=\"{}\"\n", key, val));
         }

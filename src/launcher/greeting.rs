@@ -67,7 +67,13 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
     lines.push("Active runtimes".to_string());
     lines.push("-".repeat(26));
 
-    push_runtime(&mut lines, "Node", "JS runtime", parts.node_resolved.as_ref(), style);
+    push_runtime(
+        &mut lines,
+        "Node",
+        "JS runtime",
+        parts.node_resolved.as_ref(),
+        style,
+    );
     push_runtime(
         &mut lines,
         "Python",
@@ -75,7 +81,13 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
         parts.python_resolved.as_ref(),
         style,
     );
-    push_runtime(&mut lines, "Go", "Toolchain", parts.go_resolved.as_ref(), style);
+    push_runtime(
+        &mut lines,
+        "Go",
+        "Toolchain",
+        parts.go_resolved.as_ref(),
+        style,
+    );
     push_runtime(
         &mut lines,
         "Rust",
@@ -83,9 +95,27 @@ pub fn greeting_lines(parts: &ActivationParts, style: GreetingStyle) -> Vec<Stri
         parts.rust_resolved.as_ref(),
         style,
     );
-    push_runtime(&mut lines, "Java", "JDK", parts.java_resolved.as_ref(), style);
-    push_runtime(&mut lines, "Deno", "Runtime", parts.deno_resolved.as_ref(), style);
-    push_runtime(&mut lines, "Ruby", "MRI", parts.ruby_resolved.as_ref(), style);
+    push_runtime(
+        &mut lines,
+        "Java",
+        "JDK",
+        parts.java_resolved.as_ref(),
+        style,
+    );
+    push_runtime(
+        &mut lines,
+        "Deno",
+        "Runtime",
+        parts.deno_resolved.as_ref(),
+        style,
+    );
+    push_runtime(
+        &mut lines,
+        "Ruby",
+        "MRI",
+        parts.ruby_resolved.as_ref(),
+        style,
+    );
 
     lines.push(String::new());
     lines.push("Quick start".to_string());
@@ -176,7 +206,11 @@ pub fn write_powershell_profile_init(
 }
 
 /// Windows `cmd.exe` ASCII banner + `cd /d` (`^|` so `echo` does not treat `|` as a pipe).
-pub fn write_cmd_autorun(dest: &mut impl Write, parts: &ActivationParts, cwd_cmd: &str) -> std::io::Result<()> {
+pub fn write_cmd_autorun(
+    dest: &mut impl Write,
+    parts: &ActivationParts,
+    cwd_cmd: &str,
+) -> std::io::Result<()> {
     writeln!(dest, "@echo off")?;
     writeln!(dest, "")?;
     for line in greeting_lines(parts, GreetingStyle::Ascii) {

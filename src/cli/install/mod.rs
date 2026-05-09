@@ -10,8 +10,8 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use crate::plugins::PluginRegistry;
 
 use display::display_version_list;
-use fetch::resolve_install_version;
 use fetch::fetch_available_versions;
+use fetch::resolve_install_version;
 use select::select_from_version_list;
 use validate::validate_installation;
 

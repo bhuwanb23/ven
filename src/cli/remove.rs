@@ -4,12 +4,12 @@ use crate::core::load_config;
 use crate::core::packages::*;
 use anyhow::Result;
 use colored::Colorize;
+use languages::{
+    cmd_remove_bun, cmd_remove_deno_notice, cmd_remove_java_notice, cmd_remove_python,
+    cmd_remove_ruby, cmd_remove_rust,
+};
 use std::collections::HashSet;
 use std::path::Path;
-use languages::{
-    cmd_remove_bun, cmd_remove_deno_notice, cmd_remove_java_notice, cmd_remove_python, cmd_remove_ruby,
-    cmd_remove_rust,
-};
 
 /// Remove packages with batch support and advanced features
 pub fn cmd_remove(
@@ -22,7 +22,9 @@ pub fn cmd_remove(
 ) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let python_mode = load_config(&cwd)?
-        .map(|c| !c.runtime.python.is_empty() && c.runtime.node.is_empty() && c.runtime.bun.is_empty())
+        .map(|c| {
+            !c.runtime.python.is_empty() && c.runtime.node.is_empty() && c.runtime.bun.is_empty()
+        })
         .unwrap_or(false);
     let rust_mode = load_config(&cwd)?
         .map(|c| {

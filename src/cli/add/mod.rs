@@ -12,8 +12,8 @@ use colored::Colorize;
 use std::collections::HashMap;
 
 use languages::{
-    cmd_add_bun, cmd_add_deno_notice, cmd_add_go, cmd_add_java_notice, cmd_add_python, cmd_add_ruby,
-    cmd_add_rust,
+    cmd_add_bun, cmd_add_deno_notice, cmd_add_go, cmd_add_java_notice, cmd_add_python,
+    cmd_add_ruby, cmd_add_rust,
 };
 pub use toml::update_ven_toml_packages;
 
@@ -291,7 +291,10 @@ pub fn cmd_add(
         println!("    {} {}", "Failed:".dimmed(), "0".green());
     }
 
-    let total_packages: u32 = all_results.iter().map(|(_, r)| r.graph.nodes.len() as u32).sum();
+    let total_packages: u32 = all_results
+        .iter()
+        .map(|(_, r)| r.graph.nodes.len() as u32)
+        .sum();
     println!(
         "    {} {} packages to install",
         "Total:".dimmed(),
@@ -502,4 +505,3 @@ pub fn cmd_add(
     println!();
     Ok(())
 }
-

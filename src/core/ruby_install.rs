@@ -70,7 +70,12 @@ impl RubyDownloader {
             let path = entry?.path();
             if path.is_dir() {
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                    if name
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                    {
                         versions.push(name.to_string());
                     }
                 }
@@ -152,8 +157,8 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
     let semver = normalize_ruby_semver(version);
     #[cfg(target_os = "windows")]
     {
-        let (url, fname) =
-            ri2_pick_asset_url(&semver).ok_or_else(|| anyhow!("No RubyInstaller2 build found for {}", semver))?;
+        let (url, fname) = ri2_pick_asset_url(&semver)
+            .ok_or_else(|| anyhow!("No RubyInstaller2 build found for {}", semver))?;
         fs::create_dir_all(&dl.cache_dir)?;
         let archive = dl.cache_dir.join(fname);
         if !archive.is_file() {
@@ -173,7 +178,8 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         let staging_dir = tempfile::tempdir().context("temp dir for Ruby 7z")?;
         let unpack_base = staging_dir.path().join("ri2");
         fs::create_dir_all(&unpack_base)?;
-        sevenz_rust::decompress_file(&archive, &unpack_base).map_err(|e| anyhow!("7z unpack: {:?}", e))?;
+        sevenz_rust::decompress_file(&archive, &unpack_base)
+            .map_err(|e| anyhow!("7z unpack: {:?}", e))?;
         relocate_into_install_dir(&unpack_base, &install_dir)?;
     }
     #[cfg(not(target_os = "windows"))]
@@ -264,10 +270,7 @@ fn relocate_into_install_dir(staging_root: &Path, install_dir: &Path) -> Result<
 }
 
 fn copy_tree_recursive(src: &Path, dst: &Path) -> Result<()> {
-    for entry in walkdir::WalkDir::new(src)
-        .min_depth(1)
-        .follow_links(false)
-    {
+    for entry in walkdir::WalkDir::new(src).min_depth(1).follow_links(false) {
         let entry = entry?;
         let meta = entry.path().symlink_metadata()?;
         let rel = entry.path().strip_prefix(src)?;
@@ -278,9 +281,8 @@ fn copy_tree_recursive(src: &Path, dst: &Path) -> Result<()> {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::symlink;
-                let tgt = fs::read_link(entry.path()).with_context(|| {
-                    format!("read_link {}", entry.path().display())
-                })?;
+                let tgt = fs::read_link(entry.path())
+                    .with_context(|| format!("read_link {}", entry.path().display()))?;
                 if let Some(par) = out_path.parent() {
                     fs::create_dir_all(par)?;
                 }
@@ -289,7 +291,10 @@ fn copy_tree_recursive(src: &Path, dst: &Path) -> Result<()> {
             }
             #[cfg(not(unix))]
             {
-                anyhow::bail!("Unexpected symlink inside Ruby bundle on Windows: {}", entry.path().display());
+                anyhow::bail!(
+                    "Unexpected symlink inside Ruby bundle on Windows: {}",
+                    entry.path().display()
+                );
             }
         } else {
             if let Some(par) = out_path.parent() {
@@ -304,8 +309,7 @@ fn copy_tree_recursive(src: &Path, dst: &Path) -> Result<()> {
 #[cfg(not(target_os = "windows"))]
 fn ruby_builder_pick_asset_url(semver: &str) -> Result<String> {
     let tag = format!("ruby-{semver}");
-    let url =
-        format!("https://api.github.com/repos/ruby/ruby-builder/releases/tags/{tag}");
+    let url = format!("https://api.github.com/repos/ruby/ruby-builder/releases/tags/{tag}");
     let json: Value = Client::new()
         .get(&url)
         .header("User-Agent", "ven")
@@ -328,7 +332,10 @@ fn pick_builder_asset_browser_url(release_json: &Value, semver: &str) -> Result<
             arr.iter()
                 .filter_map(|a| a.get("browser_download_url").and_then(|u| u.as_str()))
                 .filter(|u| {
-                    let name = Path::new(u).file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    let name = Path::new(u)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("");
                     name.ends_with(".tar.gz") && name.starts_with(&prefix)
                 })
                 .map(|s| s.to_string())
@@ -372,10 +379,7 @@ fn platform_ruby_tarball_needles() -> Vec<&'static str> {
     {
         vec!["darwin-arm64"]
     }
-    #[cfg(not(any(
-        target_os = "linux",
-        target_os = "macos"
-    )))] // uncommon host
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))] // uncommon host
     {
         vec![]
     }
@@ -395,7 +399,9 @@ fn ri_suffix_for_arch() -> Result<&'static str> {
     } else if cfg!(target_arch = "aarch64") {
         Ok("arm")
     } else {
-        Err(anyhow!("Unsupported Windows architecture for RubyInstaller2"))
+        Err(anyhow!(
+            "Unsupported Windows architecture for RubyInstaller2"
+        ))
     }
 }
 
@@ -411,7 +417,10 @@ fn ri2_collect_versions_sorted() -> Result<Vec<String>> {
 }
 
 #[cfg(target_os = "windows")]
-fn gh_fetch_ri2_releases_into(acc: &mut HashMap<String, RiChoice>, arch_suffix: &str) -> Result<()> {
+fn gh_fetch_ri2_releases_into(
+    acc: &mut HashMap<String, RiChoice>,
+    arch_suffix: &str,
+) -> Result<()> {
     let client = Client::new();
     for page in 1..=6u32 {
         let url = format!(
@@ -437,9 +446,7 @@ fn gh_fetch_ri2_releases_into(acc: &mut HashMap<String, RiChoice>, arch_suffix: 
                     let Some(name) = a.get("name").and_then(|n| n.as_str()) else {
                         continue;
                     };
-                    let Some(download) = a
-                        .get("browser_download_url")
-                        .and_then(|u| u.as_str())
+                    let Some(download) = a.get("browser_download_url").and_then(|u| u.as_str())
                     else {
                         continue;
                     };
@@ -471,7 +478,9 @@ fn gh_fetch_ri2_releases_into(acc: &mut HashMap<String, RiChoice>, arch_suffix: 
 /// `rubyinstaller-4.0.3-1-x64.7z` → `("4.0.3", 1)` when `arch_suffix` is `x64`.
 #[cfg(target_os = "windows")]
 fn parse_ri2_7z_name(filename: &str, arch_suffix: &str) -> Option<(String, u32)> {
-    let stem = filename.strip_prefix("rubyinstaller-")?.strip_suffix(".7z")?;
+    let stem = filename
+        .strip_prefix("rubyinstaller-")?
+        .strip_suffix(".7z")?;
     let suf = format!("-{arch_suffix}");
     let mid = stem.strip_suffix(&suf)?;
     let idx = mid.rfind('-')?;
@@ -489,15 +498,14 @@ fn ri2_pick_asset_url(semver: &str) -> Option<(String, String)> {
     let suffix = ri_suffix_for_arch().ok()?;
     let mut best: HashMap<String, RiChoice> = HashMap::new();
     gh_fetch_ri2_releases_into(&mut best, suffix).ok()?;
-    best.remove(semver)
-        .map(|c| {
-            let fname = Path::new(&c.url)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("ruby.7z")
-                .to_string();
-            (c.url, fname)
-        })
+    best.remove(semver).map(|c| {
+        let fname = Path::new(&c.url)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("ruby.7z")
+            .to_string();
+        (c.url, fname)
+    })
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -530,7 +538,13 @@ fn mri_github_builder_collect_versions_sorted() -> Result<Vec<String>> {
             let Some(rest) = tag.strip_prefix("ruby-") else {
                 continue;
             };
-            if rest.starts_with('-') || !rest.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+            if rest.starts_with('-')
+                || !rest
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false)
+            {
                 continue;
             }
             if rest.contains("preview") || rest.contains("dev") || rest.contains("rc") {

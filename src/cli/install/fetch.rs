@@ -1,8 +1,8 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::core::deno_install::{fetch_deno_release_versions, resolve_deno_version_spec};
 use crate::core::bun_install::{fetch_bun_release_versions, resolve_bun_version_spec};
+use crate::core::deno_install::{fetch_deno_release_versions, resolve_deno_version_spec};
 use crate::core::go_install::{fetch_go_release_versions, resolve_go_version_spec};
 use crate::core::java_install::{fetch_java_release_versions, resolve_java_version_spec};
 use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
@@ -135,17 +135,22 @@ pub(super) fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
 
         Ok(versions)
     } else if language == "python" {
-        fetch_python_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))
+        fetch_python_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Python releases: {}", e))
     } else if language == "go" {
         fetch_go_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Go releases: {}", e))
     } else if language == "rust" {
-        fetch_rust_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))
+        fetch_rust_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Rust releases: {}", e))
     } else if language == "java" {
-        fetch_java_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Java releases: {}", e))
+        fetch_java_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Java releases: {}", e))
     } else if language == "deno" {
-        fetch_deno_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Deno releases: {}", e))
+        fetch_deno_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Deno releases: {}", e))
     } else if language == "ruby" {
-        fetch_ruby_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Ruby releases: {}", e))
+        fetch_ruby_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list Ruby releases: {}", e))
     } else if language == "bun" {
         fetch_bun_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Bun releases: {}", e))
     } else {

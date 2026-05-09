@@ -32,7 +32,11 @@ pub(super) fn cmd_remove_ruby(packages: &[String], dry_run: bool, json: bool) ->
                 "[RUBY DRY RUN]".yellow()
             );
             for pkg in packages {
-                println!("  {} Would gem uninstall {}", "[PREVIEW]".cyan(), pkg.bold());
+                println!(
+                    "  {} Would gem uninstall {}",
+                    "[PREVIEW]".cyan(),
+                    pkg.bold()
+                );
             }
             println!();
         }
@@ -47,7 +51,11 @@ pub(super) fn cmd_remove_ruby(packages: &[String], dry_run: bool, json: bool) ->
                 removed.push(pkg.clone());
                 let _ = remove_from_ven_toml(pkg);
             }
-            Err(_) => println!("  {} Failed to remove {} (maybe not installed)", "[WARN]".yellow(), pkg),
+            Err(_) => println!(
+                "  {} Failed to remove {} (maybe not installed)",
+                "[WARN]".yellow(),
+                pkg
+            ),
         }
     }
     if json {
@@ -277,7 +285,11 @@ pub(super) fn cmd_remove_bun(packages: &[String], dry_run: bool, json: bool) -> 
                 }))?
             );
         } else {
-            println!("\n  {} {}", "ven remove".bold().cyan(), "[BUN DRY RUN]".yellow());
+            println!(
+                "\n  {} {}",
+                "ven remove".bold().cyan(),
+                "[BUN DRY RUN]".yellow()
+            );
             for pkg in packages {
                 println!("  {} Would remove {}", "[PREVIEW]".cyan(), pkg.bold());
             }

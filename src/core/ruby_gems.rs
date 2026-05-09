@@ -49,10 +49,7 @@ fn parse_gem_list_first_version(name: &str, stdout: &str) -> Result<Option<Strin
         let line = raw.trim_start();
         if let Some(rest) = line.strip_prefix(&prefix) {
             let inner = rest.trim_end_matches(')').trim();
-            let part = inner
-                .strip_prefix("default:")
-                .unwrap_or(inner)
-                .trim();
+            let part = inner.strip_prefix("default:").unwrap_or(inner).trim();
             let first = part.split(',').next().unwrap_or(part).trim();
             if !first.is_empty() {
                 return Ok(Some(first.to_string()));

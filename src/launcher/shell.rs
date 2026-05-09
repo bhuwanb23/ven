@@ -54,7 +54,9 @@ fn windows_detect_shell() -> ShellKind {
 
 #[cfg(windows)]
 fn powershell_default_exists() -> bool {
-    powershell_exe_paths().iter().any(|p| Path::new(p).is_file())
+    powershell_exe_paths()
+        .iter()
+        .any(|p| Path::new(p).is_file())
 }
 
 #[cfg(windows)]
@@ -67,9 +69,7 @@ fn powershell_exe_paths() -> &'static [&'static str] {
 
 #[cfg(windows)]
 fn powershell_on_path() -> bool {
-    let out = Command::new("where")
-        .args(["powershell"])
-        .output();
+    let out = Command::new("where").args(["powershell"]).output();
     matches!(out, Ok(o) if o.status.success())
 }
 

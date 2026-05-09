@@ -6,14 +6,18 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 
+use crate::launcher::env::apply_activation_env;
 #[cfg(windows)]
-use crate::launcher::greeting::{generic_header_lines, greeting_lines, write_cmd_autorun, GreetingStyle};
+use crate::launcher::greeting::{
+    generic_header_lines, greeting_lines, write_cmd_autorun, GreetingStyle,
+};
 #[cfg(not(windows))]
-use crate::launcher::greeting::{generic_header_lines, greeting_lines, write_posix_printf_greeting, GreetingStyle};
+use crate::launcher::greeting::{
+    generic_header_lines, greeting_lines, write_posix_printf_greeting, GreetingStyle,
+};
 #[cfg(not(windows))]
 use crate::launcher::quote::bash_single_quoted;
 use crate::launcher::{detect_shell, ShellKind};
-use crate::launcher::env::apply_activation_env;
 use crate::shell::{path_for_env_value, resolve_activation_environment, ActivationResolve};
 
 /// Open a **new terminal** whose cwd is the `ven.toml` project root and env matches `ven shell activate`.
@@ -58,7 +62,9 @@ fn missing_toml_message(start: &str, style: GreetingStyle) -> Vec<String> {
         GreetingStyle::Unicode => "  ▸",
         GreetingStyle::Ascii => "  >",
     };
-    lines.push(format!("{marker} No ven.toml detected in this folder tree."));
+    lines.push(format!(
+        "{marker} No ven.toml detected in this folder tree."
+    ));
     lines.push(String::new());
     lines.extend(vec![
         format!("Search started from: {start}"),
@@ -217,9 +223,8 @@ fn spawn_for_shell(
             let mut cmd = Command::new(comspec);
             cmd.args([
                 "/K",
-                kept.to_str().ok_or_else(|| {
-                    anyhow::anyhow!("cmd script path is not valid UTF-8")
-                })?,
+                kept.to_str()
+                    .ok_or_else(|| anyhow::anyhow!("cmd script path is not valid UTF-8"))?,
             ])
             .current_dir(cwd)
             .creation_flags(CREATE_NEW_CONSOLE);
@@ -256,7 +261,10 @@ fn spawn_for_shell(
     parts: &crate::shell::ActivationParts,
     cwd: &Path,
 ) -> Result<()> {
-    let cd_line = format!("cd {} || exit 1\n", bash_single_quoted(&path_for_env_value(cwd)));
+    let cd_line = format!(
+        "cd {} || exit 1\n",
+        bash_single_quoted(&path_for_env_value(cwd))
+    );
 
     match kind {
         ShellKind::Bash | ShellKind::Cmd => {
