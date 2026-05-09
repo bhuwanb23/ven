@@ -6,6 +6,8 @@ use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
+use std::collections::{HashMap, HashSet};
+use std::io::{self, BufRead, Write};
 use languages::{
     cmd_upgrade_bun, cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python,
     cmd_upgrade_ruby, cmd_upgrade_rust,
@@ -136,6 +138,8 @@ pub fn cmd_upgrade(
 
     if json {
         output_json_upgrade(&target_packages, apply, dry_run, verbose)?;
+    } else if target_packages.len() == 1 && !apply {
+        display_upgrade_safety(&cfg, &target_packages[0], dry_run, force)?;
     } else if verbose {
         display_verbose_upgrade(&target_packages, apply, dry_run, force)?;
     } else if dry_run {
@@ -703,6 +707,193 @@ fn output_json_upgrade(
 
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+fn display_upgrade_safety(
+    cfg: &crate::core::config::VenConfig,
+    package: &str,
+    dry_run: bool,
+    force: bool,
+) -> Result<()> {
+    let node_version = if cfg.runtime.node.is_empty() {
+        "0".to_string()
+    } else {
+        cfg.runtime.node.clone()
+    };
+    let current_ver = get_installed_version(package).unwrap_or_else(|_| "unknown".to_string());
+    let latest = DependencyIntelligenceService::npm_latest_compatible(package, &node_version)?
+        .ok_or_else(|| anyhow::anyhow!("No compatible version found"))?;
+
+    println!("\n  {} {}", "ven upgrade".bold().cyan(), "[SAFETY]".yellow());
+    println!("  {} Simulating {} upgrade...\n", "→".cyan(), package.bold());
+
+    if current_ver == latest {
+        println!(
+            "  {} {} is already at the latest compatible version ({})",
+            "✓".green(),
+            package.bold(),
+            latest
+        );
+        println!();
+        return Ok(());
+    }
+
+    println!(
+        "  {}@{} → {}",
+        package.bold(),
+        current_ver.dimmed(),
+        latest.green()
+    );
+
+    let sim = DependencyIntelligenceService::simulate_upgrade(&cfg, package, "latest", &cfg.packages)?;
+    let conflict_packages = build_conflict_set(&sim.conflict_chains, &sim.engine_incompatibilities);
+    let impact = build_upgrade_impact(&sim.graph, package, &conflict_packages);
+
+    println!("\n  {}", "Graph impact:".dimmed());
+    if impact.is_empty() {
+        println!("    {} {}", "✓".green(), "No direct dependents found".dimmed());
+    } else {
+        for item in impact {
+            if item.breaks {
+                println!(
+                    "    {} {}@{} → {} {}",
+                    "✗".red(),
+                    item.name.bold(),
+                    item.version,
+                    "BREAKS".red().bold(),
+                    format!("(requires {} {})", package, item.constraint).dimmed()
+                );
+            } else {
+                println!(
+                    "    {} {}@{} → {}",
+                    "✓".green(),
+                    item.name.bold(),
+                    item.version,
+                    "still compatible".green()
+                );
+            }
+        }
+    }
+
+    if !conflict_packages.is_empty() {
+        let broken = conflict_packages.into_iter().collect::<Vec<_>>().join(", ");
+        println!("\n  {} {}", "Upgrade will break:".bold(), broken.red());
+    } else {
+        println!("\n  {}", "Upgrade appears safe for direct dependents.".green());
+    }
+
+    println!("\n  {}", "Options:".bold());
+    println!("    [1] Show resolution suggestions");
+    println!("    [2] Keep current versions");
+    println!("    [3] Show full impact report");
+    print!("\n  Choose [1/2/3]: ");
+    io::stdout().flush()?;
+
+    let stdin = io::stdin();
+    let choice = stdin
+        .lock()
+        .lines()
+        .next()
+        .and_then(|l| l.ok())
+        .unwrap_or_default();
+
+    match choice.trim() {
+        "1" => {
+            if sim.suggestions.is_empty() {
+                println!("\n  {} No automatic resolution suggestions available.", "[INFO]".cyan());
+            } else {
+                println!("\n  {}", "Suggested resolutions:".bold().cyan());
+                for opt in &sim.suggestions {
+                    println!("    [{}] {}", opt.id, opt.label);
+                }
+            }
+        }
+        "3" => {
+            print_conflict_report(&sim);
+            println!("\n  {} {}", "Dependency tree (simulated):".dimmed(), package.bold());
+            crate::intelligence::display::print_intel_tree(&sim.graph, package);
+        }
+        _ => {
+            println!("\n  {} Keeping current versions.", "[INFO]".cyan());
+        }
+    }
+
+    if !sim.compatible && !force {
+        println!(
+            "\n  {} Simulation indicates upgrade conflicts; use --force to bypass.",
+            "[WARN]".yellow()
+        );
+    }
+
+    if dry_run {
+        println!("\n  {} Dry run mode - no changes will be made.", "[INFO]".yellow());
+    }
+
+    println!();
+    Ok(())
+}
+
+struct UpgradeImpactItem {
+    name: String,
+    version: String,
+    constraint: String,
+    breaks: bool,
+}
+
+fn build_upgrade_impact(
+    graph: &crate::intelligence::graph::IntelGraph,
+    target_package: &str,
+    conflict_packages: &HashSet<String>,
+) -> Vec<UpgradeImpactItem> {
+    let mut items = Vec::new();
+    let mut seen = HashSet::new();
+
+    for edge in &graph.edges {
+        if edge.kind != crate::intelligence::graph::EdgeKind::Dependency {
+            continue;
+        }
+        let Some((to_pkg, _)) = edge.to.rsplit_once('@') else {
+            continue;
+        };
+        if to_pkg != target_package {
+            continue;
+        }
+        let Some((from_pkg, from_ver)) = edge.from.rsplit_once('@') else {
+            continue;
+        };
+        if !seen.insert(from_pkg.to_string()) {
+            continue;
+        }
+        let version = graph
+            .nodes
+            .get(from_pkg)
+            .map(|n| n.version.clone())
+            .unwrap_or_else(|| from_ver.to_string());
+        let breaks = conflict_packages.contains(from_pkg);
+        items.push(UpgradeImpactItem {
+            name: from_pkg.to_string(),
+            version,
+            constraint: edge.constraint.clone(),
+            breaks,
+        });
+    }
+
+    items.sort_by(|a, b| a.name.cmp(&b.name));
+    items
+}
+
+fn build_conflict_set(
+    conflict_chains: &[crate::intelligence::graph::ConflictChain],
+    engine_incompatibilities: &[crate::intelligence::graph::EngineIncompatibility],
+) -> HashSet<String> {
+    let mut set = HashSet::new();
+    for chain in conflict_chains {
+        set.insert(chain.package.clone());
+    }
+    for inc in engine_incompatibilities {
+        set.insert(inc.package.clone());
+    }
+    set
 }
 
 // ── Helper Functions ─────────────────────────────────────────────────
