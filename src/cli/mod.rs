@@ -13,6 +13,7 @@ pub mod setup;
 pub mod shell;
 pub mod status;
 pub mod upgrade;
+pub mod why;
 
 /// ven — Any-first intelligent version and dependency manager
 ///
@@ -225,6 +226,20 @@ pub enum Commands {
         resolve: bool,
     },
 
+    /// Show why a package is installed (reverse dependency lookup)
+    ///
+    /// Displays the dependency chain showing all packages that depend on the target,
+    /// and traces back to the root ven.toml entries. Also indicates whether it's safe to remove.
+    ///
+    /// Examples:
+    ///   ven why express         # Why is express installed?
+    ///   ven why accepts         # What depends on accepts?
+    Why {
+        /// Package name to analyze
+        #[arg(required = true)]
+        package: String,
+    },
+
     /// Remove package(s) with dependency analysis and safety checks
     ///
     /// Safely removes npm packages after checking for dependents
@@ -389,6 +404,7 @@ pub fn run(cli: Cli) -> Result<()> {
         } => add::cmd_add(&packages, skip_check, dry_run, verbose),
         Commands::CheckAdd { packages, json } => check_add::cmd_check_add(&packages, json),
         Commands::Graph { json, resolve } => graph::cmd_graph(json, resolve),
+        Commands::Why { package } => why::cmd_why(&package),
         Commands::Remove {
             packages,
             force,
