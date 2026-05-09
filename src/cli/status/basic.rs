@@ -243,7 +243,7 @@ pub(super) fn display_basic_status(
                 println!("    {} Install missing: ven add <package>", "[TIP]".cyan());
             } else {
                 println!(
-                    "    {} Install missing: ven add --sync or npm install",
+                    "    {} Install missing: ven add <pkg> or npm install",
                     "[TIP]".cyan()
                 );
             }

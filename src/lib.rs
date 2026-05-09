@@ -2,6 +2,7 @@
 
 pub mod cli;
 pub mod core;
+pub mod intelligence;
 pub mod launcher;
 pub mod plugins;
 pub mod shell;

@@ -9,7 +9,6 @@ pub mod npm_registry;
 pub mod packages;
 pub mod project_venv;
 pub mod python_install;
-pub mod resolver;
 pub mod rust_install;
 pub mod ruby_install;
 pub mod ruby_gems;
@@ -32,7 +31,6 @@ pub use go_install::{install_go as install_go_native, GoDownloader};
 pub use java_install::{install_java as install_java_native, JavaDownloader};
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use python_install::{install_python as install_python_native, PythonDownloader};
-pub use resolver::DependencyGraph;
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use rust_install::{install_rust as install_rust_native, RustDownloader};
 #[allow(unused_imports)]

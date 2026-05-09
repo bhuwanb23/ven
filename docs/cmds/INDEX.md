@@ -15,6 +15,8 @@ Complete documentation for all `ven` commands and their subcommands.
 | Command | Description | Documentation |
 |---------|-------------|---------------|
 | `ven add` | Install packages with compatibility checking | [→ add.md](add.md) |
+| `ven check-add` | Query add compatibility without installing | [→ check-add.md](check-add.md) |
+| `ven graph` | Inspect dependency graph / last simulation | [→ graph.md](graph.md) |
 | `ven remove` | Remove packages with dependency safety | [→ remove.md](remove.md) |
 | `ven upgrade` | Preview and apply package upgrades | [→ upgrade.md](upgrade.md) |
 

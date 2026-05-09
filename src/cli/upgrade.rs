@@ -2,6 +2,8 @@ mod languages;
 
 use crate::cli::add::update_ven_toml_packages;
 use crate::core::{load_config, packages::*};
+use crate::intelligence::engine::DependencyIntelligenceService;
+use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
 use std::path::Path;
@@ -254,9 +256,24 @@ fn process_single_upgrade(
     let current_ver = get_installed_version(package).unwrap_or_else(|_| "unknown".to_string());
 
     // Fetch latest compatible version
-    let info = fetch_npm_info(package)?;
-    let latest = find_compatible_version(&info, node_version)
+    let cwd = std::env::current_dir()?;
+    let cfg = load_config(&cwd)?
+        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let latest = DependencyIntelligenceService::npm_latest_compatible(package, node_version)?
         .ok_or_else(|| anyhow::anyhow!("No compatible version found"))?;
+
+    let sim = DependencyIntelligenceService::simulate_upgrade(&cfg, package, "latest", &cfg.packages)?;
+    if !sim.compatible && !force {
+        println!(
+            "  {} Dependency intelligence blocked upgrade for {}:",
+            "[ERROR]".red(),
+            package
+        );
+        print_conflict_report(&sim);
+        return Err(anyhow::anyhow!(
+            "Upgrade simulation failed — fix conflicts or pass --force"
+        ));
+    }
 
     // Check if upgrade is needed
     if current_ver == latest {
@@ -342,18 +359,17 @@ fn display_dry_run_upgrade(packages: &[String], apply: bool) -> Result<()> {
     for package in packages {
         let current_ver = get_installed_version(package).unwrap_or_else(|_| "unknown".to_string());
 
-        match fetch_npm_info(package) {
-            Ok(info) => {
-                if let Some(latest) = find_compatible_version(&info, &node_version) {
-                    if current_ver == latest {
-                        up_to_date.push((package.to_string(), latest));
-                    } else {
-                        let upgrade_type = classify_upgrade(&current_ver, &latest);
-                        can_upgrade.push((package.to_string(), current_ver, latest, upgrade_type));
-                    }
+        match DependencyIntelligenceService::npm_latest_compatible(package, &node_version) {
+            Ok(Some(latest)) => {
+                if current_ver == latest {
+                    up_to_date.push((package.to_string(), latest));
                 } else {
-                    failed.push((package.to_string(), "No compatible version".to_string()));
+                    let upgrade_type = classify_upgrade(&current_ver, &latest);
+                    can_upgrade.push((package.to_string(), current_ver, latest, upgrade_type));
                 }
+            }
+            Ok(None) => {
+                failed.push((package.to_string(), "No compatible version".to_string()));
             }
             Err(e) => {
                 failed.push((package.to_string(), e.to_string()));
@@ -463,75 +479,74 @@ fn display_verbose_upgrade(
 
         let current_ver = get_installed_version(package).unwrap_or_else(|_| "unknown".to_string());
 
-        match fetch_npm_info(package) {
-            Ok(info) => {
-                if let Some(latest) = find_compatible_version(&info, &node_version) {
-                    let upgrade_type = classify_upgrade(&current_ver, &latest);
+        match DependencyIntelligenceService::npm_latest_compatible(package, &node_version) {
+            Ok(Some(latest)) => {
+                let upgrade_type = classify_upgrade(&current_ver, &latest);
 
-                    println!(
-                        "  {} Current version: {}",
-                        "Current:".dimmed(),
-                        if current_ver == "unknown" {
-                            "not installed".to_string()
-                        } else {
-                            current_ver.clone()
-                        }
-                    );
-                    println!("  {} Latest compatible: {}", "Latest:".dimmed(), latest);
-                    println!(
-                        "  {} Upgrade type: {}",
-                        "Type:".dimmed(),
-                        upgrade_type.colored()
-                    );
-                    println!(
-                        "  {} Node {} {}",
-                        "Compatibility:".dimmed(),
-                        node_version,
-                        "✓".green()
-                    );
-
-                    // Calculate disk space if installed
-                    if current_ver != "unknown" {
-                        let current_size = calculate_package_size(package).unwrap_or(0);
-                        println!(
-                            "  {} Current size: {}",
-                            "Disk Usage:".dimmed(),
-                            format_bytes(current_size)
-                        );
-                    }
-
-                    // Show changelog hint
-                    if current_ver != latest && current_ver != "unknown" {
-                        let changelog_url =
-                            format!("https://npmjs.com/package/{}/v/{}", package, latest);
-                        println!("  {} {}", "Changelog:".dimmed(), changelog_url);
-                    }
-
-                    if dry_run {
-                        println!("  {} Would upgrade (dry run)", "[DRY RUN]".yellow());
-                    } else if apply {
-                        println!("  {} Ready to upgrade", "[READY]".green());
+                println!(
+                    "  {} Current version: {}",
+                    "Current:".dimmed(),
+                    if current_ver == "unknown" {
+                        "not installed".to_string()
                     } else {
-                        println!("  {} Preview mode", "[PREVIEW]".cyan());
+                        current_ver.clone()
                     }
+                );
+                println!("  {} Latest compatible: {}", "Latest:".dimmed(), latest);
+                println!(
+                    "  {} Upgrade type: {}",
+                    "Type:".dimmed(),
+                    upgrade_type.colored()
+                );
+                println!(
+                    "  {} Node {} {}",
+                    "Compatibility:".dimmed(),
+                    node_version,
+                    "✓".green()
+                );
 
-                    upgrade_details.push((
-                        package.to_string(),
-                        current_ver,
-                        latest,
-                        upgrade_type,
-                        true,
-                    ));
-                } else {
-                    println!("  {} No compatible version found", "[ERROR]".red());
-                    upgrade_details.push((
-                        package.to_string(),
-                        current_ver,
-                        "N/A".to_string(),
-                        UpgradeType::Error,
-                        false,
-                    ));
+                // Calculate disk space if installed
+                if current_ver != "unknown" {
+                    let current_size = calculate_package_size(package).unwrap_or(0);
+                    println!(
+                        "  {} Current size: {}",
+                        "Disk Usage:".dimmed(),
+                        format_bytes(current_size)
+                    );
                 }
+
+                // Show changelog hint
+                if current_ver != latest && current_ver != "unknown" {
+                    let changelog_url =
+                        format!("https://npmjs.com/package/{}/v/{}", package, latest);
+                    println!("  {} {}", "Changelog:".dimmed(), changelog_url);
+                }
+
+                if dry_run {
+                    println!("  {} Would upgrade (dry run)", "[DRY RUN]".yellow());
+                } else if apply {
+                    println!("  {} Ready to upgrade", "[READY]".green());
+                } else {
+                    println!("  {} Preview mode", "[PREVIEW]".cyan());
+                }
+
+                upgrade_details.push((
+                    package.to_string(),
+                    current_ver,
+                    latest,
+                    upgrade_type,
+                    true,
+                ));
+            }
+            Ok(None) => {
+                println!("  {} No compatible version found", "[ERROR]".red());
+                upgrade_details.push((
+                    package.to_string(),
+                    current_ver,
+                    "N/A".to_string(),
+                    UpgradeType::Error,
+                    false,
+                ));
             }
             Err(e) => {
                 println!("  {} {}", "[ERROR]".red(), e.to_string());
@@ -583,6 +598,8 @@ fn output_json_upgrade(
     let node_version = load_config(&cwd)?
         .map(|c| c.runtime.node)
         .unwrap_or_else(|| "0".to_string());
+    let cfg_full = load_config(&cwd)?
+        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
 
     let mut output = json!({
         "mode": if dry_run { "dry_run" } else if apply { "apply" } else { "preview" },
@@ -600,23 +617,34 @@ fn output_json_upgrade(
             "current_version": current_ver
         });
 
-        match fetch_npm_info(package) {
-            Ok(info) => {
-                if let Some(latest) = find_compatible_version(&info, &node_version) {
-                    let upgrade_type = classify_upgrade(&current_ver, &latest);
+        match DependencyIntelligenceService::npm_latest_compatible(package, &node_version) {
+            Ok(Some(latest)) => {
+                let upgrade_type = classify_upgrade(&current_ver, &latest);
 
-                    pkg_info["latest_version"] = json!(latest);
-                    pkg_info["upgrade_type"] = json!(upgrade_type.to_string());
-                    pkg_info["upgrade_available"] = json!(current_ver != latest);
+                pkg_info["latest_version"] = json!(latest);
+                pkg_info["upgrade_type"] = json!(upgrade_type.to_string());
+                pkg_info["upgrade_available"] = json!(current_ver != latest);
 
-                    if verbose {
-                        let changelog_url =
-                            format!("https://npmjs.com/package/{}/v/{}", package, latest);
-                        pkg_info["changelog_url"] = json!(changelog_url);
-                    }
+                if verbose {
+                    let changelog_url =
+                        format!("https://npmjs.com/package/{}/v/{}", package, latest);
+                    pkg_info["changelog_url"] = json!(changelog_url);
+                }
 
-                    if apply && current_ver != latest && !dry_run {
-                        match npm_install(package, &latest) {
+                if apply && current_ver != latest && !dry_run {
+                    match DependencyIntelligenceService::simulate_upgrade(
+                        &cfg_full,
+                        package,
+                        "latest",
+                        &cfg_full.packages,
+                    ) {
+                        Ok(ref sim) if !sim.compatible => {
+                            pkg_info["status"] = json!("simulation_failed");
+                            pkg_info["success"] = json!(false);
+                            pkg_info["error"] =
+                                json!("dependency intelligence reported conflicts");
+                        }
+                        Ok(_) => match npm_install(package, &latest) {
                             Ok(_) => {
                                 pkg_info["status"] = json!("upgraded");
                                 pkg_info["success"] = json!(true);
@@ -629,19 +657,25 @@ fn output_json_upgrade(
                                 pkg_info["error"] = json!(e.to_string());
                                 pkg_info["success"] = json!(false);
                             }
+                        },
+                        Err(e) => {
+                            pkg_info["status"] = json!("simulation_error");
+                            pkg_info["error"] = json!(e.to_string());
+                            pkg_info["success"] = json!(false);
                         }
-                    } else {
-                        pkg_info["status"] = json!(if current_ver == latest {
-                            "up_to_date"
-                        } else {
-                            "available"
-                        });
-                        pkg_info["success"] = json!(null);
                     }
                 } else {
-                    pkg_info["status"] = json!("no_compatible_version");
-                    pkg_info["success"] = json!(false);
+                    pkg_info["status"] = json!(if current_ver == latest {
+                        "up_to_date"
+                    } else {
+                        "available"
+                    });
+                    pkg_info["success"] = json!(null);
                 }
+            }
+            Ok(None) => {
+                pkg_info["status"] = json!("no_compatible_version");
+                pkg_info["success"] = json!(false);
             }
             Err(e) => {
                 pkg_info["status"] = json!("error");

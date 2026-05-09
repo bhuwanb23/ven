@@ -154,7 +154,10 @@ fn execute_batch_removal(packages: &[String], force: bool) -> Result<()> {
 
         // Dependency check (unless force)
         if !force {
-            let dependents = find_dependents(package)?;
+            let dependents =
+                crate::intelligence::engine::DependencyIntelligenceService::list_npm_lockfile_dependents(
+                    package,
+                )?;
             if !dependents.is_empty() {
                 println!(
                     "\n  {} {} packages depend on {}:",
@@ -296,7 +299,7 @@ fn display_dry_run(packages: &[String], force: bool) -> Result<()> {
         let dependents = if force {
             vec![]
         } else {
-            find_dependents(package)?
+            crate::intelligence::engine::DependencyIntelligenceService::list_npm_lockfile_dependents(package)?
         };
         total_dependents += dependents.len();
 
@@ -413,7 +416,7 @@ fn display_verbose_removal(packages: &[String], force: bool, dry_run: bool) -> R
         let dependents = if force {
             vec![]
         } else {
-            find_dependents(package)?
+            crate::intelligence::engine::DependencyIntelligenceService::list_npm_lockfile_dependents(package)?
         };
 
         // Find transitive dependencies (what this package depends on)
@@ -531,7 +534,7 @@ fn output_json_removal(
             let dependents = if force {
                 vec![]
             } else {
-                find_dependents(package)?
+                crate::intelligence::engine::DependencyIntelligenceService::list_npm_lockfile_dependents(package)?
             };
 
             pkg_info["installed_version"] = json!(installed_version);

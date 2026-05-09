@@ -306,7 +306,7 @@ pub(super) fn display_verbose_status(
 
         if missing_count > 0 && !fix {
             println!(
-                "    {} Run: ven add --sync  or  npm install",
+                "    {} Run: ven add <pkg>  or  npm install",
                 "[TIP]".cyan()
             );
         }

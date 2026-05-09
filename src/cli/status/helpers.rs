@@ -255,12 +255,9 @@ pub(super) fn check_package_compatibility(
     _pkg_version: &str,
     node_spec: &str,
 ) -> Result<bool> {
-    use crate::core::packages::{fetch_npm_info, find_compatible_version};
+    use crate::intelligence::engine::DependencyIntelligenceService;
 
-    let info = fetch_npm_info(pkg_name)?;
-    let compatible_version = find_compatible_version(&info, node_spec);
-
-    Ok(compatible_version.is_some())
+    Ok(DependencyIntelligenceService::npm_latest_compatible(pkg_name, node_spec)?.is_some())
 }
 
 pub(super) fn calculate_dir_size(path: &Path) -> Result<u64> {
@@ -411,6 +408,31 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
 
     if issues.is_empty() && warnings.is_empty() {
         println!("    {} {}", "✓".green(), "All checks passed!".green());
+    }
+
+    if !config.runtime.node.is_empty() || !config.runtime.bun.is_empty() {
+        if let Ok(cwd) = std::env::current_dir() {
+            let key =
+                crate::intelligence::engine::DependencyIntelligenceService::project_key(&cwd);
+            if let Ok(Some(snap)) =
+                crate::intelligence::engine::DependencyIntelligenceService::load_snapshot(&key)
+            {
+                if snap.compatible {
+                    println!(
+                        "    {} {}",
+                        "✓".green(),
+                        "Dependency intelligence snapshot: compatible".green()
+                    );
+                } else {
+                    println!(
+                        "    {} {}",
+                        "⚠".yellow(),
+                        "Dependency intelligence snapshot: conflicts — try `ven check-add` or `ven graph`"
+                            .yellow()
+                    );
+                }
+            }
+        }
     }
 
     Ok(())

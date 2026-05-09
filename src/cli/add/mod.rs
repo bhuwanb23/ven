@@ -2,7 +2,11 @@ mod languages;
 mod toml;
 
 use crate::core::packages;
-use crate::core::{load_config, DependencyGraph, SecurityScanner};
+use crate::core::{load_config, SecurityScanner};
+use crate::intelligence::display::{print_intel_summary, print_intel_tree, print_transitive_note};
+use crate::intelligence::engine::DependencyIntelligenceService;
+use crate::intelligence::graph::SimulationResult;
+use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
 use std::collections::HashMap;
@@ -160,7 +164,7 @@ pub fn cmd_add(
 
     let mut success_count = 0;
     let mut fail_count = 0;
-    let mut all_graphs: Vec<(String, DependencyGraph)> = Vec::new();
+    let mut all_results: Vec<(String, SimulationResult)> = Vec::new();
 
     for pkg in &packages {
         println!("[INFO] Analyzing {}...", pkg.name.bold());
@@ -170,30 +174,29 @@ pub fn cmd_add(
             "latest".to_string()
         };
 
-        match analyze_package(
+        match DependencyIntelligenceService::simulate_add(
+            &cfg,
             &pkg.name,
             &version_spec,
-            &node_version,
             &existing_packages,
-            skip_check,
         ) {
-            Ok(graph) => {
+            Ok(result) => {
                 if verbose {
                     println!();
                     println!("    {}", "Dependency Tree:".dimmed());
-                    graph.print_tree();
-                    graph.print_tree_summary();
-                    graph.print_transitive_analysis();
+                    print_intel_tree(&result.graph, &pkg.name);
+                    print_intel_summary(&result.graph);
+                    print_transitive_note(&result.graph);
                     println!();
                 }
 
-                if !graph.incompatibilities.is_empty() {
+                if !result.engine_incompatibilities.is_empty() {
                     println!(
                         "  {} {} compatibility warning(s):",
                         "[WARN]".yellow(),
-                        graph.incompatibilities.len()
+                        result.engine_incompatibilities.len()
                     );
-                    for incompat in &graph.incompatibilities {
+                    for incompat in &result.engine_incompatibilities {
                         println!(
                             "    {} {} requires Node {}",
                             "[!]".yellow(),
@@ -203,43 +206,24 @@ pub fn cmd_add(
                     }
                 }
 
-                if !graph.conflicts.is_empty() {
+                if !result.conflict_chains.is_empty() {
                     println!(
-                        "\n  {} {} version conflict(s) detected:",
+                        "\n  {} {} constraint / peer issue(s):",
                         "[WARN]".yellow().bold(),
-                        graph.conflicts.len()
+                        result.conflict_chains.len()
                     );
-                    for conflict in &graph.conflicts {
-                        println!("\n    {} {}", "[WARN]".yellow(), conflict.package.bold());
-                        println!("      {} Required by:", "├".yellow());
-
-                        for (i, (requirer, constraint)) in conflict.constraints.iter().enumerate() {
-                            let connector = if i == conflict.constraints.len() - 1 {
-                                "└"
-                            } else {
-                                "├"
-                            };
-                            println!(
-                                "        {} {} ({})",
-                                connector.yellow(),
-                                requirer,
-                                constraint
-                            );
+                    for chain in &result.conflict_chains {
+                        println!("\n    {} {}", "[WARN]".yellow(), chain.package.bold());
+                        for step in &chain.steps {
+                            println!("      {} {}", "├".yellow(), step);
                         }
-
-                        println!(
-                            "      {} Versions: {}",
-                            "├".yellow(),
-                            conflict.versions.join(", ").bold()
-                        );
                     }
-
-                    graph.print_resolution_suggestions();
+                    print_conflict_report(&result);
                     println!();
                 }
 
-                let has_critical = graph
-                    .incompatibilities
+                let has_critical = result
+                    .engine_incompatibilities
                     .iter()
                     .any(|i| i.package == pkg.name);
 
@@ -254,14 +238,28 @@ pub fn cmd_add(
                     continue;
                 }
 
+                if !result.compatible && !skip_check {
+                    println!(
+                        "  {} Dependency intelligence reported conflicts for {}",
+                        "[ERROR]".red(),
+                        pkg.name
+                    );
+                    print_conflict_report(&result);
+                    fail_count += 1;
+                    continue;
+                }
+
                 println!(
                     "  {} {} will install: {} total packages",
                     "[OK]".green(),
                     pkg.name,
-                    graph.nodes.len()
+                    result.graph.nodes.len()
                 );
 
-                all_graphs.push((pkg.name.clone(), graph));
+                let key = DependencyIntelligenceService::project_key(&cwd);
+                let _ = DependencyIntelligenceService::persist_snapshot(&key, &result);
+
+                all_results.push((pkg.name.clone(), result));
                 success_count += 1;
             }
             Err(e) => {
@@ -293,19 +291,20 @@ pub fn cmd_add(
         println!("    {} {}", "Failed:".dimmed(), "0".green());
     }
 
-    let total_packages: u32 = all_graphs.iter().map(|(_, g)| g.nodes.len() as u32).sum();
+    let total_packages: u32 = all_results.iter().map(|(_, r)| r.graph.nodes.len() as u32).sum();
     println!(
         "    {} {} packages to install",
         "Total:".dimmed(),
         total_packages
     );
 
-    if !all_graphs.is_empty() {
+    if !all_results.is_empty() {
         println!("\n  {}", "Installation Preview".bold().cyan());
 
-        for (pkg_name, graph) in &all_graphs {
+        for (pkg_name, result) in &all_results {
             let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
-            let resolved_version = graph
+            let resolved_version = result
+                .graph
                 .nodes
                 .get(pkg_name)
                 .map(|n| n.version.clone())
@@ -318,11 +317,12 @@ pub fn cmd_add(
                 resolved_version.bold()
             );
 
-            let transitive_deps = graph.nodes.len().saturating_sub(1);
+            let transitive_deps = result.graph.nodes.len().saturating_sub(1);
             println!(
                 "      {} {} direct + {} transitive dependencies",
                 "├".dimmed(),
-                graph
+                result
+                    .graph
                     .nodes
                     .get(pkg_name)
                     .map(|n| n.dependencies.len())
@@ -330,8 +330,8 @@ pub fn cmd_add(
                 transitive_deps
             );
 
-            let has_conflicts = !graph.conflicts.is_empty();
-            let has_incompatibilities = !graph.incompatibilities.is_empty();
+            let has_conflicts = !result.conflict_chains.is_empty();
+            let has_incompatibilities = !result.engine_incompatibilities.is_empty();
 
             if has_conflicts || has_incompatibilities {
                 println!(
@@ -366,8 +366,8 @@ pub fn cmd_add(
 
     println!("\n  {}", "Security Audit".bold().cyan());
     let mut all_packages: HashMap<String, String> = HashMap::new();
-    for (_, graph) in &all_graphs {
-        for (name, node) in &graph.nodes {
+    for (_, result) in &all_results {
+        for (name, node) in &result.graph.nodes {
             all_packages.insert(name.clone(), node.version.clone());
         }
     }
@@ -456,11 +456,12 @@ pub fn cmd_add(
     println!();
     let mut installed = Vec::new();
 
-    for (pkg_name, graph) in &all_graphs {
+    for (pkg_name, result) in &all_results {
         let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
         println!("[INFO] Installing {}...", pkg_name.bold());
 
-        let version_to_install = graph
+        let version_to_install = result
+            .graph
             .nodes
             .get(pkg_name)
             .map(|node| node.version.clone())
@@ -502,34 +503,3 @@ pub fn cmd_add(
     Ok(())
 }
 
-/// Analyze a package and build dependency graph.
-fn analyze_package(
-    pkg_name: &str,
-    version_spec: &str,
-    node_version: &str,
-    existing_packages: &HashMap<String, String>,
-    _skip_check: bool,
-) -> Result<DependencyGraph> {
-    use tokio::runtime::Runtime;
-
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        tokio::task::block_in_place(|| {
-            handle.block_on(async {
-                let mut graph = DependencyGraph::new(node_version.to_string());
-                graph
-                    .build(pkg_name, version_spec, existing_packages)
-                    .await?;
-                Ok(graph)
-            })
-        })
-    } else {
-        let rt = Runtime::new()?;
-        rt.block_on(async {
-            let mut graph = DependencyGraph::new(node_version.to_string());
-            graph
-                .build(pkg_name, version_spec, existing_packages)
-                .await?;
-            Ok(graph)
-        })
-    }
-}

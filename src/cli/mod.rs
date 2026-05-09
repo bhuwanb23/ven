@@ -3,6 +3,8 @@ use clap::{Parser, Subcommand};
 
 // Command modules
 pub mod add;
+pub mod check_add;
+pub mod graph;
 pub mod init;
 pub mod install;
 pub mod list;
@@ -193,6 +195,36 @@ pub enum Commands {
         verbose: bool,
     },
 
+    /// Check add compatibility without installing (dependency intelligence)
+    ///
+    /// Examples:
+    ///   ven check-add express
+    ///   ven check-add react@18 --json
+    #[command(visible_alias = "ca")]
+    CheckAdd {
+        /// Package(s) with optional version (`pkg` or `pkg@1.2.3`)
+        #[arg(required = true)]
+        packages: Vec<String>,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show dependency graph / last intelligence snapshot
+    ///
+    /// Examples:
+    ///   ven graph
+    ///   ven graph --json
+    ///   ven graph --resolve
+    Graph {
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+        /// Skip SQLite snapshot and show live manifest / node_modules snapshot
+        #[arg(long)]
+        resolve: bool,
+    },
+
     /// Remove package(s) with dependency analysis and safety checks
     ///
     /// Safely removes npm packages after checking for dependents
@@ -355,6 +387,8 @@ pub fn run(cli: Cli) -> Result<()> {
             dry_run,
             verbose,
         } => add::cmd_add(&packages, skip_check, dry_run, verbose),
+        Commands::CheckAdd { packages, json } => check_add::cmd_check_add(&packages, json),
+        Commands::Graph { json, resolve } => graph::cmd_graph(json, resolve),
         Commands::Remove {
             packages,
             force,

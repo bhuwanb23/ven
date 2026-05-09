@@ -19,9 +19,15 @@ Unless noted, paths default to the **current working directory**; many commands 
 | `ven list [runtime]` | List installed versions (`runtime` optional filter). |
 | `ven use [PATH]` | Print shell exports to apply nearest `ven.toml`; **evaluate** output (`eval "$(ven use)"`, PowerShell: parse stderr hint / use hooks). |
 | `ven deactivate` | Print exports that undo `ven use` overlay for current shell session. |
-| `ven add <packages…>` | Add npm/PyPI/etc. packages per `[packages]` / runtime rules; sync `ven.toml`. (Rubygems / Bundler: use **`gem`** / **`bundle`** in the activated shell.) |
+| `ven add <packages…>` | Add npm/PyPI/etc. packages per `[packages]` / runtime rules; updates `ven.toml`. (Rubygems / Bundler: use **`gem`** / **`bundle`** in the activated shell.) |
+| `ven check-add <packages…>` | **Dependency intelligence**: simulate an add (peers, pins, engines) **without** installing; `--json`. |
+| `ven graph` | Show last persisted simulation graph or a manifest/`node_modules` snapshot; `--json`, `--resolve` (skip SQLite snapshot). |
 | `ven remove [packages…]` | Remove packages; `--cleanup` removes orphans. |
-| `ven upgrade [packages…]` | Upgrade pins; `--all`, `--apply`, `--dry-run`. |
+| `ven upgrade [packages…]` | Upgrade pins; `--all`, `--apply`, `--dry-run`. Uses the same intelligence layer before apply. |
+
+## Dependency intelligence
+
+Pre-install analysis lives in `src/intelligence/`: runtime **adapters** (npm family for Node/Bun; deterministic stubs for Python, Go, Rust, Java, Deno, Ruby), a shared **graph** model, **conflict** explanations, and a SQLite snapshot under `~/.ven/intelligence.db` keyed by project path. `ven status` surfaces the last snapshot when Node/Bun is configured.
 
 ## Shell integration
 
