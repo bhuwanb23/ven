@@ -5,7 +5,6 @@ use crate::intelligence::conflicts::{analyze_npm_graph, engine_checks};
 use crate::intelligence::display::{graph_to_json, print_full_intel_tree};
 use crate::intelligence::engine::DependencyIntelligenceService;
 use anyhow::Result;
-use colored::Colorize;
 use std::collections::HashSet;
 
 pub fn cmd_graph(json: bool, resolve: bool) -> Result<()> {

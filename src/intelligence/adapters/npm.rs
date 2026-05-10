@@ -53,7 +53,10 @@ impl NpmGraphBuilder {
         let mut names: Vec<_> = root_packages.keys().collect();
         names.sort();
         for name in names {
-            let version = root_packages.get(name).unwrap_or(&"latest".to_string());
+            let version = root_packages
+                .get(name)
+                .map(|s| s.as_str())
+                .unwrap_or("latest");
             if self.nodes.contains_key(name) {
                 continue;
             }

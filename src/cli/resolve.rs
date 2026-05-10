@@ -2,7 +2,7 @@
 
 use crate::cli::add::update_ven_toml_packages;
 use crate::core::{load_config, npm_registry::NpmRegistry, packages};
-use crate::intelligence::adapters::{find_highest_node_compatible_version, resolve_version};
+use crate::intelligence::adapters::resolve_version;
 use crate::intelligence::conflicts::{analyze_npm_graph, engine_checks};
 use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::graph::{EngineIncompatibility, ResolutionAction};
@@ -108,10 +108,12 @@ fn build_conflict_entries(
     }
 
     for inc in engine_incompat {
-        let fix = if let Some(fixed) = find_highest_node_compatible_version(&inc.package, &graph.runtime_version)? {
-            format!("{} → {}", inc.package, fixed)
-        } else {
-            format!("Downgrade {} to a Node-compatible release", inc.package)
+        let fix = match DependencyIntelligenceService::npm_latest_compatible(
+            &inc.package,
+            &graph.runtime_version,
+        )? {
+            Some(fixed) => format!("{} → {}", inc.package, fixed),
+            None => format!("Downgrade {} to a Node-compatible release", inc.package),
         };
 
         entries.push(ConflictEntry {
@@ -223,7 +225,17 @@ fn build_resolution_map(
             .get(&inc.package)
             .map(|n| n.version.clone())
             .unwrap_or_else(|| "unknown".to_string());
-        if let Some(suggested) = find_highest_node_compatible_version(&inc.package, &cfg.runtime.node)? {
+        let node_for_compat = if !cfg.runtime.node.is_empty() {
+            cfg.runtime.node.as_str()
+        } else {
+            cfg.runtime.bun.as_str()
+        };
+        if node_for_compat.is_empty() {
+            continue;
+        }
+        if let Some(suggested) =
+            DependencyIntelligenceService::npm_latest_compatible(&inc.package, node_for_compat)?
+        {
             if suggested != current {
                 map.insert(
                     inc.package.clone(),

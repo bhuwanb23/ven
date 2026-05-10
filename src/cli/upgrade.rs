@@ -6,7 +6,7 @@ use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
 use languages::{
     cmd_upgrade_bun, cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python,

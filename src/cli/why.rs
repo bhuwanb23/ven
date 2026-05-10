@@ -86,7 +86,7 @@ pub fn cmd_why(package: &str) -> Result<()> {
             );
 
             // Check if this dependent is from ven.toml
-            if existing_packages.contains_key(dependent) {
+            if existing_packages.contains_key(dependent.as_str()) {
                 println!(
                     "      └─ {} (declared in your ven.toml)",
                     "root entry".dimmed()
@@ -115,17 +115,20 @@ pub fn cmd_why(package: &str) -> Result<()> {
     } else {
         // Safe only if all dependents are themselves only transitively used
         // For simplicity: safe = no ven.toml entries depend on it
-        !dependents.iter().any(|d| existing_packages.contains_key(d))
+        !dependents
+            .iter()
+            .any(|d| existing_packages.contains_key(d.as_str()))
     };
 
     let safety_icon = if is_safe { "✓".green() } else { "✗".red() };
     let safety_msg = if is_safe {
         "Yes (no direct ven.toml entries depend on it)".green()
     } else {
-        let blocking = dependents
+        let blocking: Vec<&str> = dependents
             .iter()
-            .filter(|d| existing_packages.contains_key(d))
-            .collect::<Vec<_>>();
+            .filter(|d| existing_packages.contains_key(d.as_str()))
+            .map(|d| d.as_str())
+            .collect();
         format!("No ({} from ven.toml depends on it)", blocking.join(", ")).red()
     };
 
@@ -143,7 +146,7 @@ fn trace_to_root(
     indent: &str,
 ) {
     // Find who depends on this package
-    let mut direct_deps: Vec<String> = graph
+    let direct_deps: Vec<String> = graph
         .edges
         .iter()
         .filter(|e| e.to == package)
@@ -165,7 +168,7 @@ fn trace_to_root(
 
         println!("{}  {} requires {}@{}", indent, prefix, dep, dep_version);
 
-        if ven_packages.contains_key(dep) {
+        if ven_packages.contains_key(dep.as_str()) {
             println!(
                 "{}      └─ {} (declared in your ven.toml)",
                 indent,
