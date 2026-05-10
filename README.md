@@ -1,38 +1,157 @@
 # ven
 
-Rust CLI for **per-project language runtimes and dependencies**, driven by **`ven.toml`**. Installed runtimes live under **`~/.ven`** (or **`%USERPROFILE%\.ven`** on Windows).
+> Any-first intelligent runtime + dependency manager.
+
+`ven` is a Rust CLI for project-scoped runtimes and package workflows driven by `ven.toml`.  
+It supports Node/Bun/Python/Go/Rust/Java/Deno/Ruby and includes a dependency intelligence layer for pre-install simulation, conflict explanation, graph inspection, and lockfile validation.
+
+---
+
+## Why `ven`
+
+- Project-local runtime and package control with one CLI
+- Pre-install dependency intelligence (`check-add`, `graph`, `resolve`)
+- Lockfile safety flow (`ven lock` -> `ven sync` with graph validation)
+- Cross-platform shell integration (`setup`, `use`, `deactivate`)
+- Clean docs and machine-readable outputs (`--json` where it matters)
+
+---
 
 ## Supported runtimes
 
-ven registers multiple **`LanguagePlugin`** implementations: **node**, **python**, **go**, **rust**, **java**, **deno**, **ruby**. Use **`ven install <language> [version]`** and **`ven list [language]`**; omit the version for interactive selection where supported.
+- `node`
+- `bun`
+- `python`
+- `go`
+- `rust`
+- `java`
+- `deno`
+- `ruby`
 
-Full notes: **[docs/languages.md](docs/languages.md)**.
+More runtime details: [`docs/languages.md`](docs/languages.md).
 
-## Commands (overview)
+---
 
-| Area | Commands | Notes |
-|------|-----------|--------|
-| Runtimes | `ven install`, `ven list` | Per-language installs (see docs). |
-| Shell | `ven setup`, `ven use`, `ven deactivate`, `ven shell …` | Hooks define **`ven-use`** after **`ven setup`**. Evaluate `ven use` output if not using hooks. Optional **`VEN_STORAGE_PATH`** overrides `~/.ven`. |
-| Packages | `ven add`, `ven remove`, `ven upgrade` | Ecosystem-specific sync into **`ven.toml`** (npm, pip, etc., per active runtime). |
-| Project | `ven init`, `ven status` | Nearest **`ven.toml`** upward from cwd (no multi-file merge). |
+## Install (from source)
 
-**Companion binary:** **`ven-launcher`** opens a new terminal with env for the nearest **`ven.toml`** — see **[docs/ven-launcher.md](docs/ven-launcher.md)**.
+```bash
+cargo build --release
+```
 
-### Documentation index
+Binary path:
+- `target/release/ven`
+- `target/release/ven-launcher`
 
-- **[docs/README.md](docs/README.md)** — table of contents  
-- **[docs/commands-reference.md](docs/commands-reference.md)** — all commands  
-- **[docs/ven-toml.md](docs/ven-toml.md)** — configuration  
-- **[docs/shell-integration.md](docs/shell-integration.md)** — hooks and activation  
+Optional storage override:
+- `VEN_STORAGE_PATH` (defaults to `~/.ven` or `%USERPROFILE%\.ven`)
 
-### First-time shell setup
+---
 
-1. Build or install **`ven`** and put it on **`PATH`** (`cargo build --release` from this repo if developing).
-2. Run **`ven setup`** and follow the printed steps for your shell.
-3. Open a **new** terminal, or run **`ven-use`** / evaluate **`ven use`** manually.
+## Quick start
 
-For CLI details in the terminal: **`ven --help`**, **`ven <command> --help`**.
+```bash
+# 1) Initialize project config
+ven init --template
+
+# 2) Install runtime
+ven install node 20
+
+# 3) Add packages with simulation-first checks
+ven add express axios
+
+# 4) Inspect dependency intelligence graph
+ven graph
+
+# 5) Create lockfile and restore safely
+ven lock
+ven sync
+```
+
+---
+
+## Core commands
+
+### Runtime + shell
+- `ven install <runtime> [version]`
+- `ven list [runtime]`
+- `ven setup`
+- `ven use [path]`
+- `ven deactivate`
+
+### Dependency intelligence
+- `ven check-add <pkg[@version]> [--json]`
+- `ven graph [--json] [--resolve]`
+- `ven why <package>`
+- `ven resolve`
+
+### Package lifecycle
+- `ven add <pkg...>`
+- `ven upgrade <pkg...> [--all] [--apply]`
+- `ven remove <pkg...> [--cleanup]`
+
+### Lock + restore
+- `ven lock` — writes `ven.lock` with graph + content hash
+- `ven sync` — validates `ven.lock` graph/hash before install
+
+Full command reference: [`docs/commands-reference.md`](docs/commands-reference.md).
+
+---
+
+## Dependency intelligence architecture
+
+Main module: `src/intelligence/`
+
+- `engine.rs` — orchestration (`DependencyIntelligenceService`)
+- `adapters/` — runtime adapter contract + implementations
+- `graph.rs` — normalized graph model
+- `conflicts.rs` / `suggestions.rs` — conflict analysis + guidance
+- `store.rs` — SQLite persistence (`~/.ven/intelligence.db`)
+- `ven_lock.rs` — lockfile schema + validation
+
+This powers `ven add`, `ven upgrade`, `ven check-add`, `ven graph`, `ven lock`, and `ven sync`.
+
+---
+
+## Media (recommended)
+
+Add these files under `docs/media/` and reference them here:
+
+- CLI demo GIF: `docs/media/ven-demo.gif`
+- Graph output screenshot: `docs/media/ven-graph.png`
+- Lock/sync validation screenshot: `docs/media/ven-sync.png`
+
+Example markdown:
+
+```md
+![ven demo](docs/media/ven-demo.gif)
+```
+
+---
+
+## Docs map
+
+- Docs index: [`docs/README.md`](docs/README.md)
+- Commands: [`docs/commands-reference.md`](docs/commands-reference.md)
+- Config schema: [`docs/ven-toml.md`](docs/ven-toml.md)
+- Shell integration: [`docs/shell-integration.md`](docs/shell-integration.md)
+- Command pages: [`docs/cmds/`](docs/cmds)
+
+---
+
+## Development
+
+```bash
+cargo check
+cargo test
+```
+
+After code changes, update graph metadata:
+
+```bash
+graphify update .
+```
+
+---
 
 ## License
 

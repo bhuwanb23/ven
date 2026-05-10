@@ -43,3 +43,5 @@ ven.toml
 .agents
 .cursor
 graphify-out
+.graphify_detect.json
+.graphify_python
