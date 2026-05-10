@@ -22,12 +22,18 @@ Unless noted, paths default to the **current working directory**; many commands 
 | `ven add <packages…>` | Add npm/PyPI/etc. packages per `[packages]` / runtime rules; updates `ven.toml`. (Rubygems / Bundler: use **`gem`** / **`bundle`** in the activated shell.) |
 | `ven check-add <packages…>` | **Dependency intelligence**: simulate an add (peers, pins, engines) **without** installing; `--json`. |
 | `ven graph` | Show last persisted simulation graph or a manifest/`node_modules` snapshot; `--json`, `--resolve` (skip SQLite snapshot). |
+| `ven lock` | Write **`ven.lock`** (merged resolved graph + `content_hash`) for npm/Node-Bun projects. |
+| `ven sync` | Read **`ven.lock`**, validate graph + hash, refresh SQLite package/dependency cache, then **`npm install`** each root; `--dry-run`, `--json`, `--skip-validate`. |
 | `ven remove [packages…]` | Remove packages; `--cleanup` removes orphans. |
 | `ven upgrade [packages…]` | Upgrade pins; `--all`, `--apply`, `--dry-run`. Uses the same intelligence layer before apply. |
 
 ## Dependency intelligence
 
-Pre-install analysis lives in `src/intelligence/`: runtime **adapters** (npm family for Node/Bun; deterministic stubs for Python, Go, Rust, Java, Deno, Ruby), a shared **graph** model, **conflict** explanations, and a SQLite snapshot under `~/.ven/intelligence.db` keyed by project path. `ven status` surfaces the last snapshot when Node/Bun is configured.
+Pre-install analysis lives in `src/intelligence/`: runtime **adapters** (npm family for Node/Bun; deterministic stubs for Python, Go, Rust, Java, Deno, Ruby), a shared **graph** model, **conflict** explanations, and SQLite under **`~/.ven/intelligence.db`**. `ven status` surfaces the last snapshot when Node/Bun is configured.
+
+**`ven.lock`** (JSON) stores merged pins, edges, and a **`content_hash`** (SHA-256 of the canonical document without the hash field). **`ven sync`** verifies the hash and structural/semver consistency before installing.
+
+**SQLite tables** (same database): `snapshots` (per-project simulation JSON, optional `graph_hash`), `package_cache` (name, version, ecosystem, metadata JSON, `cached_at` — **1 hour** TTL convention for cache freshness), `dependency_cache` (from package/version, to package, constraint string, constraint type, ecosystem, `cached_at`), and `lock_validations` (project key, validation time, graph hash, lock content hash).
 
 ## Shell integration
 

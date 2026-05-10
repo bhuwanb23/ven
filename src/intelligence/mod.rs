@@ -7,6 +7,7 @@ pub mod engine;
 pub mod graph;
 pub mod store;
 pub mod suggestions;
+pub mod ven_lock;
 
 pub use engine::DependencyIntelligenceService;
 pub use graph::*;

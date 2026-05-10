@@ -35,7 +35,7 @@ pub struct IntelNode {
     pub required_by: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IntelEdge {
     pub from: String,
     pub to: String,

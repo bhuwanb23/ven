@@ -19,6 +19,9 @@ Complete documentation for all `ven` commands and their subcommands.
 | `ven graph` | Inspect dependency graph / last simulation | [→ graph.md](graph.md) |
 | `ven remove` | Remove packages with dependency safety | [→ remove.md](remove.md) |
 | `ven upgrade` | Preview and apply package upgrades | [→ upgrade.md](upgrade.md) |
+| `ven lock` | Write `ven.lock` from resolved graphs | [→ lock.md](lock.md) |
+| `ven sync` | Validate `ven.lock` and install pins | [→ sync.md](sync.md) |
+| `ven resolve` | Auto-resolve conflicts and apply fixes | [→ resolve.md](resolve.md) |
 
 ## ⚙️ Project Setup
 

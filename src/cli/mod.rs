@@ -8,10 +8,12 @@ pub mod graph;
 pub mod init;
 pub mod install;
 pub mod list;
+pub mod lockfile;
 pub mod remove;
 pub mod resolve;
 pub mod setup;
 pub mod shell;
+pub mod sync;
 pub mod status;
 pub mod upgrade;
 pub mod why;
@@ -324,6 +326,32 @@ pub enum Commands {
         force: bool,
     },
 
+    /// Write `ven.lock` from resolved graphs for `[packages]` (npm / Node-Bun projects)
+    ///
+    /// Merges per-package simulations into one pinned graph and records a content hash.
+    #[command(
+        long_about = "Generate ven.lock\n\nResolves each package declared in ven.toml, merges the dependency graphs,\nand writes ven.lock with a cryptographic content hash for integrity checks.\n\nExample:\n  ven lock"
+    )]
+    Lock,
+
+    /// Validate `ven.lock` and install pinned root packages
+    ///
+    /// Verifies internal graph consistency and semver constraints before `npm install`.
+    #[command(
+        long_about = "Sync from ven.lock\n\nReads ven.lock, validates structure and constraints, updates the intelligence cache,\nand installs each root package at its locked version.\n\nExamples:\n  ven sync\n  ven sync --dry-run\n  ven sync --json"
+    )]
+    Sync {
+        /// Validate only; do not run npm install
+        #[arg(long)]
+        dry_run: bool,
+        /// Machine-readable result
+        #[arg(long)]
+        json: bool,
+        /// Skip validation (not recommended)
+        #[arg(long)]
+        skip_validate: bool,
+    },
+
     /// Automatically resolve dependency conflicts and apply fixes
     ///
     /// Scans the current dependency graph, identifies package and engine
@@ -433,6 +461,12 @@ pub fn run(cli: Cli) -> Result<()> {
             all,
             force,
         } => upgrade::cmd_upgrade(&packages, apply, dry_run, json, verbose, all, force),
+        Commands::Lock => lockfile::cmd_lock(),
+        Commands::Sync {
+            dry_run,
+            json,
+            skip_validate,
+        } => sync::cmd_sync(dry_run, json, skip_validate),
         Commands::Resolve => resolve::cmd_resolve(),
         Commands::Setup => setup::cmd_setup(),
         Commands::Shell { action } => match action {
