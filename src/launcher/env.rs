@@ -11,17 +11,47 @@ use crate::shell::{
 };
 use anyhow::Result;
 
+fn launcher_bin_dir() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    Some(path_for_env_value(dir))
+}
+
+fn prepend_path(entry: &str, base: &str) -> String {
+    if entry.is_empty() {
+        return base.to_string();
+    }
+    if base.is_empty() {
+        return entry.to_string();
+    }
+    if cfg!(windows) {
+        format!("{entry};{base}")
+    } else {
+        format!("{entry}:{base}")
+    }
+}
+
+/// Ensure the launcher's own folder is on PATH so bundled `ven` is callable.
+pub fn merged_path_with_launcher_bin(base: &str) -> String {
+    if let Some(bin_dir) = launcher_bin_dir() {
+        prepend_path(&bin_dir, base)
+    } else {
+        base.to_string()
+    }
+}
+
 /// Same PATH merge as `ven shell activate`: overlay first, then current process `PATH`.
 pub fn merged_path_for_child(parts: &ActivationParts) -> String {
     let overlay = activation_path_overlay(parts);
     let base = std::env::var("PATH").unwrap_or_default();
-    if overlay.is_empty() {
+    let merged = if overlay.is_empty() {
         base
     } else if cfg!(windows) {
         format!("{overlay};{base}")
     } else {
         format!("{overlay}:{base}")
-    }
+    };
+    merged_path_with_launcher_bin(&merged)
 }
 
 /// Apply merged PATH and toolchain variables to a child process (mirrors `format_activation_shell_script`).
@@ -85,6 +115,12 @@ pub fn apply_activation_env(cmd: &mut Command, parts: &ActivationParts) {
         }
         cmd.env(key, val);
     }
+}
+
+/// Apply only launcher portability env (no project runtime resolution).
+pub fn apply_launcher_portable_env(cmd: &mut Command) {
+    let base = std::env::var("PATH").unwrap_or_default();
+    cmd.env("PATH", merged_path_with_launcher_bin(&base));
 }
 
 /// Print `"PATH should be:"` overlay and other env vars resolved from `project_dir`'s nearest `ven.toml`.

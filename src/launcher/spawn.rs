@@ -6,7 +6,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 
-use crate::launcher::env::apply_activation_env;
+use crate::launcher::env::{apply_activation_env, apply_launcher_portable_env};
 #[cfg(windows)]
 use crate::launcher::greeting::{
     generic_header_lines, greeting_lines, write_cmd_autorun, GreetingStyle,
@@ -100,6 +100,7 @@ fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()>
             cmd.args(["-NoExit", "-NoLogo", "-Command", &cmdline])
                 .current_dir(cwd)
                 .creation_flags(CREATE_NEW_CONSOLE);
+            apply_launcher_portable_env(&mut cmd);
             cmd.spawn()
                 .context("failed to open PowerShell for no-ven.toml message")?;
         }
@@ -127,6 +128,7 @@ fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()>
             cmd.args(["/K", kept.to_string_lossy().as_ref()])
                 .current_dir(cwd)
                 .creation_flags(CREATE_NEW_CONSOLE);
+            apply_launcher_portable_env(&mut cmd);
             cmd.spawn()
                 .context("failed to open cmd for no-ven.toml message")?;
         }
@@ -166,17 +168,19 @@ fn spawn_without_project(kind: ShellKind, cwd: &Path, start: &str) -> Result<()>
 
     match kind {
         ShellKind::Zsh => {
-            Command::new("zsh")
-                .args(["--init-file", kept.to_string_lossy().as_ref(), "-i"])
-                .current_dir(cwd)
-                .spawn()
+            let mut cmd = Command::new("zsh");
+            cmd.args(["--init-file", kept.to_string_lossy().as_ref(), "-i"])
+                .current_dir(cwd);
+            apply_launcher_portable_env(&mut cmd);
+            cmd.spawn()
                 .context("failed to open zsh for no-ven.toml message")?;
         }
         _ => {
-            Command::new("bash")
-                .args(["--init-file", kept.to_string_lossy().as_ref(), "-i"])
-                .current_dir(cwd)
-                .spawn()
+            let mut cmd = Command::new("bash");
+            cmd.args(["--init-file", kept.to_string_lossy().as_ref(), "-i"])
+                .current_dir(cwd);
+            apply_launcher_portable_env(&mut cmd);
+            cmd.spawn()
                 .context("failed to open bash for no-ven.toml message")?;
         }
     }
