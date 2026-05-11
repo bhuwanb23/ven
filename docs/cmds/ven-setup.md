@@ -131,3 +131,4 @@ Even with the broadcast and merged-PATH verification, the reliable behavior is t
 
 - [`ven setup`](setup.md) — shell hook installation (called by `ven-setup` after PATH update)
 - [`ven-launcher`](../ven-launcher.md) — portable terminal spawner, no install required
+- [install scripts](../install-scripts.md) — `install.ps1` / `install.sh` one-liners that download this binary from a GitHub release and run it

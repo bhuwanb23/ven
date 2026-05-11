@@ -32,9 +32,10 @@ Complete documentation for all `ven` commands and their subcommands.
 
 ## 💿 Installer / Spawner
 
-| Binary | Description | Documentation |
-|--------|-------------|---------------|
-| `ven-setup` | Windows installer (User mode no-admin, or System mode with UAC) | [→ ven-setup.md](ven-setup.md) |
+| Binary / Script | Description | Documentation |
+|-----------------|-------------|---------------|
+| `ven-setup` | Cross-platform installer (Windows User/System; Unix user/system) | [→ ven-setup.md](ven-setup.md) |
+| `install.ps1` / `install.sh` | One-liner install scripts that wrap `ven-setup` from a GitHub release | [→ ../install-scripts.md](../install-scripts.md) |
 
 ## 🔧 Internal Commands
 

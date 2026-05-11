@@ -250,9 +250,13 @@ $ ven graph
 
 ### Install ven
 
-**Windows (PowerShell)**
+**Windows (PowerShell 5.1+)**
 ```powershell
+# user install (interactive prompt if TTY; defaults to "user" when piped)
 irm https://get.ven.sh/install.ps1 | iex
+
+# explicit system install
+$env:VEN_INSTALL_MODE='system'; irm https://get.ven.sh/install.ps1 | iex
 ```
 
 **Windows (offline / corporate — bundled installer)**
@@ -268,8 +272,24 @@ Download the release zip, extract, and run `ven-setup.exe`. Two modes are availa
 
 **macOS / Linux**
 ```bash
+# user install
 curl -fsSL https://get.ven.sh/install.sh | sh
+
+# system install (requires sudo on Unix; no UAC equivalent)
+sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://get.ven.sh/install.sh | sh -s -- --mode system"
 ```
+
+> **Interim hosting**: `get.ven.sh` is a placeholder until the domain is provisioned. Until then, point at `raw.githubusercontent.com`:
+>
+> ```powershell
+> irm https://raw.githubusercontent.com/yourorg/ven/main/scripts/install.ps1 | iex
+> ```
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/yourorg/ven/main/scripts/install.sh | sh
+> ```
+>
+> The full env-var / flag surface and the release asset naming contract live in [docs/install-scripts.md](docs/install-scripts.md).
 
 **From source (Rust)**
 ```bash
