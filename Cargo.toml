@@ -15,7 +15,7 @@ path = "src/bin/launcher.rs"
 
 [[bin]]
 name = "ven-setup"
-path = "src/bin/setup.rs"
+path = "src/bin/setup/main.rs"
 
 [dependencies]
 # CLI

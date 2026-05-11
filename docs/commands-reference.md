@@ -57,8 +57,8 @@ See [shell-integration.md](shell-integration.md).
 |--------|---------|
 | `ven-launcher [PROJECT]` | Open a **new** terminal with env for nearest `ven.toml`; `--show-env` prints resolved env instead. See [ven-launcher.md](ven-launcher.md). |
 
-## Installer (Windows)
+## Installer (cross-platform)
 
 | Binary | Purpose |
 |--------|---------|
-| `ven-setup` | Copy `ven.exe` / `ven-launcher.exe` into a stable directory, add it to `PATH`, install shell hooks, and verify. Two modes: `--mode user` (per-user, **no admin**, under `%USERPROFILE%\.ven\bin`) and `--mode system` (machine-wide via **UAC**, under `%ProgramFiles%\ven\bin`). Supports `--dry-run` (system dry-runs never trigger UAC) and `--no-input` for automation. See [cmds/ven-setup.md](cmds/ven-setup.md). |
+| `ven-setup` | Single self-contained installer. `ven` and `ven-launcher` are **embedded as bytes** via `build.rs` + `include_bytes!`, extracted at install time, then `PATH` is wired up and `ven setup` runs the shell hooks. **Windows**: `--mode user` (`%USERPROFILE%\.ven\bin`, no admin) or `--mode system` (`%ProgramFiles%\ven\bin`, UAC). **Unix**: `--mode user` (`~/.ven/bin` + rc-file PATH block) or `--mode system` (`/usr/local/bin` + `/etc/profile.d/ven.sh`, requires `sudo`). Supports `--dry-run` and `--no-input`. See [cmds/ven-setup.md](cmds/ven-setup.md). |
