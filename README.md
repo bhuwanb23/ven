@@ -255,6 +255,17 @@ $ ven graph
 irm https://get.ven.sh/install.ps1 | iex
 ```
 
+**Windows (offline / corporate — bundled installer)**
+
+Download the release zip, extract, and run `ven-setup.exe`. Two modes are available:
+
+| Mode | Install dir | Admin? |
+|------|-------------|--------|
+| `--mode user` *(default prompt)* | `%USERPROFILE%\.ven\bin` | No |
+| `--mode system`                  | `%ProgramFiles%\ven\bin` | Yes (UAC) |
+
+`ven-setup` copies the binaries, updates the appropriate `PATH` scope (HKCU or HKLM Machine), broadcasts `WM_SETTINGCHANGE`, installs shell hooks, and verifies `ven --version`. Run with `--dry-run` to preview every step. See [docs/cmds/ven-setup.md](docs/cmds/ven-setup.md).
+
 **macOS / Linux**
 ```bash
 curl -fsSL https://get.ven.sh/install.sh | sh

@@ -30,6 +30,12 @@ Complete documentation for all `ven` commands and their subcommands.
 | `ven init` | Create ven.toml with templates | [→ init.md](init.md) |
 | `ven setup` | Install shell hook for auto-switching | [→ setup.md](setup.md) |
 
+## 💿 Installer / Spawner
+
+| Binary | Description | Documentation |
+|--------|-------------|---------------|
+| `ven-setup` | Windows installer (User mode no-admin, or System mode with UAC) | [→ ven-setup.md](ven-setup.md) |
+
 ## 🔧 Internal Commands
 
 | Command | Description | Documentation |
