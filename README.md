@@ -363,23 +363,32 @@ auto_path = true      # Prepend ./venv/{Scripts,bin} on activation when present
 
 ### `ven.lock`
 
-```toml
-version    = "1"
-created_at = "2024-01-15T14:23:11Z"
+JSON. Format **v2** ships SRI integrity hashes copied straight from the npm
+registry's `dist.integrity` (`sha512-...` for current packages). v1 lockfiles
+load without `integrity`; `ven sync` prints a hint to regenerate.
 
-[runtime]
-node = "20.20.2"
-
-[[packages]]
-name    = "express"
-version = "4.18.2"
-sha256  = "a3f8b2c1d4e5f6..."
-
-[[packages]]
-name    = "lodash"
-version = "4.16.0"
-sha256  = "b4c5d6e7f8a9b0..."
+```json
+{
+  "lock_format_version": 2,
+  "ecosystem": "npm",
+  "runtime_kind": "NpmFamily",
+  "runtime_version": "20",
+  "roots": ["express"],
+  "packages": {
+    "express": {
+      "version": "4.18.2",
+      "integrity": "sha512-5/PsL6iGPdfQ/lKM1UuielYgv3BUoJfz1aUwU9vHZ+J7gyvwdQXFEBIEIaxeGf0GIcreATNyBExtalisDbuMqQ=="
+    }
+  },
+  "edges": [],
+  "content_hash": "<sha-256 of canonical payload>"
+}
 ```
+
+`ven sync --check` then audits this lock against `node_modules/` (or
+installed pip packages for Python projects), reporting `MISSING`, `STALE`,
+`OUT-OF-LOCK`, `MISMATCH`, and informational `ORPHAN` drift. Non-zero exit
+on drift makes it CI-safe.
 
 ---
 
@@ -430,9 +439,11 @@ ven resolve                     # find & apply optimal version set
 ### Lockfile & Reproducibility (Node.js / Bun)
 
 ```bash
-ven lock                        # write ven.lock with content_hash
+ven lock                        # write ven.lock v2 (SRI integrity + content_hash)
 ven sync                        # validate ven.lock + install pins
-ven sync --dry-run              # validate only (CI-safe)
+ven sync --dry-run              # validate, print plan, exit 0
+ven sync --check                # CI mode — drift report; exit non-zero on drift
+ven sync --check --json         # machine-readable drift report
 ven sync --skip-validate        # install without re-checking the lock
 ```
 
@@ -588,8 +599,37 @@ No containers. No VMs. Just PATH manipulation.
 - Each install runs a **post-install binary smoke test** before the runtime
   is registered as available — failures don't pollute `~/.ven/`.
 - Lock-file integrity via a **deterministic content hash** over the merged
-  resolved graph.
+  resolved graph **plus** per-package SRI hashes (sha512/sha256) copied from
+  npm `dist.integrity` in `ven.lock` v2.
+- `ven sync --check` performs **drift detection** against `node_modules/`
+  (or installed pip packages) — non-zero exit on any mismatch makes it
+  CI-safe.
 - No telemetry. No phone home. No accounts.
+
+### Built-in security & health (`ven check` / `ven scan`)
+
+| What | Source | Cache TTL | Cross-platform |
+|------|--------|-----------|----------------|
+| Package CVE scan (8 ecosystems) | [osv.dev](https://osv.dev) `querybatch` | 6 h, stale-on-failure | yes (pure Rust HTTP) |
+| Runtime end-of-life alerts | [endoflife.date](https://endoflife.date) | 24 h, stale-on-failure | yes |
+| Ghost dependency detection | local source walk (`ignore` crate, gitignore-aware) | n/a | yes (no shell-out) |
+| Version-pinned package docs | npm/PyPI/docs.rs/pkg.go.dev/javadoc.io/rubygems/deno | 7 d | yes (`webbrowser` for `--browser`, `termimad` for terminal render) |
+
+```bash
+ven check                          # CVE + EOL combined report
+ven check --security               # CVE only (npm, PyPI, Go, crates.io, Maven, RubyGems, Deno)
+ven check --eol                    # Runtime EOL only
+ven scan --ghosts                  # find imports not declared in any manifest
+ven scan --ghosts --fix            # add ghosts to ven.toml [packages]
+ven docs <pkg>                     # render docs (version-pinned to ven.lock)
+ven docs <pkg> --browser           # open canonical URL in default browser
+ven docs <pkg> --diff V1 V2        # unified line diff between two versions' READMEs
+```
+
+`ven check` exits non-zero on any **HIGH/CRITICAL** CVE or **passed-EOL**
+runtime; `ven scan --ghosts` exits non-zero when ghosts are found and
+`--fix` was not passed. See [`docs/security-model.md`](docs/security-model.md)
+for the full threat model and exit-code contract.
 
 ---
 
@@ -597,12 +637,13 @@ No containers. No VMs. Just PATH manipulation.
 
 | Topic | Link |
 | ----- | ---- |
-| **Complete feature reference (all 10 categories)** | [docs/features.md](docs/features.md) |
+| **Complete feature reference (all 12 categories)** | [docs/features.md](docs/features.md) |
 | Documentation index | [docs/README.md](docs/README.md) |
 | Configuration (`ven.toml`) | [docs/ven-toml.md](docs/ven-toml.md) |
 | Lockfile (`ven.lock`) | [docs/ven-lock.md](docs/ven-lock.md) |
 | Command reference (`ven <cmd>`) | [docs/cmds/INDEX.md](docs/cmds/INDEX.md) |
 | Per-language deep dives | [docs/languages.md](docs/languages.md) → [`docs/languages/`](docs/languages/) |
+| **Security model** (CVE + EOL + integrity + drift) | [docs/security-model.md](docs/security-model.md) |
 | Shell integration | [docs/shell-integration.md](docs/shell-integration.md) |
 | Standalone launcher | [docs/ven-launcher.md](docs/ven-launcher.md) |
 | Installation (scripts + offline) | [docs/install-scripts.md](docs/install-scripts.md) |

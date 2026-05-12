@@ -63,13 +63,22 @@ pub fn cmd_lock() -> Result<()> {
     let path = cwd.join("ven.lock");
     lock.write_path(&path)?;
 
+    let with_integrity = lock.packages.values().filter(|p| p.integrity.is_some()).count();
+    let total = lock.packages.len();
+
     println!(
         "  {} Wrote {} ({} packages, {} edges, hash {})",
         "[OK]".green(),
         path.display(),
-        lock.packages.len(),
+        total,
         lock.edges.len(),
         lock.content_hash.as_deref().unwrap_or("?")
+    );
+    println!(
+        "  {} Integrity: {}/{} packages have SRI hashes (npm `dist.integrity`)",
+        "[INFO]".cyan(),
+        with_integrity,
+        total
     );
     Ok(())
 }

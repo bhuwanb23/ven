@@ -286,14 +286,33 @@ ven upgrade --json               # machine-readable
 ven why <pkg>                    # who depends on this?
 
 # Reproducibility (Node/Bun)
-ven lock                         # write ven.lock with content_hash
+ven lock                         # write ven.lock v2 with SRI integrity + content_hash
 ven sync                         # validate ven.lock + install pins
-ven sync --dry-run               # validate only
+ven sync --dry-run               # validate only; print install plan; exit 0
+ven sync --check                 # CI mode — drift report; exit non-zero on drift
+ven sync --check --json          # machine-readable drift report (CI)
 ven sync --skip-validate         # install without re-checking the lock
 
 # Auto-fix
 ven resolve                      # find & apply optimal version set
 ```
+
+#### Lockfile (`ven.lock`) — what's in it
+
+| Field                  | Meaning                                                                              |
+|------------------------|--------------------------------------------------------------------------------------|
+| `lock_format_version`  | `2` for new locks; v1 still readable (no `integrity` field)                          |
+| `ecosystem`            | `npm` (only ecosystem with full intelligence today)                                  |
+| `runtime_kind`         | `NpmFamily` for Node/Bun                                                             |
+| `runtime_version`      | The pinned `[runtime] node` (or `bun`)                                               |
+| `roots`                | Sorted list of `[packages]` keys                                                     |
+| `packages[name]`       | `{ version, integrity?: "sha512-..."|"sha256-...", metadata? }`                      |
+| `edges[]`              | `{ from, to, constraint, kind: Dependency|Peer|Dev }`                                |
+| `content_hash`         | SHA-256 of the canonical payload (with `content_hash` field stripped)                |
+
+#### Drift detection (`ven sync --check`)
+
+`--check` reports five categories: `MISSING`, `STALE`, `OUT-OF-LOCK`, `MISMATCH`, `ORPHAN` — see [`cmds/sync.md`](cmds/sync.md) for the full table. Only the first four flip the exit code; `ORPHAN` is informational (transitive deps live there too).
 
 See: [`cmds/add.md`](cmds/add.md) · [`cmds/remove.md`](cmds/remove.md) · [`cmds/upgrade.md`](cmds/upgrade.md) · [`cmds/check-add.md`](cmds/check-add.md) · [`cmds/graph.md`](cmds/graph.md) · [`cmds/lock.md`](cmds/lock.md) · [`cmds/sync.md`](cmds/sync.md) · [`cmds/resolve.md`](cmds/resolve.md)
 
@@ -417,6 +436,120 @@ Each hook is generated specifically for its target shell — see `src/shell/mod.
 
 ---
 
+## 11. Security & health monitoring
+
+A unified report that combines **package CVEs** (osv.dev) and **runtime end-of-life alerts** (endoflife.date), plus a source-tree **ghost dependency** scanner. All three are CI-safe (deterministic exit codes), pure Rust (cross-platform), and locally cached.
+
+### Sources
+
+| Signal | Source | Endpoint | Cache TTL | Ecosystems |
+|--------|--------|----------|-----------|------------|
+| CVEs (per package@version) | [osv.dev](https://osv.dev) | `POST /v1/querybatch`, then `GET /v1/vulns/<id>` for severity + summary | 6 h (stale-on-failure) | npm, PyPI, Go, crates.io, Maven, RubyGems, Deno (`npm:` only) |
+| Runtime EOL | [endoflife.date](https://endoflife.date) | `GET /api/<product>.json` | 24 h (stale-on-failure) | nodejs, bun, python, go, rust, java, ruby, deno |
+| Ghost imports (no network) | local source walk via `ignore` crate | n/a | n/a | All 8 runtimes (per-language extractors) |
+
+### Severity buckets
+
+| CVSS | Bucket | Counts toward CI failure |
+|------|--------|--------------------------|
+| ≥ 9.0 | CRITICAL | yes |
+| ≥ 7.0 | HIGH | yes |
+| ≥ 4.0 | MODERATE | no (informational) |
+| > 0   | LOW | no |
+| (no CVSS, only `database_specific.severity`) | bucketed by label | as above |
+
+EOL: a runtime whose matched cycle has `eol` in the past triggers `[EOL]` and **fails** `ven check`. `[SUPPORT-ENDED]` (active support over but not yet EOL) is **informational**.
+
+### Version pinning for security scans
+
+`ven check --security` always prefers the **lockfile** when present:
+
+1. `ven.lock` (full transitive set + integrity hashes — most accurate)
+2. `ven.toml [packages]` roots only (strips `^`/`~`/`=` prefixes)
+3. Skips entries pinned to `*` / `latest` / unpinned (no version → no scan)
+
+### Ghost detection
+
+`ven scan --ghosts` walks source files honoring `.gitignore` and a hard skip list (`node_modules`, `target`, `dist`, `build`, `.venv`, `venv`, `__pycache__`, `vendor`, `bower_components`, `.git`, `.idea`, `.vscode`). Per-language extractors and stdlib whitelists live in [`src/core/ghost_scanner.rs`](../src/core/ghost_scanner.rs); see [`cmds/scan.md`](cmds/scan.md) for the full pattern table.
+
+`--fix` writes detected ghosts straight into `ven.toml [packages]` (using `latest` as the spec) so the next `ven add`/`ven sync` can resolve them through the normal intelligence pipeline.
+
+### Commands
+
+```bash
+# Combined CVE + EOL report
+ven check                           # both
+ven check --security                # CVE only
+ven check --eol                     # EOL only
+ven check --json                    # CI / scripting
+
+# Source-tree scanners
+ven scan --ghosts                   # report
+ven scan --ghosts --fix             # report + write to ven.toml
+ven scan --ghosts --json            # CI / scripting
+```
+
+### Exit codes
+
+| Command | Code 0 | Code 1 |
+|---------|--------|---------|
+| `ven check` (any flag) | no HIGH/CRITICAL CVE and no passed-EOL runtime | otherwise |
+| `ven scan --ghosts` | no ghosts (or `--fix` passed) | ghosts found and not fixed |
+
+### Cross-platform
+
+`reqwest` (rustls TLS), `rusqlite` (bundled), `ignore`, `regex` — all
+pure-Rust deps. Identical behavior on Windows / macOS / Linux. No shell-out
+to `npm audit`, `pip-audit`, etc.
+
+See: [`cmds/check.md`](cmds/check.md) · [`cmds/scan.md`](cmds/scan.md) · [`security-model.md`](security-model.md)
+
+---
+
+## 12. Version-pinned documentation
+
+`ven docs <pkg>` resolves the version pin from `ven.lock` → `ven.toml` → installed manifest, then either renders the package's README/description in your terminal (markdown via [`termimad`](https://crates.io/crates/termimad)), or opens the canonical URL in your default browser.
+
+### Per-ecosystem source
+
+| Ecosystem | Body source | Renderable in terminal? | Canonical URL (`--browser`) |
+|-----------|-------------|-------------------------|------------------------------|
+| Node / Bun | `registry.npmjs.org/<pkg>/<version>` `.readme` | yes (markdown) | `npmjs.com/package/<pkg>/v/<v>` |
+| Python | `pypi.org/pypi/<pkg>/<v>/json` `info.description` | yes (markdown / RST best-effort) | `pypi.org/project/<pkg>/<v>/` |
+| Rust | docs.rs HTML | URL only (HTML is too rich) | `docs.rs/<pkg>/<v>/<pkg>/` |
+| Go | pkg.go.dev HTML | URL only | `pkg.go.dev/<module>@<v>` |
+| Java | javadoc.io | URL only | `javadoc.io/doc/<group>/<artifact>/<v>` |
+| Ruby | `rubygems.org/api/v1/gems/<pkg>.json` `info` | short; URL is richer | gem version page |
+| Deno | URL passthrough (`npm:`, `jsr:`, deno.land/x) | URL only | inferred from import spec |
+
+Bodies are cached in `intelligence.db` (`doc_cache` table) for 7 days — docs rarely change for a fixed version.
+
+### Commands
+
+```bash
+ven docs <pkg>                      # render in terminal
+ven docs <pkg> --browser            # open canonical URL (xdg-open / open / cmd /c start via `webbrowser` crate)
+ven docs <pkg> --diff V1 V2         # unified line diff between two versions' READMEs
+ven docs <pkg> --json               # machine-readable
+```
+
+### Renderer behavior
+
+- **TTY:** `termimad::MadSkin::default().term_text(body)` — markdown rendered with terminal width auto-detection.
+- **Non-TTY (CI, pipes):** raw markdown text passes through unchanged so `ven docs … | grep` works.
+
+### `--diff`
+
+Uses [`similar::TextDiff::from_lines`](https://docs.rs/similar) to produce a unified `+/-` diff of the two READMEs. (Per-API surface diff — function/class signatures — is a future stretch goal that would need per-ecosystem AST parsers.)
+
+### Cross-platform
+
+`webbrowser` (`0.8`) opens URLs uniformly via `cmd /c start` on Windows, `open` on macOS, `xdg-open` on Linux. Set `VEN_BROWSER_DRY_RUN=1` to print the URL instead of spawning (used by tests).
+
+See: [`cmds/docs.md`](cmds/docs.md)
+
+---
+
 ## Quick command index (everything in one place)
 
 | Category | Commands |
@@ -425,7 +558,9 @@ Each hook is generated specifically for its target shell — see `src/shell/mod.
 | **Project init** | `ven init [--template] [--with-packages] [--validate]` |
 | **Status**       | `ven status [--verbose|--json|--fix]` |
 | **Packages**     | `ven add <pkg>[@v] [--dry-run|--skip-check|--verbose]` · `ven remove [<pkg>] [--force|--dry-run|--cleanup|--json|--verbose]` · `ven upgrade [<pkg>] [--apply|--all|--dry-run|--force|--json|--verbose]` · `ven check-add <pkg>` · `ven why <pkg>` · `ven graph [--json|--resolve]` |
-| **Lockfile**     | `ven lock` · `ven sync [--dry-run|--json|--skip-validate]` · `ven resolve` |
+| **Lockfile**     | `ven lock` · `ven sync [--dry-run|--check|--json|--skip-validate]` · `ven resolve` |
+| **Health**       | `ven check [--security|--eol] [--json]` · `ven scan [--ghosts] [--fix] [--json]` |
+| **Docs**         | `ven docs <pkg> [--browser|--diff V1 V2|--json]` |
 | **Activation**   | `ven use [DIR]` · `ven deactivate` · `ven setup` · `ven shell hook <shell>` · `ven shell install` · `ven shell activate <DIR>` · `ven shell deactivate` |
 | **Spawn**        | `ven-launcher [PATH] [--show-env]` |
 

@@ -184,9 +184,9 @@ impl NpmGraphBuilder {
             .and_then(|e| e.node);
         let deprecated = version_meta.and_then(|v| v.deprecated.clone());
         let license = version_meta.and_then(|v| v.license.clone());
-        let size_bytes = version_meta
-            .and_then(|v| v.dist.clone())
-            .and_then(|d| d.unpacked_size);
+        let dist = version_meta.and_then(|v| v.dist.clone());
+        let size_bytes = dist.as_ref().and_then(|d| d.unpacked_size);
+        let integrity = dist.and_then(|d| d.integrity);
 
         let node = IntelNode {
             name: name.to_string(),
@@ -198,6 +198,7 @@ impl NpmGraphBuilder {
             license,
             size_bytes,
             required_by: required_by.map(|s| vec![s.to_string()]).unwrap_or_default(),
+            integrity,
         };
         self.nodes.insert(name.to_string(), node);
         Ok(())

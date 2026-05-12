@@ -9,15 +9,38 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-pub const LOCK_FORMAT_VERSION: u32 = 1;
+/// Current writer format. v2 introduced the per-package `integrity` field.
+/// Reads of v1 lockfiles still succeed (integrity is `None`); on first
+/// `ven sync` of a v1 lock we print a hint to regenerate.
+pub const LOCK_FORMAT_VERSION: u32 = 2;
+pub const MIN_SUPPORTED_LOCK_FORMAT_VERSION: u32 = 1;
 pub const DEFAULT_ECOSYSTEM: &str = "npm";
 
 /// One pinned package in `ven.lock`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VenLockPackage {
     pub version: String,
+    /// SRI-style integrity (e.g. `sha512-...` or `sha256-...`), copied from
+    /// the upstream registry. npm-family only in v2; `None` for everything else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub integrity: Option<String>,
     #[serde(default)]
     pub metadata: Option<serde_json::Value>,
+}
+
+/// Validate an integrity string is in SRI form `<algo>-<base64>`.
+/// Accepts `sha256`, `sha384`, `sha512` (npm uses sha512 today).
+pub fn integrity_format_valid(s: &str) -> bool {
+    let Some((algo, payload)) = s.split_once('-') else {
+        return false;
+    };
+    if !matches!(algo, "sha256" | "sha384" | "sha512") {
+        return false;
+    }
+    !payload.is_empty()
+        && payload
+            .bytes()
+            .all(|b| matches!(b, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'+' | b'/' | b'='))
 }
 
 /// One dependency edge in `ven.lock`.
@@ -99,6 +122,7 @@ impl VenLockFile {
                 name.clone(),
                 VenLockPackage {
                     version: node.version.clone(),
+                    integrity: node.integrity.clone(),
                     metadata: None,
                 },
             );
@@ -158,6 +182,7 @@ pub fn lock_to_intel_graph(lock: &VenLockFile) -> IntelGraph {
                     license: None,
                     size_bytes: None,
                     required_by: Vec::new(),
+                    integrity: p.integrity.clone(),
                 },
             )
         })
@@ -213,15 +238,34 @@ pub fn compute_lock_content_hash(lock: &VenLockFile) -> Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+/// True when `lock` was written by a writer older than this binary.
+/// Read paths still succeed; callers should suggest `ven lock` to upgrade.
+pub fn lock_needs_upgrade(lock: &VenLockFile) -> bool {
+    lock.lock_format_version < LOCK_FORMAT_VERSION
+}
+
 /// Structural + semver consistency checks.
 pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
     let mut errors = Vec::new();
 
-    if lock.lock_format_version != LOCK_FORMAT_VERSION {
+    if lock.lock_format_version > LOCK_FORMAT_VERSION
+        || lock.lock_format_version < MIN_SUPPORTED_LOCK_FORMAT_VERSION
+    {
         errors.push(format!(
-            "unsupported lock_format_version {} (expected {})",
-            lock.lock_format_version, LOCK_FORMAT_VERSION
+            "unsupported lock_format_version {} (this binary supports {}..={})",
+            lock.lock_format_version, MIN_SUPPORTED_LOCK_FORMAT_VERSION, LOCK_FORMAT_VERSION
         ));
+    }
+
+    for (name, pkg) in &lock.packages {
+        if let Some(ref s) = pkg.integrity {
+            if !integrity_format_valid(s) {
+                errors.push(format!(
+                    "package `{}`@{}: invalid integrity `{}` (expected `<sha256|sha384|sha512>-<base64>`)",
+                    name, pkg.version, s
+                ));
+            }
+        }
     }
 
     if lock.packages.is_empty() {
@@ -306,7 +350,7 @@ mod tests {
     #[test]
     fn validate_trivial_lock() {
         let lock = VenLockFile {
-            lock_format_version: 1,
+            lock_format_version: LOCK_FORMAT_VERSION,
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
@@ -315,6 +359,7 @@ mod tests {
                 "left-pad".into(),
                 VenLockPackage {
                     version: "1.3.0".into(),
+                    integrity: None,
                     metadata: None,
                 },
             )]),
@@ -327,7 +372,7 @@ mod tests {
     #[test]
     fn hash_stable_without_content_hash_field() {
         let lock = VenLockFile {
-            lock_format_version: 1,
+            lock_format_version: LOCK_FORMAT_VERSION,
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
@@ -336,6 +381,7 @@ mod tests {
                 "a".into(),
                 VenLockPackage {
                     version: "1.0.0".into(),
+                    integrity: None,
                     metadata: None,
                 },
             )]),
@@ -345,5 +391,65 @@ mod tests {
         let h1 = compute_lock_content_hash(&lock).unwrap();
         let h2 = compute_lock_content_hash(&lock).unwrap();
         assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn integrity_format_accepts_npm_style() {
+        assert!(integrity_format_valid("sha512-abc123=="));
+        assert!(integrity_format_valid(
+            "sha512-d8X4xQ+ai/q7+yyXZpQ7gZQqVZ2RZ0mKXMFb6XwH7m9c2VKL+H5GGr6Q=="
+        ));
+        assert!(integrity_format_valid("sha256-abc"));
+        assert!(integrity_format_valid("sha384-XYZ"));
+    }
+
+    #[test]
+    fn integrity_format_rejects_garbage() {
+        assert!(!integrity_format_valid(""));
+        assert!(!integrity_format_valid("md5-abc"));
+        assert!(!integrity_format_valid("sha512-"));
+        assert!(!integrity_format_valid("sha512abc"));
+        assert!(!integrity_format_valid("sha512-abc!!"));
+    }
+
+    #[test]
+    fn validate_rejects_bad_integrity() {
+        let lock = VenLockFile {
+            lock_format_version: LOCK_FORMAT_VERSION,
+            ecosystem: "npm".into(),
+            runtime_kind: RuntimeKind::NpmFamily,
+            runtime_version: "20".into(),
+            roots: vec!["x".into()],
+            packages: HashMap::from([(
+                "x".into(),
+                VenLockPackage {
+                    version: "1.0.0".into(),
+                    integrity: Some("md5-bad".into()),
+                    metadata: None,
+                },
+            )]),
+            edges: vec![],
+            content_hash: None,
+        };
+        assert!(validate_lock_graph(&lock).is_err());
+    }
+
+    #[test]
+    fn v1_lock_loads_with_no_integrity() {
+        // Synthesized v1 doc on disk: no integrity field, lock_format_version = 1.
+        let json = r#"{
+            "lock_format_version": 1,
+            "ecosystem": "npm",
+            "runtime_kind": "NpmFamily",
+            "runtime_version": "20",
+            "roots": ["x"],
+            "packages": {"x": {"version": "1.0.0"}},
+            "edges": []
+        }"#;
+        let lock: VenLockFile = serde_json::from_str(json).unwrap();
+        assert_eq!(lock.lock_format_version, 1);
+        assert!(lock.packages["x"].integrity.is_none());
+        assert!(lock_needs_upgrade(&lock));
+        validate_lock_graph(&lock).unwrap();
     }
 }

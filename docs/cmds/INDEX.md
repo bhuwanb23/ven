@@ -42,6 +42,21 @@ language-native manifest and `ven.toml [packages]` in sync.
 | `ven sync` | Validate `ven.lock` and install pins (Node/Bun); `pip install -r requirements.txt` for Python projects | [→ sync.md](sync.md) |
 | `ven resolve` | Auto-resolve conflicts and apply fixes | [→ resolve.md](resolve.md) |
 
+## 🛡️ Health & Security
+
+| Command | Description | Documentation |
+|---------|-------------|---------------|
+| `ven check` | Combined CVE (OSV) + runtime EOL (endoflife.date) report | [→ check.md](check.md) |
+| `ven scan --ghosts` | Find packages imported in source but not declared in any manifest | [→ scan.md](scan.md) |
+
+For the underlying threat model, caching strategy, and exit-code semantics, see [→ security-model.md](../security-model.md).
+
+## 📖 Documentation
+
+| Command | Description | Documentation |
+|---------|-------------|---------------|
+| `ven docs <pkg>` | Render version-pinned docs in the terminal, or open in browser; supports `--diff v1 v2` | [→ docs.md](docs.md) |
+
 ## ⚙️ Project Setup
 
 | Command | Description | Documentation |

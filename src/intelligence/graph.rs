@@ -33,6 +33,11 @@ pub struct IntelNode {
     pub size_bytes: Option<u64>,
     #[serde(default)]
     pub required_by: Vec<String>,
+    /// SRI-style integrity from upstream registry (npm `dist.integrity`),
+    /// e.g. `sha512-...` or `sha256-...`. `None` for ecosystems that do not
+    /// publish per-version checksums.
+    #[serde(default)]
+    pub integrity: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -6,7 +6,8 @@ This folder is the canonical reference for **CLI behavior**, **per-language plug
 
 | Topic                                                                | File                                                       |
 |----------------------------------------------------------------------|------------------------------------------------------------|
-| **Complete feature reference** — all 10 capability categories at once| [`features.md`](features.md)                               |
+| **Complete feature reference** — all 12 capability categories at once| [`features.md`](features.md)                               |
+| **Security model** — threat model, CVE/EOL/integrity controls, exit-code contract | [`security-model.md`](security-model.md) |
 | Overview & quickstart                                                | [`../README.md`](../README.md)                             |
 | `ven.toml` schema (every key, every section)                         | [`ven-toml.md`](ven-toml.md)                               |
 | Every CLI command, one table                                         | [`commands-reference.md`](commands-reference.md)           |

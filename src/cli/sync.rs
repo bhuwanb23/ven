@@ -1,21 +1,24 @@
 //! `ven sync` — validate `ven.lock` graph, then install pinned versions.
+//! `--check` adds drift detection (lock vs `node_modules` / installed pip).
 
 use crate::cli::add::update_ven_toml_packages;
 use crate::core::load_config;
 use crate::core::packages;
 use crate::core::requirements::{requirement_from_spec, Requirements};
 use crate::intelligence::conflicts::analyze_npm_graph;
+use crate::intelligence::drift::{compute_npm_drift, compute_python_drift, DriftReport};
 use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::store::{IntelligenceStore, PACKAGE_CACHE_TTL_SECS};
 use crate::intelligence::ven_lock::{
-    compute_lock_content_hash, lock_to_intel_graph, validate_lock_graph, VenLockFile,
+    compute_lock_content_hash, lock_needs_upgrade, lock_to_intel_graph, validate_lock_graph,
+    VenLockFile,
 };
 use anyhow::{Context, Result};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub fn cmd_sync(dry_run: bool, json: bool, skip_validate: bool) -> Result<()> {
+pub fn cmd_sync(dry_run: bool, check: bool, json: bool, skip_validate: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let cfg =
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
@@ -26,7 +29,7 @@ pub fn cmd_sync(dry_run: bool, json: bool, skip_validate: bool) -> Result<()> {
     let python_mode =
         !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty() && cfg.runtime.bun.is_empty();
     if python_mode {
-        return sync_python(&cwd, dry_run, json);
+        return sync_python(&cwd, dry_run, check, json, &cfg);
     }
 
     let lock_path = cwd.join("ven.lock");
@@ -38,11 +41,23 @@ pub fn cmd_sync(dry_run: bool, json: bool, skip_validate: bool) -> Result<()> {
     }
 
     if json {
-        return sync_json(&lock_path, dry_run, skip_validate, &cfg, &cwd);
+        return sync_json(&lock_path, dry_run, check, skip_validate, &cfg, &cwd);
     }
 
     println!("Reading {}...", lock_path.display().to_string().cyan());
     let lock = VenLockFile::read_path(&lock_path).context("Failed to load ven.lock")?;
+
+    if lock_needs_upgrade(&lock) {
+        println!(
+            "  {} {}",
+            "[INFO]".cyan(),
+            format!(
+                "ven.lock is at format v{} — regenerate with `ven lock` to gain SRI integrity hashes.",
+                lock.lock_format_version
+            )
+            .dimmed()
+        );
+    }
 
     if !skip_validate {
         println!("{}", "Validating dependency graph...".cyan());
@@ -79,8 +94,21 @@ pub fn cmd_sync(dry_run: bool, json: bool, skip_validate: bool) -> Result<()> {
         );
     }
 
+    if check {
+        let report = compute_npm_drift(&cwd, &lock, &cfg)?;
+        print_drift_report_npm(&cwd, &report);
+        if report.has_drift() {
+            anyhow::bail!("ven sync --check: drift detected");
+        }
+        return Ok(());
+    }
+
     if dry_run {
-        println!("  {} Would install {} root package(s).", "[DRY-RUN]".yellow(), lock.roots.len());
+        println!(
+            "  {} Would install {} root package(s).",
+            "[DRY-RUN]".yellow(),
+            lock.roots.len()
+        );
         return Ok(());
     }
 
@@ -102,6 +130,7 @@ pub fn cmd_sync(dry_run: bool, json: bool, skip_validate: bool) -> Result<()> {
 fn sync_json(
     lock_path: &Path,
     dry_run: bool,
+    check: bool,
     skip_validate: bool,
     cfg: &crate::core::config::VenConfig,
     cwd: &std::path::Path,
@@ -115,14 +144,50 @@ fn sync_json(
             err_msg = Some(e.to_string());
         }
     }
+
+    let drift_value = if ok && check {
+        let r = compute_npm_drift(cwd, &lock, cfg)?;
+        Some(serde_json::to_value(&r)?)
+    } else {
+        None
+    };
+    let drift_actionable = drift_value
+        .as_ref()
+        .and_then(|v| v.get("missing").and_then(|x| x.as_array()).map(|a| a.len()))
+        .unwrap_or(0)
+        + drift_value
+            .as_ref()
+            .and_then(|v| v.get("stale").and_then(|x| x.as_array()).map(|a| a.len()))
+            .unwrap_or(0)
+        + drift_value
+            .as_ref()
+            .and_then(|v| {
+                v.get("missing_from_lock")
+                    .and_then(|x| x.as_array())
+                    .map(|a| a.len())
+            })
+            .unwrap_or(0)
+        + drift_value
+            .as_ref()
+            .and_then(|v| {
+                v.get("config_mismatches")
+                    .and_then(|x| x.as_array())
+                    .map(|a| a.len())
+            })
+            .unwrap_or(0);
+
     let out = serde_json::json!({
         "lock_path": lock_path.to_string_lossy(),
+        "lock_format_version": lock.lock_format_version,
+        "needs_upgrade": lock_needs_upgrade(&lock),
         "valid": ok,
         "error": err_msg,
         "package_count": lock.packages.len(),
         "edge_count": lock.edges.len(),
         "roots": lock.roots,
         "dry_run": dry_run,
+        "check": check,
+        "drift": drift_value,
         "project": cwd.to_string_lossy(),
         "runtime_node": cfg.runtime.node,
     });
@@ -130,7 +195,10 @@ fn sync_json(
     if !ok {
         anyhow::bail!("validation failed");
     }
-    if !dry_run && ok {
+    if check && drift_actionable > 0 {
+        anyhow::bail!("ven sync --check: drift detected");
+    }
+    if !dry_run && !check && ok {
         for root in &lock.roots {
             if let Some(p) = lock.packages.get(root) {
                 packages::npm_install(root, &p.version)?;
@@ -140,9 +208,36 @@ fn sync_json(
     Ok(())
 }
 
-fn sync_python(cwd: &Path, dry_run: bool, json: bool) -> Result<()> {
+fn sync_python(
+    cwd: &Path,
+    dry_run: bool,
+    check: bool,
+    json: bool,
+    cfg: &crate::core::config::VenConfig,
+) -> Result<()> {
     let req = Requirements::load_or_empty(cwd)?;
     let pinned = req.pinned();
+
+    if check {
+        let report = compute_python_drift(cwd, cfg, &pinned)?;
+        if json {
+            let out = serde_json::json!({
+                "mode": "python",
+                "check": true,
+                "requirements_path": req.path().to_string_lossy(),
+                "exists": req.exists(),
+                "drift": report,
+            });
+            println!("{}", serde_json::to_string_pretty(&out)?);
+        } else {
+            print_drift_report_python(cwd, &report);
+        }
+        if report.has_drift() {
+            anyhow::bail!("ven sync --check: drift detected");
+        }
+        return Ok(());
+    }
+
     if json {
         let out = serde_json::json!({
             "mode": "python",
@@ -157,10 +252,7 @@ fn sync_python(cwd: &Path, dry_run: bool, json: bool) -> Result<()> {
             return Ok(());
         }
     } else {
-        println!(
-            "{}",
-            "Python sync via requirements.txt".bold().cyan()
-        );
+        println!("{}", "Python sync via requirements.txt".bold().cyan());
         println!("  {} {}", "Path:".dimmed(), req.path().display());
         if !req.exists() {
             println!(
@@ -190,7 +282,10 @@ fn sync_python(cwd: &Path, dry_run: bool, json: bool) -> Result<()> {
         .status()
         .with_context(|| "Failed to invoke pip install -r requirements.txt")?;
     if !status.success() {
-        anyhow::bail!("pip install -r requirements.txt failed (exit {:?})", status.code());
+        anyhow::bail!(
+            "pip install -r requirements.txt failed (exit {:?})",
+            status.code()
+        );
     }
     if !json {
         println!("  {} pip install completed", "[OK]".green());
@@ -211,6 +306,118 @@ fn sync_python(cwd: &Path, dry_run: bool, json: bool) -> Result<()> {
         println!("  {} Sync complete.", "[OK]".green());
     }
     Ok(())
+}
+
+fn print_drift_report_npm(cwd: &Path, report: &DriftReport) {
+    println!();
+    println!(
+        "{} {}",
+        "Drift report".bold(),
+        format!("({})", cwd.display()).dimmed()
+    );
+    if !report.missing.is_empty() {
+        println!(
+            "  {} {} package(s) in ven.lock are not installed in node_modules/",
+            "[MISSING]".red(),
+            report.missing.len()
+        );
+        for name in &report.missing {
+            println!("    - {}", name);
+        }
+    }
+    if !report.stale.is_empty() {
+        println!(
+            "  {} {} package(s) installed at the wrong version",
+            "[STALE]".yellow(),
+            report.stale.len()
+        );
+        for s in &report.stale {
+            println!(
+                "    - {}: lock={} installed={}",
+                s.package, s.locked, s.installed
+            );
+        }
+    }
+    if !report.missing_from_lock.is_empty() {
+        println!(
+            "  {} {} root(s) in ven.toml [packages] missing from ven.lock — run `ven lock`",
+            "[OUT-OF-LOCK]".yellow(),
+            report.missing_from_lock.len()
+        );
+        for name in &report.missing_from_lock {
+            println!("    - {}", name);
+        }
+    }
+    if !report.config_mismatches.is_empty() {
+        println!(
+            "  {} {} root(s) whose ven.toml constraint is not satisfied by ven.lock",
+            "[MISMATCH]".yellow(),
+            report.config_mismatches.len()
+        );
+        for m in &report.config_mismatches {
+            println!(
+                "    - {}: ven.toml=`{}` lock={}",
+                m.package, m.ven_toml_spec, m.lock_pin
+            );
+        }
+    }
+    if !report.orphan.is_empty() {
+        println!(
+            "  {} {} package(s) in node_modules/ but not in ven.lock (transitive — informational)",
+            "[ORPHAN]".dimmed(),
+            report.orphan.len()
+        );
+    }
+    if report.has_drift() {
+        println!(
+            "  {} {} actionable issue(s).",
+            "[FAIL]".red().bold(),
+            report.count_actionable()
+        );
+    } else {
+        println!("  {} No drift — lock and node_modules agree.", "[OK]".green());
+    }
+}
+
+fn print_drift_report_python(cwd: &Path, report: &DriftReport) {
+    println!();
+    println!(
+        "{} {}",
+        "Drift report (python)".bold(),
+        format!("({})", cwd.display()).dimmed()
+    );
+    if !report.missing.is_empty() {
+        println!(
+            "  {} {} package(s) declared but not installed (`pip list`)",
+            "[MISSING]".red(),
+            report.missing.len()
+        );
+        for name in &report.missing {
+            println!("    - {}", name);
+        }
+    }
+    if !report.stale.is_empty() {
+        println!(
+            "  {} {} package(s) installed but constraint not satisfied",
+            "[STALE]".yellow(),
+            report.stale.len()
+        );
+        for s in &report.stale {
+            println!(
+                "    - {}: declared=`{}` installed={}",
+                s.package, s.locked, s.installed
+            );
+        }
+    }
+    if report.has_drift() {
+        println!(
+            "  {} {} actionable issue(s).",
+            "[FAIL]".red().bold(),
+            report.count_actionable()
+        );
+    } else {
+        println!("  {} No drift.", "[OK]".green());
+    }
 }
 
 fn resolve_python_cmd() -> PathBuf {

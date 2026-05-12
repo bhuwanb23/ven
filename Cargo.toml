@@ -55,6 +55,20 @@ tar = "0.4"
 sevenz-rust = { version = "0.6", default-features = false }
 # Checksum verification
 sha2 = "0.10"
+# Source-tree walking with .gitignore awareness (ghost scanner)
+ignore = "0.4"
+# Cross-platform "open in browser" (`ven docs --browser`)
+webbrowser = "0.8"
+# Diff helper (`ven docs --diff v1 v2`)
+similar = "2"
+# Markdown render in the terminal (`ven docs`)
+termimad = "0.31"
+# Regex-based source parsing
+regex = "1"
+
+[dev-dependencies]
+# HTTP mocks for OSV / EOL / registry tests
+mockito = "1"
 
 [profile.release]
 opt-level = 3

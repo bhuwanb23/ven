@@ -3,6 +3,7 @@
 pub mod adapters;
 pub mod conflicts;
 pub mod display;
+pub mod drift;
 pub mod engine;
 pub mod graph;
 pub mod store;

@@ -219,6 +219,7 @@ impl DependencyRuntimeAdapter for GenericStubAdapter {
                     license: None,
                     size_bytes: None,
                     required_by: Vec::new(),
+                    integrity: None,
                 },
             );
         }

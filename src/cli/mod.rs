@@ -3,7 +3,9 @@ use clap::{Parser, Subcommand};
 
 // Command modules
 pub mod add;
+pub mod check;
 pub mod check_add;
+pub mod docs;
 pub mod graph;
 pub mod init;
 pub mod install;
@@ -11,6 +13,7 @@ pub mod list;
 pub mod lockfile;
 pub mod remove;
 pub mod resolve;
+pub mod scan;
 pub mod setup;
 pub mod shell;
 pub mod sync;
@@ -338,12 +341,17 @@ pub enum Commands {
     ///
     /// Verifies internal graph consistency and semver constraints before `npm install`.
     #[command(
-        long_about = "Sync from ven.lock\n\nReads ven.lock, validates structure and constraints, updates the intelligence cache,\nand installs each root package at its locked version.\n\nExamples:\n  ven sync\n  ven sync --dry-run\n  ven sync --json"
+        long_about = "Sync from ven.lock\n\nReads ven.lock, validates structure and constraints, updates the intelligence cache,\nand installs each root package at its locked version.\n\nExamples:\n  ven sync                  # validate + install\n  ven sync --dry-run        # validate, print install plan, exit 0\n  ven sync --check          # CI mode: report drift; exit 1 if any\n  ven sync --json"
     )]
     Sync {
-        /// Validate only; do not run npm install
+        /// Validate only; do not run npm install. Always exits 0 on a valid lock.
         #[arg(long)]
         dry_run: bool,
+        /// Drift-aware CI mode: validate the lock, then compare it against
+        /// `node_modules/` (npm) or installed pip packages (Python). Exits
+        /// non-zero when any drift is found. Implies no install.
+        #[arg(long)]
+        check: bool,
         /// Machine-readable result
         #[arg(long)]
         json: bool,
@@ -361,6 +369,87 @@ pub enum Commands {
         long_about = "Automatically resolve dependency conflicts and apply fixes.\n\nScans the current dependency graph, estimates the best resolution set,\nand updates package versions to restore compatibility.\n\nExample:\n  ven resolve"
     )]
     Resolve,
+
+    /// Health report — security advisories (OSV) + runtime EOL alerts
+    ///
+    /// Default behavior runs both security and EOL checks; use `--security` or
+    /// `--eol` to scope. Exits non-zero on any HIGH/CRITICAL CVE or passed-EOL
+    /// runtime so it's CI-safe.
+    ///
+    /// Examples:
+    ///   ven check
+    ///   ven check --security
+    ///   ven check --eol
+    ///   ven check --json
+    #[command(
+        long_about = "Health report for the current project: package CVEs from osv.dev plus\nruntime end-of-life status from endoflife.date. With no flags, both checks run.\n\nExit code:\n  0  no actionable issues\n  1  any HIGH/CRITICAL CVE OR a passed-EOL runtime\n\nResults are cached locally (CVEs 6h, EOL 24h) and served stale on network\nfailure so you can keep working offline.\n\nExamples:\n  ven check\n  ven check --security    # CVE only\n  ven check --eol         # EOL only\n  ven check --json        # CI / scripting"
+    )]
+    Check {
+        /// CVE scan only
+        #[arg(long)]
+        security: bool,
+        /// Runtime end-of-life check only
+        #[arg(long)]
+        eol: bool,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Source-tree scanners (currently: ghost dependency detection)
+    ///
+    /// `--ghosts` walks your source tree (gitignore-aware) to find packages
+    /// you `import`/`require` but never declared in any manifest. `--fix`
+    /// adds them to `ven.toml [packages]`.
+    ///
+    /// Examples:
+    ///   ven scan --ghosts
+    ///   ven scan --ghosts --fix
+    ///   ven scan --ghosts --json
+    #[command(
+        long_about = "Source-tree scanners.\n\n--ghosts       Walk source files (.gitignore-aware) and report packages\n               imported but not declared in ven.toml or any native\n               manifest (package.json, requirements.txt, Cargo.toml,\n               go.mod, Gemfile, pom.xml, deno.json).\n\n--fix          Add each ghost to ven.toml [packages] using `latest` as the\n               spec (npm-family resolves to highest Node-compatible).\n\nExit code: 1 in JSON mode when ghosts are found (CI), 0 otherwise."
+    )]
+    Scan {
+        /// Detect undeclared package imports
+        #[arg(long)]
+        ghosts: bool,
+        /// Add detected ghosts to ven.toml [packages]
+        #[arg(long)]
+        fix: bool,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show docs for an installed package — version-pinned to ven.lock
+    ///
+    /// Resolves the version from `ven.lock` → `ven.toml [packages]` → installed
+    /// manifest, then renders the README/description in the terminal.
+    /// `--browser` opens the canonical docs URL in your default browser.
+    /// `--diff v1 v2` fetches the same package's READMEs at two versions
+    /// and shows a unified line diff.
+    ///
+    /// Examples:
+    ///   ven docs express
+    ///   ven docs requests --browser
+    ///   ven docs express --diff 4.18.0 4.18.2
+    #[command(
+        long_about = "Open or render documentation for a package, pinned to the version\nrecorded in ven.lock (or ven.toml / installed manifest if no lock exists).\n\nSupported sources:\n  Node / Bun       npm registry README\n  Python           PyPI description\n  Rust             docs.rs HTML\n  Go               pkg.go.dev\n  Java             javadoc.io (URL only)\n  Ruby             rubygems.org\n  Deno             deno.land / jsr.io (URL only)\n\n--browser        open the canonical URL (cross-platform via webbrowser)\n--diff V1 V2     fetch readme at V1 and V2, render a unified diff\n--json           machine-readable\n\nResults are cached for 7 days (docs rarely change for a fixed version)."
+    )]
+    Docs {
+        /// Package name (must be in `ven.toml [packages]` or installed)
+        #[arg(required = true)]
+        package: String,
+        /// Open canonical docs URL in default browser
+        #[arg(long)]
+        browser: bool,
+        /// Diff README between two versions
+        #[arg(long, num_args = 2, value_names = ["V1", "V2"])]
+        diff: Option<Vec<String>>,
+        /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
 
     /// One-time setup: Install shell hooks for automatic version switching
     ///
@@ -464,10 +553,19 @@ pub fn run(cli: Cli) -> Result<()> {
         Commands::Lock => lockfile::cmd_lock(),
         Commands::Sync {
             dry_run,
+            check,
             json,
             skip_validate,
-        } => sync::cmd_sync(dry_run, json, skip_validate),
+        } => sync::cmd_sync(dry_run, check, json, skip_validate),
         Commands::Resolve => resolve::cmd_resolve(),
+        Commands::Check { security, eol, json } => check::cmd_check(security, eol, json),
+        Commands::Scan { ghosts, fix, json } => scan::cmd_scan(ghosts, fix, json),
+        Commands::Docs {
+            package,
+            browser,
+            diff,
+            json,
+        } => docs::cmd_docs(&package, browser, diff.as_deref(), json),
         Commands::Setup => setup::cmd_setup(),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
