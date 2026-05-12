@@ -2,6 +2,10 @@
 
 Complete documentation for all `ven` commands and their subcommands.
 
+> Looking for a top-down feature view instead of per-command pages? See
+> [**docs/features.md**](../features.md) — every capability mapped to the
+> exact command syntax that implements it.
+
 ## 📦 Version Management
 
 | Command | Description | Documentation |

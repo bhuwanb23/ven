@@ -4,13 +4,14 @@ This folder is the canonical reference for **CLI behavior**, **per-language plug
 
 ## Start here
 
-| Topic                                          | File                                                       |
-|------------------------------------------------|------------------------------------------------------------|
-| Overview & quickstart                          | [`../README.md`](../README.md)                             |
-| `ven.toml` schema (every key, every section)   | [`ven-toml.md`](ven-toml.md)                               |
-| Every CLI command, one table                   | [`commands-reference.md`](commands-reference.md)           |
-| Shell hooks · `ven setup` · `ven-use` flow     | [`shell-integration.md`](shell-integration.md)             |
-| `ven-launcher` (spawn a terminal in a project) | [`ven-launcher.md`](ven-launcher.md)                       |
+| Topic                                                                | File                                                       |
+|----------------------------------------------------------------------|------------------------------------------------------------|
+| **Complete feature reference** — all 10 capability categories at once| [`features.md`](features.md)                               |
+| Overview & quickstart                                                | [`../README.md`](../README.md)                             |
+| `ven.toml` schema (every key, every section)                         | [`ven-toml.md`](ven-toml.md)                               |
+| Every CLI command, one table                                         | [`commands-reference.md`](commands-reference.md)           |
+| Shell hooks · `ven setup` · `ven-use` flow                           | [`shell-integration.md`](shell-integration.md)             |
+| `ven-launcher` (spawn a terminal in a project)                       | [`ven-launcher.md`](ven-launcher.md)                       |
 
 ## Per-language deep dives
 

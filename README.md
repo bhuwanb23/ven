@@ -63,10 +63,9 @@ They install first. They break second. They never explain why.
 | Auto-switch on `cd`              |     ❌     |      ❌      |      ✅      |    ✅    |
 | Pre-install compatibility check  |     ❌     |      ❌      |      ❌      |    ✅    |
 | Dependency graph analysis        |     ❌     |      ❌      |      ❌      |    ✅    |
-| CVE security scanning            |     ❌     |      ❌      |      ❌      |    ✅    |
-| EOL alerts                       |     ❌     |      ❌      |      ❌      |    ✅    |
-| Ghost dependency detection       |     ❌     |      ❌      |      ❌      |    ✅    |
-| Team environment sync            |     ✅     |      ❌      |      ❌      |    ✅    |
+| Lock-file with content hash      |     ✅     |      ❌      |      ❌      |    ✅    |
+| Per-terminal isolation           |     ❌     |      ➖      |      ➖      |    ✅    |
+| Standalone portable launcher     |     ❌     |      ❌      |      ❌      |    ✅    |
 | No admin rights required         |     ➖     |      ➖      |      ➖      |    ✅    |
 | Multi-language unified interface |     ❌     |      ❌      |      ✅      |    ✅    |
 
@@ -152,32 +151,6 @@ $ ven check-add axios
   ✗ axios@1.7.1   Node >=21 required
 
   Install: ven add axios@1.6.8
-```
-
----
-
-### 🛡️ Built-In Security
-
-CVE scanning, EOL alerts, and ghost dependency detection — built in, not
-bolted on.
-
-```bash
-$ ven check
-
-  Security     1 CRITICAL, 2 HIGH
-  EOL          Node 20.20.2 — OK (2 years remaining)
-  Ghosts       2 undeclared imports found
-
-  ✗ lodash@4.17.19  CVE-2021-23337  CVSS 9.1
-    Fix: ven upgrade lodash
-
-  ✗ axios@1.6.0  CVE-2024-28849  CVSS 7.5
-    Fix: ven upgrade axios
-
-  Ghost deps in source (not in config):
-  • dotenv  (found in src/config.js)
-  • chalk   (found in src/cli.js)
-    Fix: ven scan --fix
 ```
 
 ---
@@ -385,7 +358,7 @@ NODE_ENV = "development"
 PORT     = "3000"
 
 [venv]
-path = ".venv"        # Python venv location
+auto_path = true      # Prepend ./venv/{Scripts,bin} on activation when present
 ```
 
 ### `ven.lock`
@@ -412,76 +385,79 @@ sha256  = "b4c5d6e7f8a9b0..."
 
 ## 🖥️ Command Reference
 
+> Pinning a runtime version is done by editing `[runtime]` in `ven.toml` (the
+> nearest one wins), then re-entering the directory or running `ven-use`. There
+> is no `ven use <lang> <version>` — versions are project-scoped, not global.
+
 ### Runtime Management
 
 ```bash
-ven install <lang> <version>    # Install runtime
-ven list                        # List installed versions
-ven use <lang> <version>        # Set global default
-ven status                      # Show active environment
-ven status --verbose            # Detailed view
-ven status --json               # Machine-readable output
+ven install <lang> <version>    # ven install node 20.11.0
+ven install <lang> <alias>      # latest | lts | stable | bare-major (20)
+ven install <lang>              # interactive picker for that lang
+ven install                     # full interactive picker
+ven list                        # all installed runtimes
+ven list <lang> [--verbose|--json]
+ven status [--verbose|--json|--fix]
 ```
 
 ### Package Operations
 
 ```bash
-ven add <package>               # Install package
-ven add <package>@<version>     # Install specific version
-ven remove <package>            # Uninstall package
-ven upgrade                     # Check all upgrades
-ven upgrade <package> --apply   # Apply upgrade
+ven add <package>               # install + manifest sync + ven.toml sync
+ven add <package>@<version>     # exact / spec
+ven add <package> --dry-run     # preview only
+ven add <package> --skip-check  # bypass intelligence (Node/Bun)
+ven remove <package>            # safe uninstall
+ven remove --cleanup            # find & remove orphans
+ven upgrade                     # preview every package
+ven upgrade <package>           # preview one
+ven upgrade <package> --apply   # actually upgrade
+ven upgrade --all --apply       # apply all
 ```
 
-### Dependency Intelligence
+### Dependency Intelligence (Node.js / Bun)
 
 ```bash
-ven check-add <package>         # Pre-install compatibility check
-ven check-add <package> --explain  # Show full conflict chain
-ven why <package>               # Reverse dependency lookup
-ven graph                       # Full dependency tree
-ven resolve                     # Auto-fix all conflicts
+ven check-add <package>         # pre-install simulation, no install
+ven check-add <package> --json  # machine-readable
+ven why <package>               # reverse dependency lookup
+ven graph                       # last persisted simulation graph
+ven graph --json                # machine-readable
+ven resolve                     # find & apply optimal version set
 ```
 
-### Security & Health
+### Lockfile & Reproducibility (Node.js / Bun)
 
 ```bash
-ven check                       # Full health report
-ven check --security            # CVE scan only
-ven check --eol                 # EOL check only
-ven scan --ghosts               # Find undeclared dependencies
-ven scan --fix                  # Auto-add ghost dependencies
+ven lock                        # write ven.lock with content_hash
+ven sync                        # validate ven.lock + install pins
+ven sync --dry-run              # validate only (CI-safe)
+ven sync --skip-validate        # install without re-checking the lock
 ```
 
-### Team Sync
-
-```bash
-ven lock                        # Generate ven.lock
-ven sync                        # Install from ven.lock
-ven sync --check                # Drift check only (CI-safe)
-```
-
-### Export
-
-```bash
-ven export dockerfile           # Generate Dockerfile
-ven export github-actions       # Generate CI workflow
-ven export gitlab-ci            # Generate GitLab CI config
-```
+> For Python projects, `ven sync` runs `pip install -r requirements.txt`
+> against the project venv. Other runtimes carry no extra `ven sync` logic
+> beyond runtime resolution.
 
 ### Shell Integration
 
 ```bash
-ven setup                       # Install shell hooks
-ven shell activate              # Manual activation
-ven deactivate                  # Clear ven environment
+ven setup                       # one-time hook install (PowerShell or bash/zsh rc)
+ven shell install               # explicit form of the above
+ven shell hook <shell>          # print hook script for: bash | zsh | fish | powershell
+ven shell activate <DIR>        # print activation exports for DIR
+ven shell deactivate            # print exports that undo the overlay
+ven use [DIR]                   # alias for `ven shell activate` (default: .)
+ven deactivate                  # alias for `ven shell deactivate`
 ```
 
-### Launcher (No Admin)
+### Standalone Launcher (no admin, no PATH edits)
 
 ```bash
-ven-launcher                    # Open ven terminal in current dir
-ven-launcher <path>             # Open ven terminal in project
+ven-launcher                    # spawn shell with cwd's ven.toml pre-loaded
+ven-launcher <PATH>             # spawn shell with PATH's ven.toml pre-loaded
+ven-launcher --show-env [PATH]  # print resolved env instead of spawning
 ```
 
 ---
@@ -489,30 +465,29 @@ ven-launcher <path>             # Open ven terminal in project
 ## 🗂️ Storage Layout
 
 ```
-~/.ven/
+~/.ven/                  ← override with $VEN_STORAGE_PATH
 ├── node/
 │   ├── 20.20.2/        ← node, npm, npx
 │   └── 22.11.0/
 ├── python/
-│   ├── 3.11.5/         ← python, pip
+│   ├── 3.11.5/         ← python, pip (Windows embeddable)
 │   └── 3.12.0/
 ├── go/
 │   └── 1.21.5/         ← go binary + GOROOT
 ├── rust/
-│   └── 1.75.0/         ← rustc, cargo
+│   └── 1.75.0/         ← rustc, cargo (isolated CARGO_HOME/RUSTUP_HOME)
 ├── java/
 │   └── 17.0.9/         ← JDK, JAVA_HOME
 ├── ruby/
-│   └── 3.2.2/          ← ruby, gem, GEM_HOME
+│   └── 3.2.2/          ← ruby, gem (isolated GEM_HOME/GEM_PATH)
 ├── deno/
 │   └── 1.40.0/         ← single deno binary
 ├── bun/
 │   └── 1.0.20/         ← single bun binary
-├── versions/
-│   ├── node            ← global default: "20.20.2"
-│   └── python          ← global default: "3.11.5"
+├── bin/                ← ven, ven-launcher, ven-setup
 └── cache/
-    └── ven.db          ← SQLite: package metadata cache
+    ├── registry.db     ← SQLite: npm registry metadata (24h TTL)
+    └── intelligence.db ← SQLite: per-project simulation snapshots
 ```
 
 ---
@@ -523,12 +498,13 @@ ven-launcher <path>             # Open ven terminal in project
 You type: cd ~/projects/frontend
 
 Shell hook fires:
-  1. Search for ven.toml (current → parent directories)
-  2. Read: node = "20"
-  3. Resolve: 20 → 20.20.2
-  4. Find: ~/.ven/node/20.20.2/
-  5. Prepend to PATH (this terminal only)
-  6. Export: VEN_NODE_VERSION=20.20.2
+  1. Walk up from cwd looking for the nearest ven.toml
+  2. Read [runtime]: node = "20"
+  3. Resolve "20" against installed versions → 20.20.2
+  4. Locate ~/.ven/node/20.20.2/
+  5. Prepend to PATH (this terminal only; original PATH cached once)
+  6. Export VEN_NODE_VERSION, NODE_PATH, VEN_TOML
+  7. Apply every [env] key from ven.toml
 
 You type: node --version
   → v20.20.2
@@ -537,16 +513,18 @@ You type: cd ~/projects/backend
 
 Shell hook fires again:
   1. Find new ven.toml: node = "22", python = "3.11"
-  2. Remove old PATH entries
-  3. Add new PATH entries
-  4. Export new VEN_* markers
+  2. Recompute overlay (cached by directory + toml-mtime signature)
+  3. Re-prepend new bin dirs, swap VEN_*_VERSION markers
+  4. Re-apply that project's [env]
 
 You type: node --version
   → v22.11.0
 ```
 
 **Per-terminal isolation:**
-Terminal 1 → Node 20 | Terminal 2 → Node 22 | No conflicts
+Terminal 1 → Node 20 | Terminal 2 → Node 22 | No conflicts.
+Each terminal owns its own process environment block; `ven` never writes to
+your shell rc, your registry `Path`, or any other system-level location.
 
 ---
 
@@ -602,11 +580,15 @@ No containers. No VMs. Just PATH manipulation.
 
 ## 🔐 Security Model
 
-- All runtime downloads verified with **SHA256 checksums**
-- Official sources only (nodejs.org, python.org, golang.org, etc.)
-- **CVE scanning** via OSV database (api.osv.dev)
-- **EOL monitoring** via endoflife.date API
-- Lock file integrity via **SHA256 package hashes**
+- Runtime downloads verified with **SHA-256 checksums** where the upstream
+  publishes them (Node.js does; others fall back to upstream HTTPS).
+- **Official sources only** — `nodejs.org`, `python.org`, `go.dev`,
+  `static.rust-lang.org`, Adoptium, GitHub releases (Deno / Bun /
+  RubyInstaller2 / ruby-builder).
+- Each install runs a **post-install binary smoke test** before the runtime
+  is registered as available — failures don't pollute `~/.ven/`.
+- Lock-file integrity via a **deterministic content hash** over the merged
+  resolved graph.
 - No telemetry. No phone home. No accounts.
 
 ---
@@ -615,13 +597,15 @@ No containers. No VMs. Just PATH manipulation.
 
 | Topic | Link |
 | ----- | ---- |
-| Getting Started | [docs/getting-started.md](docs/getting-started.md) |
-| Configuration Reference | [docs/configuration.md](docs/configuration.md) |
-| Command Reference | [docs/commands.md](docs/commands.md) |
-| Language Guides | [docs/languages/](docs/languages/) |
-| Dependency Graph | [docs/dependency-graph.md](docs/dependency-graph.md) |
-| Team Workflows | [docs/team-workflows.md](docs/team-workflows.md) |
-| Enterprise Usage | [docs/enterprise.md](docs/enterprise.md) |
+| **Complete feature reference (all 10 categories)** | [docs/features.md](docs/features.md) |
+| Documentation index | [docs/README.md](docs/README.md) |
+| Configuration (`ven.toml`) | [docs/ven-toml.md](docs/ven-toml.md) |
+| Lockfile (`ven.lock`) | [docs/ven-lock.md](docs/ven-lock.md) |
+| Command reference (`ven <cmd>`) | [docs/cmds/INDEX.md](docs/cmds/INDEX.md) |
+| Per-language deep dives | [docs/languages.md](docs/languages.md) → [`docs/languages/`](docs/languages/) |
+| Shell integration | [docs/shell-integration.md](docs/shell-integration.md) |
+| Standalone launcher | [docs/ven-launcher.md](docs/ven-launcher.md) |
+| Installation (scripts + offline) | [docs/install-scripts.md](docs/install-scripts.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ---
