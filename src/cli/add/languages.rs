@@ -8,8 +8,10 @@ use super::update_ven_toml_packages;
 use crate::core::deno_imports::{self, DenoManifest};
 use crate::core::gemfile::Gemfile;
 use crate::core::java_manifest::{self, JavaCoord};
+use crate::core::project_venv::local_venv_bin_dir;
 use crate::core::requirements::{requirement_from_spec, Requirements};
 use crate::core::ruby_gems;
+use crate::core::runtime_bin::runtime_tool;
 
 pub(super) fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<()> {
     let mut installed = Vec::new();
@@ -28,6 +30,8 @@ pub(super) fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<
         println!();
         return Ok(());
     }
+
+    ensure_project_python_venv()?;
 
     for spec in package_specs {
         let (name, declared) = parse_python_spec(spec);
@@ -92,9 +96,10 @@ pub(super) fn cmd_add_go(package_specs: &[String], dry_run: bool) -> Result<()> 
     }
 
     ensure_go_mod()?;
+    let go_bin = runtime_tool("go", "go");
     let mut installed = Vec::new();
     for spec in package_specs {
-        let status = Command::new("go").args(["get", spec]).status();
+        let status = Command::new(&go_bin).args(["get", spec]).status();
         match status {
             Ok(s) if s.success() => {
                 println!("  {} {}", "[OK]".green(), format!("Added {}", spec.bold()));
@@ -130,9 +135,10 @@ pub(super) fn cmd_add_rust(package_specs: &[String], dry_run: bool) -> Result<()
     }
 
     ensure_cargo_manifest()?;
+    let cargo_bin = runtime_tool("rust", "cargo");
     let mut installed = Vec::new();
     for spec in package_specs {
-        let status = Command::new("cargo").args(["add", spec]).status();
+        let status = Command::new(&cargo_bin).args(["add", spec]).status();
         match status {
             Ok(s) if s.success() => {
                 println!("  {} {}", "[OK]".green(), format!("Added {}", spec.bold()));
@@ -312,7 +318,8 @@ pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()
 }
 
 fn which_bundle() -> bool {
-    Command::new("bundle")
+    let bundle = runtime_tool("ruby", "bundle");
+    Command::new(&bundle)
         .arg("--version")
         .output()
         .map(|o| o.status.success())
@@ -320,12 +327,13 @@ fn which_bundle() -> bool {
 }
 
 fn run_bundle_add(name: &str, version: Option<&str>) -> Result<()> {
-    let mut cmd = Command::new("bundle");
+    let bundle = runtime_tool("ruby", "bundle");
+    let mut cmd = Command::new(&bundle);
     cmd.args(["add", name]);
     if let Some(v) = version {
         cmd.args(["--version", v]);
     }
-    let status = cmd.status().map_err(|e| anyhow::anyhow!("bundle add failed to start: {e}"))?;
+    let status = cmd.status().map_err(|e| anyhow::anyhow!("bundle add failed to start ({:?}): {e}", bundle))?;
     if !status.success() {
         anyhow::bail!("bundle add exit code {:?}", status.code());
     }
@@ -429,9 +437,10 @@ pub(super) fn cmd_add_bun(package_specs: &[String], dry_run: bool) -> Result<()>
         return Ok(());
     }
 
+    let bun_bin = runtime_tool("bun", "bun");
     let mut installed = Vec::new();
     for spec in package_specs {
-        let status = Command::new("bun").args(["add", spec]).status();
+        let status = Command::new(&bun_bin).args(["add", spec]).status();
         match status {
             Ok(s) if s.success() => {
                 println!("  {} {}", "[OK]".green(), format!("Added {}", spec.bold()));
@@ -439,7 +448,12 @@ pub(super) fn cmd_add_bun(package_specs: &[String], dry_run: bool) -> Result<()>
                 installed.push((name, declared));
             }
             Ok(_) => println!("  {} Failed to add {}", "[ERROR]".red(), spec),
-            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+            Err(e) => println!(
+                "  {} Could not run bun at {:?}: {}",
+                "[ERROR]".red(),
+                bun_bin,
+                e
+            ),
         }
     }
     if !installed.is_empty() {
@@ -461,7 +475,8 @@ fn ensure_go_mod() -> Result<()> {
         .filter(|s| !s.is_empty())
         .unwrap_or("app")
         .to_string();
-    let status = Command::new("go")
+    let go_bin = runtime_tool("go", "go");
+    let status = Command::new(&go_bin)
         .args(["mod", "init", &module_name])
         .status()?;
     if !status.success() {
@@ -490,7 +505,8 @@ fn ensure_cargo_manifest() -> Result<()> {
         .and_then(|n| n.to_str())
         .filter(|s| !s.is_empty())
         .unwrap_or("app");
-    let status = Command::new("cargo")
+    let cargo_bin = runtime_tool("rust", "cargo");
+    let status = Command::new(&cargo_bin)
         .args(["init", "--name", name])
         .status()?;
     if !status.success() {
@@ -521,7 +537,66 @@ fn parse_python_spec(spec: &str) -> (String, String) {
     (spec.trim().to_string(), "*".to_string())
 }
 
+/// If the project's `ven.toml` declares a Python runtime but no `./venv` exists yet,
+/// create one using the ven-managed interpreter. This makes `ven add <pkg>` install
+/// into the project venv without requiring the user to activate it (or even run
+/// `ven init` first).
+fn ensure_project_python_venv() -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    if local_venv_bin_dir(&cwd).is_some() {
+        return Ok(()); // venv already there
+    }
+    use crate::core::project_venv::{create_local_venv, ensure_gitignore_venv, PROJECT_VENV_DIR};
+    let python = runtime_tool("python", "python");
+    if python == PathBuf::from("python") {
+        // No ven-managed Python and no project venv. Nothing to do; pip install will
+        // fall back to whatever python is on PATH (legacy behaviour).
+        return Ok(());
+    }
+    println!(
+        "  {} Creating local Python env at `{}/` ({})...",
+        "[PY]".cyan().bold(),
+        PROJECT_VENV_DIR,
+        python.display()
+    );
+    match create_local_venv(&cwd, &python) {
+        Ok(path) => {
+            let _ = ensure_gitignore_venv(&cwd);
+            println!(
+                "  {} venv ready at {}",
+                "[OK]".green().bold(),
+                path.display()
+            );
+        }
+        Err(e) => {
+            println!(
+                "  {} Could not auto-create venv: {} (continuing with the runtime's pip)",
+                "[!]".yellow(),
+                e
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Prefer the project's local venv (`./venv/Scripts/python.exe`), then `VIRTUAL_ENV`,
+/// then the ven-managed runtime from `ven.toml`, then bare `python`/`python3`.
+///
+/// This ordering ensures `ven add` always installs into the project's isolated
+/// environment when `ven init` (for Python) has been run, even without manually
+/// activating the venv first.
 fn resolve_python_cmd() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Some(bin) = local_venv_bin_dir(&cwd) {
+            #[cfg(target_os = "windows")]
+            let exe = bin.join("python.exe");
+            #[cfg(not(target_os = "windows"))]
+            let exe = bin.join("python");
+            if exe.is_file() {
+                return exe;
+            }
+        }
+    }
     #[cfg(target_os = "windows")]
     {
         if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
@@ -529,6 +604,10 @@ fn resolve_python_cmd() -> PathBuf {
             if p.is_file() {
                 return p;
             }
+        }
+        let resolved = runtime_tool("python", "python");
+        if resolved != PathBuf::from("python") {
+            return resolved;
         }
         if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
             if let Some(home) = dirs::home_dir() {
@@ -546,6 +625,16 @@ fn resolve_python_cmd() -> PathBuf {
     }
     #[cfg(not(target_os = "windows"))]
     {
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            let p = PathBuf::from(venv).join("bin").join("python");
+            if p.is_file() {
+                return p;
+            }
+        }
+        let resolved = runtime_tool("python", "python3");
+        if resolved != PathBuf::from("python3") {
+            return resolved;
+        }
         PathBuf::from("python3")
     }
 }

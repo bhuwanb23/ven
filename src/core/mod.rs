@@ -20,6 +20,7 @@ pub mod python_install;
 pub mod requirements;
 pub mod ruby_gems;
 pub mod ruby_install;
+pub mod runtime_bin;
 pub mod rust_install;
 pub mod security;
 

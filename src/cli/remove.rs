@@ -19,6 +19,7 @@ pub fn cmd_remove(
     json: bool,
     verbose: bool,
     cleanup: bool,
+    yes: bool,
 ) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let python_mode = load_config(&cwd)?
@@ -119,7 +120,7 @@ pub fn cmd_remove(
 
     // Handle cleanup mode separately
     if cleanup {
-        return cmd_cleanup(json, verbose, dry_run, force);
+        return cmd_cleanup(json, verbose, dry_run, force, yes);
     }
 
     if packages.is_empty() {
@@ -143,7 +144,7 @@ pub fn cmd_remove(
     } else if dry_run {
         display_dry_run(packages, force)?;
     } else {
-        execute_batch_removal(packages, force)?;
+        execute_batch_removal(packages, force, yes)?;
     }
 
     Ok(())
@@ -152,7 +153,7 @@ pub fn cmd_remove(
 // Language-specific remove handlers live in `remove/languages.rs`.
 
 /// Execute batch removal with dependency checking
-fn execute_batch_removal(packages: &[String], force: bool) -> Result<()> {
+fn execute_batch_removal(packages: &[String], force: bool, yes: bool) -> Result<()> {
     let mut success_count = 0;
     let mut fail_count = 0;
     let mut skipped_count = 0;
@@ -193,22 +194,30 @@ fn execute_batch_removal(packages: &[String], force: bool) -> Result<()> {
                 }
                 println!();
                 println!("  Removing {} may break these packages.", package);
-                print!("  Remove anyway? [y/N]: ");
 
-                use std::io::{self, BufRead};
-                let stdin = io::stdin();
-                let answer = stdin
-                    .lock()
-                    .lines()
-                    .next()
-                    .and_then(|l| l.ok())
-                    .unwrap_or_default();
+                let auto_yes = yes || !crate::core::runtime_bin::stdin_is_interactive();
+                if auto_yes {
+                    println!(
+                        "  Proceeding anyway{} since --yes/non-TTY mode is active.",
+                        if yes { " (--yes)" } else { " (non-interactive)" }
+                    );
+                } else {
+                    print!("  Remove anyway? [y/N]: ");
+                    use std::io::{self, BufRead};
+                    let stdin = io::stdin();
+                    let answer = stdin
+                        .lock()
+                        .lines()
+                        .next()
+                        .and_then(|l| l.ok())
+                        .unwrap_or_default();
 
-                if answer.trim().to_lowercase() != "y" {
-                    println!("  Cancelled removal of {}.", package);
-                    skipped_count += 1;
-                    results.push((package.clone(), "cancelled".to_string(), false));
-                    continue;
+                    if answer.trim().to_lowercase() != "y" {
+                        println!("  Cancelled removal of {}.", package);
+                        skipped_count += 1;
+                        results.push((package.clone(), "cancelled".to_string(), false));
+                        continue;
+                    }
                 }
                 println!();
             }
@@ -608,7 +617,7 @@ fn output_json_removal(
 }
 
 /// Orphan cleanup mode
-fn cmd_cleanup(json: bool, verbose: bool, dry_run: bool, force: bool) -> Result<()> {
+fn cmd_cleanup(json: bool, verbose: bool, dry_run: bool, force: bool, yes: bool) -> Result<()> {
     println!(
         "\n  {} {}",
         "ven remove".bold().cyan(),
@@ -635,7 +644,7 @@ fn cmd_cleanup(json: bool, verbose: bool, dry_run: bool, force: bool) -> Result<
     if json {
         output_json_cleanup(&orphans, dry_run, force)?;
     } else {
-        display_cleanup_results(&orphans, verbose, dry_run, force)?;
+        display_cleanup_results(&orphans, verbose, dry_run, force, yes)?;
     }
 
     Ok(())
@@ -710,6 +719,7 @@ fn display_cleanup_results(
     _verbose: bool,
     dry_run: bool,
     force: bool,
+    yes: bool,
 ) -> Result<()> {
     println!(
         "  {} Found {} orphaned package(s):\n",
@@ -744,19 +754,27 @@ fn display_cleanup_results(
         println!();
 
         if !force {
-            print!("  Remove all orphaned packages? [y/N]: ");
-            use std::io::{self, BufRead};
-            let stdin = io::stdin();
-            let answer = stdin
-                .lock()
-                .lines()
-                .next()
-                .and_then(|l| l.ok())
-                .unwrap_or_default();
+            let auto_yes = yes || !crate::core::runtime_bin::stdin_is_interactive();
+            if auto_yes {
+                println!(
+                    "  Proceeding with cleanup{}.",
+                    if yes { " (--yes)" } else { " (non-interactive)" }
+                );
+            } else {
+                print!("  Remove all orphaned packages? [y/N]: ");
+                use std::io::{self, BufRead};
+                let stdin = io::stdin();
+                let answer = stdin
+                    .lock()
+                    .lines()
+                    .next()
+                    .and_then(|l| l.ok())
+                    .unwrap_or_default();
 
-            if answer.trim().to_lowercase() != "y" {
-                println!("  Cancelled.");
-                return Ok(());
+                if answer.trim().to_lowercase() != "y" {
+                    println!("  Cancelled.");
+                    return Ok(());
+                }
             }
         }
 

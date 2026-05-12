@@ -200,6 +200,9 @@ pub enum Commands {
         /// Show full dependency tree
         #[arg(short, long)]
         verbose: bool,
+        /// Assume "yes" for the final install prompt (default for non-TTY shells / CI)
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
 
     /// Check add compatibility without installing (dependency intelligence)
@@ -283,6 +286,10 @@ pub enum Commands {
         /// Find and remove orphaned/unused dependencies automatically
         #[arg(long)]
         cleanup: bool,
+
+        /// Assume "yes" for confirmation prompts (default for non-TTY shells / CI)
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
 
     /// Upgrade packages to latest compatible versions
@@ -529,7 +536,8 @@ pub fn run(cli: Cli) -> Result<()> {
             skip_check,
             dry_run,
             verbose,
-        } => add::cmd_add(&packages, skip_check, dry_run, verbose),
+            yes,
+        } => add::cmd_add(&packages, skip_check, dry_run, verbose, yes),
         Commands::CheckAdd { packages, json } => check_add::cmd_check_add(&packages, json),
         Commands::Graph { json, resolve } => graph::cmd_graph(json, resolve),
         Commands::Why { package } => why::cmd_why(&package),
@@ -540,7 +548,8 @@ pub fn run(cli: Cli) -> Result<()> {
             json,
             verbose,
             cleanup,
-        } => remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup),
+            yes,
+        } => remove::cmd_remove(&packages, force, dry_run, json, verbose, cleanup, yes),
         Commands::Upgrade {
             packages,
             apply,

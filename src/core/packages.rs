@@ -2,23 +2,26 @@ use anyhow::{anyhow, Result};
 use colored::Colorize;
 use std::process::Command;
 
+use crate::core::runtime_bin::runtime_tool;
+
 // ── Run npm install ──────────────────────────────────────────────────
 
 pub fn npm_install(package: &str, version: &str) -> Result<()> {
     let pkg_spec = format!("{}@{}", package, version);
     println!("{} Installing {}...", "[DOWNLOAD]".cyan(), pkg_spec.bold());
 
-    // On Windows, use npm.cmd instead of npm
-    let npm_cmd = if cfg!(target_os = "windows") {
-        "npm.cmd"
-    } else {
-        "npm"
-    };
+    let npm = runtime_tool("node", "npm");
 
-    let status = Command::new(npm_cmd)
+    let status = Command::new(&npm)
         .args(["install", &pkg_spec])
         .status()
-        .map_err(|_| anyhow!("npm not found. Is Node installed and active?"))?;
+        .map_err(|e| {
+            anyhow!(
+                "Could not run npm at {:?}: {}. Is the Node runtime in ven.toml installed? (`ven install node <ver>`)",
+                npm,
+                e
+            )
+        })?;
 
     if !status.success() {
         return Err(anyhow!("npm install failed for {}", pkg_spec));
@@ -66,24 +69,11 @@ pub fn find_dependents(package: &str) -> Result<Vec<(String, String)>> {
 // ── Run npm uninstall ────────────────────────────────────────────────
 
 pub fn npm_uninstall(package: &str) -> Result<()> {
-    // Try to find npm in .ven directory first, then system PATH
-    let npm_path = if let Ok(ven_node) = std::env::var("VEN_NODE_VERSION") {
-        format!("C:\\Users\\Bhuwan\\.ven\\node\\{}\\npm.cmd", ven_node)
-    } else {
-        "npm".to_string()
-    };
-
-    let status = if std::path::Path::new(&npm_path).exists() {
-        Command::new(&npm_path)
-            .args(["uninstall", package])
-            .status()
-            .map_err(|e| anyhow!("npm execution failed: {}", e))?
-    } else {
-        Command::new("npm")
-            .args(["uninstall", package])
-            .status()
-            .map_err(|_| anyhow!("npm not found"))?
-    };
+    let npm = runtime_tool("node", "npm");
+    let status = Command::new(&npm)
+        .args(["uninstall", package])
+        .status()
+        .map_err(|e| anyhow!("Could not run npm at {:?}: {}", npm, e))?;
 
     if !status.success() {
         return Err(anyhow!("npm uninstall failed for {}", package));

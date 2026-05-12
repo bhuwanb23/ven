@@ -6,8 +6,10 @@ use std::process::Command;
 use crate::core::deno_imports::{self, DenoManifest};
 use crate::core::gemfile::Gemfile;
 use crate::core::java_manifest::{self, JavaCoord};
+use crate::core::project_venv::local_venv_bin_dir;
 use crate::core::requirements::Requirements;
 use crate::core::ruby_gems;
+use crate::core::runtime_bin::runtime_tool;
 
 use super::remove_from_ven_toml;
 
@@ -92,7 +94,8 @@ pub(super) fn cmd_remove_ruby(packages: &[String], dry_run: bool, json: bool) ->
 }
 
 fn which_bundle() -> bool {
-    Command::new("bundle")
+    let bundle = runtime_tool("ruby", "bundle");
+    Command::new(&bundle)
         .arg("--version")
         .output()
         .map(|o| o.status.success())
@@ -100,10 +103,11 @@ fn which_bundle() -> bool {
 }
 
 fn run_bundle_remove(name: &str) -> Result<()> {
-    let status = Command::new("bundle")
+    let bundle = runtime_tool("ruby", "bundle");
+    let status = Command::new(&bundle)
         .args(["remove", name])
         .status()
-        .map_err(|e| anyhow::anyhow!("bundle remove failed to start: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("bundle remove failed to start ({:?}): {e}", bundle))?;
     if !status.success() {
         anyhow::bail!("bundle remove exit code {:?}", status.code());
     }
@@ -197,7 +201,21 @@ fn sync_requirements_after_remove(names: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// Mirror of `cli::add::languages::resolve_python_cmd`. Uninstall must target
+/// the same interpreter we'd install into, otherwise we silently no-op against
+/// system Python.
 fn resolve_python_cmd() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Some(bin) = local_venv_bin_dir(&cwd) {
+            #[cfg(target_os = "windows")]
+            let exe = bin.join("python.exe");
+            #[cfg(not(target_os = "windows"))]
+            let exe = bin.join("python");
+            if exe.is_file() {
+                return exe;
+            }
+        }
+    }
     #[cfg(target_os = "windows")]
     {
         if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
@@ -205,6 +223,10 @@ fn resolve_python_cmd() -> PathBuf {
             if p.is_file() {
                 return p;
             }
+        }
+        let resolved = runtime_tool("python", "python");
+        if resolved != PathBuf::from("python") {
+            return resolved;
         }
         if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
             if let Some(home) = dirs::home_dir() {
@@ -222,6 +244,16 @@ fn resolve_python_cmd() -> PathBuf {
     }
     #[cfg(not(target_os = "windows"))]
     {
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            let p = PathBuf::from(venv).join("bin").join("python");
+            if p.is_file() {
+                return p;
+            }
+        }
+        let resolved = runtime_tool("python", "python3");
+        if resolved != PathBuf::from("python3") {
+            return resolved;
+        }
         PathBuf::from("python3")
     }
 }
@@ -257,9 +289,10 @@ pub(super) fn cmd_remove_rust(packages: &[String], dry_run: bool, json: bool) ->
         }
         return Ok(());
     }
+    let cargo_bin = runtime_tool("rust", "cargo");
     let mut removed: Vec<String> = Vec::new();
     for pkg in packages {
-        let status = std::process::Command::new("cargo")
+        let status = std::process::Command::new(&cargo_bin)
             .args(["remove", pkg])
             .status();
         match status {
@@ -486,10 +519,11 @@ pub(super) fn cmd_remove_go(packages: &[String], dry_run: bool, json: bool) -> R
         }
         return Ok(());
     }
+    let go_bin = runtime_tool("go", "go");
     let mut removed: Vec<String> = Vec::new();
     for pkg in packages {
         let arg = format!("{}@none", pkg);
-        let status = Command::new("go").args(["get", &arg]).status();
+        let status = Command::new(&go_bin).args(["get", &arg]).status();
         match status {
             Ok(s) if s.success() => {
                 println!("  {} Removed {}", "[OK]".green(), pkg.bold());
@@ -500,8 +534,7 @@ pub(super) fn cmd_remove_go(packages: &[String], dry_run: bool, json: bool) -> R
             Err(e) => println!("  {} {}", "[ERROR]".red(), e),
         }
     }
-    // `go mod tidy` cleans go.sum and indirect entries.
-    let _ = Command::new("go").args(["mod", "tidy"]).status();
+    let _ = Command::new(&go_bin).args(["mod", "tidy"]).status();
     if json {
         println!(
             "{}",
@@ -546,9 +579,10 @@ pub(super) fn cmd_remove_bun(packages: &[String], dry_run: bool, json: bool) -> 
         }
         return Ok(());
     }
+    let bun_bin = runtime_tool("bun", "bun");
     let mut removed: Vec<String> = Vec::new();
     for pkg in packages {
-        let status = Command::new("bun").args(["remove", pkg]).status();
+        let status = Command::new(&bun_bin).args(["remove", pkg]).status();
         match status {
             Ok(s) if s.success() => {
                 println!("  {} Removed {}", "[OK]".green(), pkg.bold());
@@ -556,7 +590,12 @@ pub(super) fn cmd_remove_bun(packages: &[String], dry_run: bool, json: bool) -> 
                 let _ = remove_from_ven_toml(pkg);
             }
             Ok(_) => println!("  {} Failed to remove {}", "[WARN]".yellow(), pkg),
-            Err(e) => println!("  {} {}", "[ERROR]".red(), e),
+            Err(e) => println!(
+                "  {} Could not run bun at {:?}: {}",
+                "[ERROR]".red(),
+                bun_bin,
+                e
+            ),
         }
     }
     if json {

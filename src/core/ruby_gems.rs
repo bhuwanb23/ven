@@ -23,7 +23,7 @@ pub fn gem_list_pattern(name: &str) -> String {
 }
 
 fn gem_program() -> PathBuf {
-    PathBuf::from("gem")
+    crate::core::runtime_bin::runtime_tool("ruby", "gem")
 }
 
 /// First installed version for this gem in the current environment (default or only).

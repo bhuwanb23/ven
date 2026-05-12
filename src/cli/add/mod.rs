@@ -37,6 +37,7 @@ pub fn cmd_add(
     skip_check: bool,
     dry_run: bool,
     verbose: bool,
+    yes: bool,
 ) -> Result<()> {
     if package_specs.is_empty() {
         println!("  {} No packages specified", "[ERROR]".red());
@@ -440,19 +441,32 @@ pub fn cmd_add(
     }
 
     println!();
-    println!(
-        "  {} Ready to install {} package(s)? (y/N)",
-        "[INSTALL]".green().bold(),
-        success_count
-    );
-
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-    let input = input.trim().to_lowercase();
-    if input != "y" && input != "yes" {
-        println!("  {} Installation cancelled", "[CANCELLED]".yellow());
-        println!();
-        return Ok(());
+    let auto_confirm = yes || !crate::core::runtime_bin::stdin_is_interactive();
+    if auto_confirm {
+        println!(
+            "  {} Installing {} package(s){}",
+            "[INSTALL]".green().bold(),
+            success_count,
+            if yes {
+                " (--yes)".dimmed().to_string()
+            } else {
+                " (non-interactive)".dimmed().to_string()
+            }
+        );
+    } else {
+        println!(
+            "  {} Ready to install {} package(s)? (Y/n)",
+            "[INSTALL]".green().bold(),
+            success_count
+        );
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+        if !input.is_empty() && input != "y" && input != "yes" {
+            println!("  {} Installation cancelled", "[CANCELLED]".yellow());
+            println!();
+            return Ok(());
+        }
     }
 
     println!();
