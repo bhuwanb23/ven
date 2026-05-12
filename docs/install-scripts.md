@@ -56,6 +56,7 @@ Both scripts read the same logical settings via env vars; the PowerShell one add
 | `VEN_NO_VERIFY`       | `-NoVerify`        | `--no-verify`        | `false`       | Skip SHA256 verification. |
 | `VEN_DRY_RUN`         | `-DryRun`          | `--dry-run`          | `false`       | Print every step without touching the system. Download still happens during the dry-run preflight check; no writes. |
 | `VEN_FORCE_REPLICATE` | `-ForceReplicate`  | `--force-replicate`  | `false`       | Skip the `ven-setup-*` asset even when present; use the raw-zip / tarball path. Useful for debugging the Replicate code path. |
+| `VEN_DOCS_URL`        | -                  | -                    | `https://docs.ven.sh` | URL printed in the final completion banner. Override for forks. |
 | `GITHUB_TOKEN`        | -                  | -                    | -             | Optional. Added to the API request as a Bearer token to avoid GitHub rate limits. |
 
 ### Mode selection precedence
@@ -97,8 +98,8 @@ The scripts look up assets by exact filename. Any release workflow that produces
 | Windows arm64          | `ven-setup-windows-arm64.exe`    |
 | Linux x64              | `ven-setup-linux-x64`            |
 | Linux arm64            | `ven-setup-linux-arm64`          |
-| macOS x64 (Intel)      | `ven-setup-darwin-x64`           |
-| macOS arm64 (Apple Si.)| `ven-setup-darwin-arm64`         |
+| macOS x64 (Intel)      | `ven-setup-macos-x64`            |
+| macOS arm64 (Apple Si.)| `ven-setup-macos-arm64`          |
 
 Each `ven-setup-*` binary is the **self-contained installer** with `ven` and `ven-launcher` embedded via `build.rs` + `include_bytes!`. Size is roughly the sum of the two embedded binaries plus ~200 KB of installer logic.
 
@@ -110,16 +111,19 @@ Each `ven-setup-*` binary is the **self-contained installer** with `ven` and `ve
 | Windows arm64          | `ven-windows-arm64.zip`          | `ven.exe`, `ven-launcher.exe`             |
 | Linux x64              | `ven-linux-x64.tar.gz`           | `ven`, `ven-launcher` (mode 0755)         |
 | Linux arm64            | `ven-linux-arm64.tar.gz`         | `ven`, `ven-launcher`                     |
-| macOS x64              | `ven-darwin-x64.tar.gz`          | `ven`, `ven-launcher`                     |
-| macOS arm64            | `ven-darwin-arm64.tar.gz`        | `ven`, `ven-launcher`                     |
+| macOS x64              | `ven-macos-x64.tar.gz`           | `ven`, `ven-launcher`                     |
+| macOS arm64            | `ven-macos-arm64.tar.gz`         | `ven`, `ven-launcher`                     |
 
-### Integrity manifest
+### Integrity (preferred: per-asset sidecar; fallback: manifest)
 
-| Asset name     | Contents                                                                |
-|----------------|-------------------------------------------------------------------------|
-| `SHA256SUMS`   | `<sha256>  <asset-filename>` per line, one line per asset above.        |
+For each asset above, publish either a per-asset `.sha256` sidecar **or** include the asset in a top-level `SHA256SUMS` manifest. Both forms are accepted; sidecars take precedence.
 
-`SHA256SUMS` is optional. If present it is downloaded and verified; if absent both scripts print "Skipping SHA256 verification (SHA256SUMS not present in release)" and continue. Set `VEN_NO_VERIFY=true` to skip verification explicitly even when the file is present.
+| Form                       | Asset name                                | Contents                                         |
+|----------------------------|-------------------------------------------|--------------------------------------------------|
+| Per-asset sidecar (preferred) | `<asset>.sha256` (e.g. `ven-setup-linux-x64.sha256`) | First line is the sha256, optionally followed by two spaces and the filename. |
+| Manifest (fallback)        | `SHA256SUMS`                              | One `<sha256>  <asset-filename>` line per asset. |
+
+If neither is published, both scripts print `[skip]` for the verification step and continue. Set `VEN_NO_VERIFY=true` to skip verification explicitly even when integrity files are present.
 
 ## Security model
 
@@ -130,6 +134,44 @@ Each `ven-setup-*` binary is the **self-contained installer** with `ven` and `ve
 - `--dry-run` is honored end-to-end: downloads still happen so you can confirm the right asset is selected, but no writes are made and no child installer is invoked.
 - The scripts never run any code from the release payload other than `ven-setup` (Delegate) or the binaries they install (`ven setup` invocation for shell hooks). They do not source / `iex` anything fetched.
 - Optional `GITHUB_TOKEN` makes the API request authenticated (only the GitHub API endpoint sees the token; it is not forwarded to asset downloads).
+
+## UX
+
+Both scripts produce a banner, an indented `Detecting system...` block, an `Install mode` / `Install path` summary, then a sequence of right-aligned step lines that end in `[ok]`, `[skip]`, `[dry-run]`, or `[FAIL]`. A boxed completion banner closes the run.
+
+```text
+ven Installer
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Detecting system...
+  OS:           macOS
+  Architecture: arm64
+  Shell:        zsh
+  sudo / root:  No (sudo available)
+
+Install mode: User (no admin)
+Install path: /Users/you/.ven/bin
+
+  Resolving release (yourorg/ven latest)...           [ok]
+  Selecting asset...                                  [ok: Delegate]
+  Downloading ven-setup-macos-arm64...                [ok]
+    9.7 MB downloaded
+  Verifying SHA256...                                 [ok]
+  Delegating to ven-setup (user)...                   [ok]
+  Verifying installation...                           [ok]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[OK] ven 0.1.0 installed successfully!
+
+Open a NEW terminal (or `exec $SHELL -l`) and run:
+  ven --version
+  ven init
+
+Documentation: https://docs.ven.sh
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+When a step fails the marker becomes `[FAIL]` and the captured `stdout` + `stderr` of that step is printed before the script exits.
 
 ## Implementation notes
 

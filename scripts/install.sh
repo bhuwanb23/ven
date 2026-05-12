@@ -23,6 +23,7 @@ ven_repo="${VEN_REPO:-yourorg/ven}"
 ven_no_verify="${VEN_NO_VERIFY:-false}"
 ven_dry_run="${VEN_DRY_RUN:-false}"
 ven_force_replicate="${VEN_FORCE_REPLICATE:-false}"
+ven_docs_url="${VEN_DOCS_URL:-https://docs.ven.sh}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -46,23 +47,55 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-err() { printf 'install.sh: error: %s\n' "$*" >&2; exit 1; }
-info() { printf '%s\n' "$*"; }
+# ---------------------------------------------------------------------------
+# Tiny helpers
+# ---------------------------------------------------------------------------
+
+# Box ruler. Width 56 chars to fit a typical 80-col terminal with margin.
+LINE='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+
+err()         { printf '\nerror: %s\n' "$*" >&2; exit 1; }
+say()         { printf '%s\n' "$*"; }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || err "missing required command: $1"; }
 
+# step_begin "label"  -> prints "  label...                          " (no \n)
+# step_done [marker]  -> prints " [ok]\n" by default
+# step_skip           -> "[skip]"
+# step_dry            -> "[dry-run]"
+# step_fail           -> "[FAIL]"   (caller is expected to exit/err afterwards)
+step_begin() { printf '  %-50s' "${1}..."; }
+step_done()  { printf ' %s\n' "${1:-[ok]}"; }
+step_skip()  { step_done '[skip]'; }
+step_dry()   { step_done '[dry-run]'; }
+step_fail()  { step_done '[FAIL]'; }
+
+# Run a command silently; on failure print the captured output and exit 1.
+run_step() {
+    label="$1"; shift
+    step_begin "$label"
+    if [ "$ven_dry_run" = 'true' ]; then
+        step_dry; return 0
+    fi
+    if "$@" >"$ven_log" 2>&1; then
+        step_done
+    else
+        step_fail
+        printf '\n----- step output -----\n' >&2
+        cat "$ven_log" >&2 || :
+        exit 1
+    fi
+}
+
 # ---------------------------------------------------------------------------
-# Banner + detection
+# Banner
 # ---------------------------------------------------------------------------
 
-printf '\n'
-printf '  +-----------------------------------------+\n'
-printf '  |  ven one-liner installer (Unix)         |\n'
-printf '  +-----------------------------------------+\n'
-printf '  repo:    %s\n' "$ven_repo"
-printf '  version: %s\n' "$ven_version"
-printf '  mode:    %s\n' "${ven_mode:-(prompt)}"
-printf '  dry-run: %s\n' "$ven_dry_run"
-printf '\n'
+printf '\nven Installer\n'
+printf '%s\n\n' "$LINE"
+
+# ---------------------------------------------------------------------------
+# Detection
+# ---------------------------------------------------------------------------
 
 require_cmd uname
 require_cmd curl
@@ -73,23 +106,40 @@ uname_s="$(uname -s)"
 uname_m="$(uname -m)"
 
 case "$uname_s" in
-    Linux)   ven_os='linux'  ;;
-    Darwin)  ven_os='darwin' ;;
-    *)       err "unsupported OS: $uname_s (Linux and Darwin only)" ;;
+    Linux)   ven_os='linux';  os_human='Linux'  ;;
+    Darwin)  ven_os='macos';  os_human='macOS'  ;;
+    *)       err "unsupported OS: $uname_s (Linux and macOS only)" ;;
 esac
 
 case "$uname_m" in
-    x86_64|amd64)        ven_arch='x64'   ;;
-    aarch64|arm64)       ven_arch='arm64' ;;
-    *)                   err "unsupported arch: $uname_m" ;;
+    x86_64|amd64)   ven_arch='x64'   ;;
+    aarch64|arm64)  ven_arch='arm64' ;;
+    *)              err "unsupported arch: $uname_m" ;;
 esac
 
-if [ "$(id -u)" -eq 0 ]; then ven_root='true'; else ven_root='false'; fi
+if [ "$(id -u)" -eq 0 ]; then
+    ven_root='true';  root_human='Yes (root)'
+elif command -v sudo >/dev/null 2>&1; then
+    ven_root='false'; root_human='No (sudo available)'
+else
+    ven_root='false'; root_human='No (sudo unavailable)'
+fi
+
 if [ -t 0 ] && [ -t 1 ]; then ven_tty='true'; else ven_tty='false'; fi
 
-printf '  os/arch: %s/%s\n' "$ven_os" "$ven_arch"
-printf '  root:    %s\n' "$ven_root"
-printf '  tty:     %s\n\n' "$ven_tty"
+# Best-effort active shell: prefer $SHELL, fall back to ps -p $$ -o comm=.
+shell_name="$(basename "${SHELL:-}")"
+if [ -z "$shell_name" ]; then
+    shell_name="$(ps -p "$$" -o comm= 2>/dev/null | tr -d '\n' || true)"
+fi
+[ -n "$shell_name" ] || shell_name='unknown'
+
+say  'Detecting system...'
+printf '  OS:           %s\n'  "$os_human"
+printf '  Architecture: %s\n'  "$ven_arch"
+printf '  Shell:        %s\n'  "$shell_name"
+printf '  sudo / root:  %s\n'  "$root_human"
+printf '\n'
 
 # ---------------------------------------------------------------------------
 # Mode selection
@@ -98,7 +148,9 @@ printf '  tty:     %s\n\n' "$ven_tty"
 if [ -z "$ven_mode" ]; then
     if [ "$ven_tty" = 'false' ]; then
         ven_mode='user'
-        info '[1/6] No mode supplied + non-interactive shell => defaulting to "user".'
+    elif [ "$ven_root" = 'false' ] && ! command -v sudo >/dev/null 2>&1; then
+        # No way to escalate; user is the only real choice.
+        ven_mode='user'
     else
         printf 'Select install mode:\n'
         printf '  [1] User Install (recommended) -- no sudo, only for you\n'
@@ -124,6 +176,31 @@ if [ "$ven_mode" = 'system' ] && [ "$ven_root" != 'true' ] && [ "$ven_dry_run" !
     err "system install requires root. Re-run with: sudo VEN_INSTALL_MODE=system $0"
 fi
 
+if [ "$ven_mode" = 'system' ]; then
+    install_dir='/usr/local/bin'
+    mode_human='System (/usr/local/bin)'
+else
+    install_dir="$HOME/.ven/bin"
+    mode_human='User (no admin)'
+fi
+
+printf 'Install mode: %s\n' "$mode_human"
+printf 'Install path: %s\n\n' "$install_dir"
+
+# ---------------------------------------------------------------------------
+# Temp scratch (with trap cleanup)
+# ---------------------------------------------------------------------------
+
+ven_tmp="$(mktemp -d -t ven-install-XXXXXX)"
+ven_log="$ven_tmp/step.log"
+: >"$ven_log"
+cleanup() {
+    if [ "$ven_dry_run" != 'true' ] && [ -d "$ven_tmp" ]; then
+        rm -rf "$ven_tmp"
+    fi
+}
+trap cleanup EXIT INT TERM
+
 # ---------------------------------------------------------------------------
 # GitHub release fetch + asset selection
 # ---------------------------------------------------------------------------
@@ -139,27 +216,29 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
     curl_auth="-H 'Authorization: Bearer $GITHUB_TOKEN'"
 fi
 
-info "[2/6] Fetching release metadata: $api_url"
-# shellcheck disable=SC2090
-release_json="$(sh -c "curl -fsSL -H 'User-Agent: ven-install.sh' $curl_auth '$api_url'")"
+resolve_release() {
+    # shellcheck disable=SC2090
+    release_json="$(sh -c "curl -fsSL -H 'User-Agent: ven-install.sh' $curl_auth '$api_url'")"
+    tag_name="$(printf '%s' "$release_json" | sed -n 's/.*"tag_name"[^"]*"\([^"]*\)".*/\1/p' | head -n1)"
+    [ -n "$tag_name" ] || return 1
+    printf '%s\n' "$release_json" >"$ven_tmp/release.json"
+    printf '%s\n' "$tag_name"     >"$ven_tmp/tag.txt"
+}
 
-tag_name="$(printf '%s' "$release_json" | sed -n 's/.*"tag_name"[^"]*"\([^"]*\)".*/\1/p' | head -n1)"
-[ -n "$tag_name" ] || err "could not parse tag_name from release JSON"
-info "  resolved tag: $tag_name"
+step_begin "Resolving release ($ven_repo $ven_version)"
+if resolve_release >/dev/null 2>"$ven_log"; then
+    release_json="$(cat "$ven_tmp/release.json")"
+    tag_name="$(cat "$ven_tmp/tag.txt")"
+    step_done
+else
+    step_fail
+    cat "$ven_log" >&2 || :
+    err "could not fetch release JSON from $api_url"
+fi
 
-setup_asset_name="ven-setup-${ven_os}-${ven_arch}"
-tar_asset_name="ven-${ven_os}-${ven_arch}.tar.gz"
-sums_asset_name='SHA256SUMS'
-
-# Pull asset download URLs by name without depending on jq (busybox / Alpine
-# safe). GitHub's release API returns minified single-line JSON, so we cannot
-# rely on line-oriented parsing of name + browser_download_url pairs. Instead
-# we exploit the fact that every asset download URL ends with the asset's
-# filename:
-#   https://github.com/<repo>/releases/download/<tag>/<asset_name>
-# Grep all such URLs out of the response and pick the one whose final path
-# segment matches the requested asset name. Asset names in our naming
-# contract are plain ASCII, so URL-encoding edge cases do not apply.
+# GitHub returns minified single-line JSON. The asset filename is always the
+# last path segment of its browser_download_url, so we grep for asset URLs
+# and match the trailing segment instead of trying to parse JSON in sh.
 find_asset_url() {
     asset_name="$1"
     printf '%s' "$release_json" \
@@ -167,50 +246,60 @@ find_asset_url() {
         | awk -v name="$asset_name" -F/ '$NF == name { print; exit }'
 }
 
+setup_asset_name="ven-setup-${ven_os}-${ven_arch}"
+tar_asset_name="ven-${ven_os}-${ven_arch}.tar.gz"
+
+step_begin 'Selecting asset'
 setup_url=''
 if [ "$ven_force_replicate" != 'true' ]; then
-    setup_url="$(find_asset_url "$setup_asset_name")"
+    setup_url="$(find_asset_url "$setup_asset_name" || true)"
 fi
-tar_url="$(find_asset_url "$tar_asset_name")"
-sums_url="$(find_asset_url "$sums_asset_name")"
-
-if [ -z "$setup_url" ] && [ -z "$tar_url" ]; then
-    err "release $tag_name has neither '$setup_asset_name' nor '$tar_asset_name'"
-fi
+tar_url="$(find_asset_url "$tar_asset_name" || true)"
 
 if [ -n "$setup_url" ]; then
     use_delegate='true'
     asset_name="$setup_asset_name"
     asset_url="$setup_url"
-    info "  path:    Delegate ($asset_name)"
-else
+    step_done "[ok: Delegate]"
+elif [ -n "$tar_url" ]; then
     use_delegate='false'
     asset_name="$tar_asset_name"
     asset_url="$tar_url"
-    info "  path:    Replicate ($asset_name)"
+    step_done "[ok: Replicate]"
+else
+    step_fail
+    err "release $tag_name has neither '$setup_asset_name' nor '$tar_asset_name'"
 fi
 
-# ---------------------------------------------------------------------------
-# Temp scratch + download (with trap cleanup)
-# ---------------------------------------------------------------------------
+# Per-asset .sha256 sidecar (preferred) or fall back to a SHA256SUMS manifest.
+sha_sidecar_url="$(find_asset_url "${asset_name}.sha256" || true)"
+sums_url="$(find_asset_url 'SHA256SUMS' || true)"
 
-ven_tmp="$(mktemp -d -t ven-install-XXXXXX)"
-cleanup() {
-    if [ "$ven_dry_run" != 'true' ] && [ -d "$ven_tmp" ]; then
-        rm -rf "$ven_tmp"
-    fi
-}
-trap cleanup EXIT INT TERM
+# ---------------------------------------------------------------------------
+# Download
+# ---------------------------------------------------------------------------
 
 download_path="$ven_tmp/$asset_name"
 
-printf '\n[3/6] Downloading %s\n' "$asset_name"
-if [ "$ven_dry_run" != 'true' ]; then
+human_size() {
+    bytes="$1"
+    if [ "$bytes" -ge 1048576 ]; then
+        awk -v b="$bytes" 'BEGIN { printf "%.1f MB", b / 1048576 }'
+    elif [ "$bytes" -ge 1024 ]; then
+        awk -v b="$bytes" 'BEGIN { printf "%.1f KB", b / 1024 }'
+    else
+        printf '%d B' "$bytes"
+    fi
+}
+
+do_download() {
     sh -c "curl -fsSL -H 'User-Agent: ven-install.sh' $curl_auth -o '$download_path' '$asset_url'"
+}
+
+run_step "Downloading $asset_name" do_download
+if [ "$ven_dry_run" != 'true' ]; then
     bytes="$(wc -c <"$download_path" | tr -d ' ')"
-    info "  saved: $download_path ($bytes bytes)"
-else
-    info '  [dry-run] skipped download'
+    printf '    %s downloaded\n' "$(human_size "$bytes")"
 fi
 
 # ---------------------------------------------------------------------------
@@ -222,54 +311,68 @@ if command -v sha256sum >/dev/null 2>&1; then sha256_tool='sha256sum'
 elif command -v shasum  >/dev/null 2>&1; then sha256_tool='shasum -a 256'
 fi
 
+step_begin 'Verifying SHA256'
 if [ "$ven_no_verify" = 'true' ]; then
-    info "[4/6] Skipping SHA256 verification (--no-verify / VEN_NO_VERIFY)"
-elif [ -z "$sums_url" ]; then
-    info "[4/6] Skipping SHA256 verification (SHA256SUMS not present in release)"
-elif [ -z "$sha256_tool" ]; then
-    info "[4/6] Skipping SHA256 verification (no sha256sum / shasum found)"
+    step_skip
 elif [ "$ven_dry_run" = 'true' ]; then
-    info '[4/6] [dry-run] skipped SHA256 verification'
-else
-    info "[4/6] Verifying SHA256 against SHA256SUMS"
+    step_dry
+elif [ -z "$sha256_tool" ]; then
+    step_skip
+    printf '    note: no sha256sum / shasum found on $PATH\n'
+elif [ -n "$sha_sidecar_url" ]; then
+    sha_path="$ven_tmp/${asset_name}.sha256"
+    if sh -c "curl -fsSL -H 'User-Agent: ven-install.sh' $curl_auth -o '$sha_path' '$sha_sidecar_url'" >"$ven_log" 2>&1; then
+        # Sidecar may be either "<hash>  <name>" or just "<hash>".
+        expected="$(awk 'NR==1 { print $1 }' "$sha_path")"
+        actual="$($sha256_tool "$download_path" | awk '{print $1}')"
+        if [ -n "$expected" ] && [ "$actual" = "$expected" ]; then
+            step_done
+        else
+            step_fail
+            err "SHA256 mismatch for $asset_name (sidecar): expected '$expected', got '$actual'"
+        fi
+    else
+        step_fail
+        cat "$ven_log" >&2 || :
+        err "failed to download ${asset_name}.sha256"
+    fi
+elif [ -n "$sums_url" ]; then
     sums_path="$ven_tmp/SHA256SUMS"
-    sh -c "curl -fsSL -H 'User-Agent: ven-install.sh' $curl_auth -o '$sums_path' '$sums_url'"
-    expected="$(awk -v n="$asset_name" '$2 == n || $2 == "*"n {print $1; exit}' "$sums_path")"
-    [ -n "$expected" ] || err "SHA256SUMS did not contain an entry for $asset_name"
-    actual="$($sha256_tool "$download_path" | awk '{print $1}')"
-    [ "$actual" = "$expected" ] || err "SHA256 mismatch for $asset_name: expected $expected, got $actual"
-    info "  ok  ($expected)"
+    if sh -c "curl -fsSL -H 'User-Agent: ven-install.sh' $curl_auth -o '$sums_path' '$sums_url'" >"$ven_log" 2>&1; then
+        expected="$(awk -v n="$asset_name" '$2 == n || $2 == "*"n {print $1; exit}' "$sums_path")"
+        if [ -z "$expected" ]; then
+            step_fail
+            err "SHA256SUMS did not contain an entry for $asset_name"
+        fi
+        actual="$($sha256_tool "$download_path" | awk '{print $1}')"
+        if [ "$actual" = "$expected" ]; then
+            step_done
+        else
+            step_fail
+            err "SHA256 mismatch for $asset_name (manifest): expected '$expected', got '$actual'"
+        fi
+    else
+        step_fail
+        cat "$ven_log" >&2 || :
+        err "failed to download SHA256SUMS"
+    fi
+else
+    step_skip
+    printf '    note: neither %s.sha256 nor SHA256SUMS published in this release\n' "$asset_name"
 fi
 
 # ---------------------------------------------------------------------------
-# Install: Delegate path
-# ---------------------------------------------------------------------------
-
-do_delegate() {
-    setup_exe="$download_path"
-    printf '\n[5/6] Delegating to ven-setup (%s)\n' "$ven_mode"
-    if [ "$ven_dry_run" = 'true' ]; then
-        info "  [dry-run] would run: $setup_exe --mode $ven_mode --no-input"
-        return 0
-    fi
-    chmod +x "$setup_exe"
-    "$setup_exe" --mode "$ven_mode" --no-input
-}
-
-# ---------------------------------------------------------------------------
-# Install: Replicate path (port of src/bin/setup/unix.rs)
+# Install: Delegate vs Replicate
 # ---------------------------------------------------------------------------
 
 VEN_RC_BLOCK_START='# >>> ven-setup PATH >>>'
 VEN_RC_BLOCK_END='# <<< ven-setup PATH <<<'
 
 append_block_if_missing() {
-    # $1 rc path, $2 block
     rc="$1"; block="$2"
     if grep -F "$VEN_RC_BLOCK_START" "$rc" >/dev/null 2>&1; then
         return 0
     fi
-    # Ensure trailing newline before appending.
     if [ -s "$rc" ] && [ "$(tail -c1 "$rc"; echo x)" != "$(printf '\nx')" ]; then
         printf '\n' >> "$rc"
     fi
@@ -277,8 +380,8 @@ append_block_if_missing() {
 }
 
 ensure_user_rc_path() {
-    install_dir="$1"
-    block="$(printf '%s\nexport PATH="%s:$PATH"\n%s' "$VEN_RC_BLOCK_START" "$install_dir" "$VEN_RC_BLOCK_END")"
+    install_dir_arg="$1"
+    block="$(printf '%s\nexport PATH="%s:$PATH"\n%s' "$VEN_RC_BLOCK_START" "$install_dir_arg" "$VEN_RC_BLOCK_END")"
     wrote_any='false'
     for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
         if [ -f "$rc" ]; then
@@ -292,94 +395,88 @@ ensure_user_rc_path() {
 }
 
 ensure_etc_profile_d_path() {
-    install_dir="$1"
+    install_dir_arg="$1"
     mkdir -p /etc/profile.d
     cat > /etc/profile.d/ven.sh <<EOF
 #!/bin/sh
 # Installed by ven-setup
 case ":\$PATH:" in
-  *":$install_dir:"*) ;;
-  *) export PATH="$install_dir:\$PATH" ;;
+  *":$install_dir_arg:"*) ;;
+  *) export PATH="$install_dir_arg:\$PATH" ;;
 esac
 EOF
     chmod 0755 /etc/profile.d/ven.sh
 }
 
-do_replicate() {
-    printf '\n[5/6] Replicate install (%s) -- shell port of ven-setup unix logic\n' "$ven_mode"
+# --- Delegate path ---------------------------------------------------------
 
-    if [ "$ven_mode" = 'system' ]; then
-        install_dir='/usr/local/bin'
-    else
-        install_dir="$HOME/.ven/bin"
-    fi
-
-    info "  [a] Extract tarball -> $ven_tmp/extract"
-    if [ "$ven_dry_run" != 'true' ]; then
-        mkdir -p "$ven_tmp/extract"
-        tar -xzf "$download_path" -C "$ven_tmp/extract"
-    else
-        info '      [dry-run] skipped'
-    fi
-
-    info "  [b] Install binaries -> $install_dir"
-    if [ "$ven_dry_run" != 'true' ]; then
-        mkdir -p "$install_dir"
-        install -m 0755 "$ven_tmp/extract/ven"          "$install_dir/ven"
-        install -m 0755 "$ven_tmp/extract/ven-launcher" "$install_dir/ven-launcher"
-    else
-        info '      [dry-run] skipped'
-    fi
-
-    if [ "$ven_mode" = 'system' ]; then
-        info '  [c] Write /etc/profile.d/ven.sh (idempotent PATH guard)'
-        if [ "$ven_dry_run" != 'true' ]; then
-            ensure_etc_profile_d_path "$install_dir"
-        else
-            info '      [dry-run] skipped'
-        fi
-        info '  [d] Skipping per-user shell hooks (system install)'
-        info '      [HINT] Each user should run: ven setup'
-    else
-        info '  [c] Append PATH block to rc files'
-        if [ "$ven_dry_run" != 'true' ]; then
-            ensure_user_rc_path "$install_dir"
-        else
-            info '      [dry-run] skipped'
-        fi
-        info '  [d] Install shell hooks (ven setup)'
-        if [ "$ven_dry_run" != 'true' ]; then
-            "$install_dir/ven" setup
-        else
-            info '      [dry-run] skipped'
-        fi
-    fi
+do_delegate_setup() {
+    chmod +x "$download_path"
+    "$download_path" --mode "$ven_mode" --no-input
 }
 
-# ---------------------------------------------------------------------------
-# Dispatch + verify
-# ---------------------------------------------------------------------------
+# --- Replicate path --------------------------------------------------------
+
+do_extract() {
+    mkdir -p "$ven_tmp/extract"
+    tar -xzf "$download_path" -C "$ven_tmp/extract"
+}
+
+do_install_binaries() {
+    mkdir -p "$install_dir"
+    install -m 0755 "$ven_tmp/extract/ven"          "$install_dir/ven"
+    install -m 0755 "$ven_tmp/extract/ven-launcher" "$install_dir/ven-launcher"
+}
+
+do_path_user()   { ensure_user_rc_path "$install_dir"; }
+do_path_system() { ensure_etc_profile_d_path "$install_dir"; }
+do_shell_hook()  { "$install_dir/ven" setup; }
+
+# --- Dispatch --------------------------------------------------------------
 
 if [ "$use_delegate" = 'true' ]; then
-    do_delegate
+    run_step "Delegating to ven-setup ($ven_mode)" do_delegate_setup
 else
-    do_replicate
-fi
-
-printf '\n[6/6] Verifying ven --version in a new process\n'
-if [ "$ven_dry_run" != 'true' ]; then
+    run_step "Extracting"                   do_extract
+    run_step "Installing to $install_dir"   do_install_binaries
     if [ "$ven_mode" = 'system' ]; then
-        install_dir='/usr/local/bin'
+        run_step "Writing /etc/profile.d/ven.sh" do_path_system
     else
-        install_dir="$HOME/.ven/bin"
+        run_step "Updating shell rc files (PATH)" do_path_user
+        run_step "Installing shell hook (ven setup)" do_shell_hook
     fi
-    if PATH="$install_dir:$PATH" sh -c 'ven --version'; then
-        :
-    else
-        err "verification failed"
-    fi
-else
-    info '  [dry-run] skipped verification'
 fi
 
-printf '\nDone. Open a new terminal (or `exec $SHELL -l`) and run: ven --version\n'
+# ---------------------------------------------------------------------------
+# Verify
+# ---------------------------------------------------------------------------
+
+do_verify() {
+    PATH="$install_dir:$PATH" sh -c 'ven --version' >"$ven_log.verify" 2>&1
+    cp "$ven_log.verify" "$ven_log"
+}
+run_step 'Verifying installation' do_verify
+
+ven_version_line=''
+if [ "$ven_dry_run" != 'true' ]; then
+    ven_version_line="$(head -n1 "$ven_log.verify" 2>/dev/null || echo '')"
+fi
+
+# ---------------------------------------------------------------------------
+# Done banner
+# ---------------------------------------------------------------------------
+
+printf '\n%s\n' "$LINE"
+if [ "$ven_dry_run" = 'true' ]; then
+    printf '[OK] dry-run complete (release %s)\n' "$tag_name"
+else
+    if [ -n "$ven_version_line" ]; then
+        printf '[OK] %s installed successfully!\n' "$ven_version_line"
+    else
+        printf '[OK] ven %s installed successfully!\n' "$tag_name"
+    fi
+fi
+printf '\nOpen a NEW terminal (or `exec $SHELL -l`) and run:\n'
+printf '  ven --version\n  ven init\n'
+printf '\nDocumentation: %s\n' "$ven_docs_url"
+printf '%s\n' "$LINE"
