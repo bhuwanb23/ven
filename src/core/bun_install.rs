@@ -4,6 +4,8 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::integrity;
+
 #[derive(Debug, Clone)]
 pub struct BunDownloader {
     storage_root: PathBuf,
@@ -143,9 +145,12 @@ pub fn install_bun(downloader: &BunDownloader, version: &str) -> Result<()> {
     let version = version.trim().trim_start_matches('v');
     let url = build_download_url(version)?;
     fs::create_dir_all(&downloader.cache_dir)?;
-    let archive = downloader
-        .cache_dir
-        .join(url.split('/').next_back().unwrap_or("bun.zip"));
+    let archive_filename = url
+        .split('/')
+        .next_back()
+        .unwrap_or("bun.zip")
+        .to_string();
+    let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
         let resp = Client::new()
             .get(&url)
@@ -156,13 +161,41 @@ pub fn install_bun(downloader: &BunDownloader, version: &str) -> Result<()> {
         fs::write(&archive, resp.bytes()?)?;
     }
 
+    let manifest_url = format!(
+        "https://github.com/oven-sh/bun/releases/download/bun-v{}/SHASUMS256.txt",
+        version
+    );
+    match integrity::fetch_manifest_sha256(&manifest_url, &archive_filename) {
+        Ok(hex) => match integrity::verify_sha256(&archive, &hex) {
+            Ok(()) => integrity::print_checksum_ok(&archive_filename),
+            Err(e) => {
+                let _ = fs::remove_file(&archive);
+                return Err(anyhow!(
+                    "Bun archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                    archive_filename,
+                    e
+                ));
+            }
+        },
+        Err(e) => integrity::print_checksum_unavailable(&archive_filename, &e.to_string()),
+    }
+
     let install_dir = downloader.get_install_dir(version);
     if install_dir.exists() {
         fs::remove_dir_all(&install_dir)?;
     }
     fs::create_dir_all(&install_dir)?;
     extract_bun_zip(&archive, &install_dir)?;
-    let _ = downloader.get_bin_path(version)?;
+
+    let bin_dir = downloader.get_bin_path(version)?;
+    let bun_bin = if cfg!(target_os = "windows") {
+        bin_dir.join("bun.exe")
+    } else {
+        bin_dir.join("bun")
+    };
+    let smoke = integrity::smoke_test_binary(&bun_bin, &["--version"], "")
+        .with_context(|| format!("bun --version smoke test failed at {}", bun_bin.display()))?;
+    integrity::print_smoke_ok(&smoke);
     Ok(())
 }
 

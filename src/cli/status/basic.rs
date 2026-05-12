@@ -233,7 +233,7 @@ pub(super) fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenCon
                 );
             } else if ruby_only {
                 println!(
-                    "    {} Ruby gems use Gemfile/Bundler — ven does not map [packages] to gem yet.",
+                    "    {} Install missing: ven add <gem>  (syncs Gemfile when present)",
                     "[TIP]".cyan()
                 );
             } else if bun_only {

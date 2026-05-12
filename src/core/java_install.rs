@@ -5,6 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::core::integrity;
+
 #[derive(Debug, Clone)]
 pub struct JavaDownloader {
     storage_root: PathBuf,
@@ -148,16 +150,15 @@ pub fn resolve_java_version_spec(spec: &str, available: &[String]) -> Result<Str
 }
 
 pub fn install_java(downloader: &JavaDownloader, version: &str) -> Result<()> {
-    let (resolved_version, link) = resolve_download_link(version)?;
+    let (resolved_version, link, checksum) = resolve_download_link(version)?;
     let ext = if cfg!(target_os = "windows") {
         "zip"
     } else {
         "tar.gz"
     };
     fs::create_dir_all(&downloader.cache_dir)?;
-    let archive = downloader
-        .cache_dir
-        .join(format!("java-{}.{}", resolved_version, ext));
+    let archive_filename = format!("java-{}.{}", resolved_version, ext);
+    let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
         let resp = Client::new()
             .get(&link)
@@ -168,6 +169,25 @@ pub fn install_java(downloader: &JavaDownloader, version: &str) -> Result<()> {
         fs::write(&archive, resp.bytes()?)?;
     }
 
+    if !checksum.is_empty() {
+        match integrity::verify_sha256(&archive, &checksum) {
+            Ok(()) => integrity::print_checksum_ok(&archive_filename),
+            Err(e) => {
+                let _ = fs::remove_file(&archive);
+                return Err(anyhow!(
+                    "Java archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                    archive_filename,
+                    e
+                ));
+            }
+        }
+    } else {
+        integrity::print_checksum_unavailable(
+            &archive_filename,
+            "Adoptium API returned empty checksum",
+        );
+    }
+
     let install_dir = downloader.get_install_dir(&resolved_version);
     if install_dir.exists() {
         fs::remove_dir_all(&install_dir)?;
@@ -175,11 +195,20 @@ pub fn install_java(downloader: &JavaDownloader, version: &str) -> Result<()> {
     fs::create_dir_all(&install_dir)?;
     extract_java_archive(&archive, &install_dir)?;
 
-    let _ = downloader.get_bin_path(&resolved_version)?;
+    let bin = downloader.get_bin_path(&resolved_version)?;
+    let java_bin = if cfg!(target_os = "windows") {
+        bin.join("java.exe")
+    } else {
+        bin.join("java")
+    };
+    let smoke = integrity::smoke_test_binary(&java_bin, &["--version"], "")
+        .or_else(|_| integrity::smoke_test_binary(&java_bin, &["-version"], ""))
+        .with_context(|| format!("java -version smoke test failed at {}", java_bin.display()))?;
+    integrity::print_smoke_ok(&smoke);
     Ok(())
 }
 
-fn resolve_download_link(spec: &str) -> Result<(String, String)> {
+fn resolve_download_link(spec: &str) -> Result<(String, String, String)> {
     let major = spec
         .split('.')
         .next()
@@ -212,12 +241,19 @@ fn resolve_download_link(spec: &str) -> Result<(String, String)> {
                 .and_then(|x| x.as_array())
                 .and_then(|x| x.first())
                 .ok_or_else(|| anyhow!("No binary payload for Java {}", semver))?;
-            let link = bin
+            let pkg = bin
                 .get("package")
-                .and_then(|x| x.get("link"))
+                .ok_or_else(|| anyhow!("No package payload for Java {}", semver))?;
+            let link = pkg
+                .get("link")
                 .and_then(|x| x.as_str())
                 .ok_or_else(|| anyhow!("No package link for Java {}", semver))?;
-            return Ok((semver.to_string(), link.to_string()));
+            let checksum = pkg
+                .get("checksum")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            return Ok((semver.to_string(), link.to_string(), checksum));
         }
     }
     Err(anyhow!("No downloadable Java release found for {}", spec))

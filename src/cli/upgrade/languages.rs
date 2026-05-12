@@ -4,6 +4,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::cli::add::update_ven_toml_packages;
+use crate::core::deno_imports::{self, DenoManifest};
+use crate::core::gemfile::Gemfile;
+use crate::core::java_manifest::{self, JavaCoord};
+use crate::core::requirements::Requirements;
 use crate::core::ruby_gems;
 
 pub(super) fn cmd_upgrade_bun(
@@ -136,7 +140,17 @@ pub(super) fn cmd_upgrade_ruby(
             _ => {}
         }
 
-        match ruby_gems::gem_install(pkg, None) {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let gemfile_path = Gemfile::path_for(&cwd);
+        let use_bundler = gemfile_path.is_file() && which_bundle_upgrade();
+
+        let upgrade_result = if use_bundler {
+            run_bundle_update(pkg)
+        } else {
+            ruby_gems::gem_install(pkg, None).map(|_| ())
+        };
+
+        match upgrade_result {
             Ok(()) => {
                 let installed =
                     ruby_gems::gem_local_version(pkg)?.unwrap_or_else(|| latest.clone());
@@ -149,6 +163,14 @@ pub(super) fn cmd_upgrade_ruby(
                     );
                 }
                 let _ = update_ven_toml_packages(&[(pkg.to_string(), format!(">={}", installed))]);
+                if !use_bundler {
+                    if let Ok(mut gf) = Gemfile::load_or_default(&cwd) {
+                        if gf.exists() {
+                            gf.upsert(pkg, Some(&format!(">={}", installed)));
+                            let _ = gf.write();
+                        }
+                    }
+                }
             }
             Err(e) => {
                 if !json {
@@ -168,6 +190,25 @@ fn rubygems_current_and_latest(pkg: &str) -> Result<(Option<String>, String)> {
     let latest = ruby_gems::rubygems_latest_version(pkg)?;
     let current = ruby_gems::gem_local_version(pkg)?;
     Ok((current, latest))
+}
+
+fn which_bundle_upgrade() -> bool {
+    Command::new("bundle")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn run_bundle_update(name: &str) -> Result<()> {
+    let status = Command::new("bundle")
+        .args(["update", name])
+        .status()
+        .map_err(|e| anyhow::anyhow!("bundle update failed to start: {e}"))?;
+    if !status.success() {
+        anyhow::bail!("bundle update exit code {:?}", status.code());
+    }
+    Ok(())
 }
 
 pub(super) fn cmd_upgrade_python(
@@ -227,6 +268,7 @@ pub(super) fn cmd_upgrade_python(
                             );
                         }
                         let _ = update_ven_toml_packages(&[(pkg.clone(), format!(">={}", latest))]);
+                        let _ = sync_python_requirements_pin(pkg, &latest);
                     }
                     Ok(_) => {
                         if !json {
@@ -250,6 +292,17 @@ pub(super) fn cmd_upgrade_python(
     if !json {
         println!();
     }
+    Ok(())
+}
+
+fn sync_python_requirements_pin(name: &str, latest: &str) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let mut req = Requirements::load_or_empty(&cwd)?;
+    if !req.exists() {
+        return Ok(());
+    }
+    req.upsert(name, &format!("{}>={}", name, latest));
+    req.write()?;
     Ok(())
 }
 
@@ -316,6 +369,61 @@ fn resolve_python_cmd() -> PathBuf {
     }
 }
 
+pub(super) fn cmd_upgrade_go(
+    packages: &[String],
+    apply: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<()> {
+    if !json {
+        println!("\n  {}", "ven upgrade (go)".bold().cyan());
+    }
+    for pkg in packages {
+        if dry_run || !apply {
+            if !json {
+                println!("  {} go get -u {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            continue;
+        }
+        let status = Command::new("go").args(["get", "-u", pkg]).status();
+        match status {
+            Ok(s) if s.success() => {
+                if !json {
+                    println!("  {} Updated {}", "[OK]".green(), pkg.bold());
+                }
+                let _ = update_ven_toml_packages(&[(pkg.clone(), "latest".to_string())]);
+            }
+            Ok(_) => {
+                if !json {
+                    println!("  {} Failed to update {}", "[WARN]".yellow(), pkg);
+                }
+            }
+            Err(e) => {
+                if !json {
+                    println!("  {} {}", "[ERROR]".red(), e);
+                }
+            }
+        }
+    }
+    if apply {
+        let _ = Command::new("go").args(["mod", "tidy"]).status();
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"go",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages
+            }))?
+        );
+    } else {
+        println!();
+    }
+    Ok(())
+}
+
 pub(super) fn cmd_upgrade_rust(
     packages: &[String],
     apply: bool,
@@ -370,12 +478,96 @@ pub(super) fn cmd_upgrade_rust(
     Ok(())
 }
 
-pub(super) fn cmd_upgrade_java_notice(
+pub(super) fn cmd_upgrade_java(
     packages: &[String],
     apply: bool,
     dry_run: bool,
     json: bool,
 ) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let project = match java_manifest::detect(&cwd) {
+        Some(p) => p,
+        None => {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "mode":"java",
+                        "error":"No pom.xml or build.gradle(.kts) found"
+                    }))?
+                );
+            } else {
+                println!("\n  {}", "ven upgrade (java)".bold().cyan());
+                println!(
+                    "  {} No pom.xml or build.gradle(.kts) found.",
+                    "[ERROR]".red()
+                );
+                println!();
+            }
+            return Ok(());
+        }
+    };
+
+    if !json {
+        println!("\n  {}", "ven upgrade (java)".bold().cyan());
+        println!(
+            "  {} {:?} manifest: {}",
+            "[INFO]".cyan(),
+            project.tool,
+            project.manifest.display()
+        );
+    }
+
+    for spec in packages {
+        let coord = match JavaCoord::parse(spec) {
+            Ok(c) => c,
+            Err(e) => {
+                if !json {
+                    println!("  {} {}: {}", "[ERROR]".red(), spec, e);
+                }
+                continue;
+            }
+        };
+        if dry_run || !apply {
+            if !json {
+                println!(
+                    "  {} {} -> {}",
+                    "[PREVIEW]".cyan(),
+                    coord.ven_toml_key().bold(),
+                    coord
+                        .version
+                        .as_deref()
+                        .unwrap_or("(unchanged spec)")
+                );
+            }
+            continue;
+        }
+        match java_manifest::upgrade(&project, &coord) {
+            Ok(()) => {
+                if !json {
+                    println!(
+                        "  {} Upgraded {} to {}",
+                        "[OK]".green(),
+                        coord.ven_toml_key().bold(),
+                        coord.version.as_deref().unwrap_or("latest").green()
+                    );
+                }
+                let _ = update_ven_toml_packages(&[(
+                    coord.ven_toml_key(),
+                    coord
+                        .version
+                        .clone()
+                        .unwrap_or_else(|| "latest".to_string()),
+                )]);
+            }
+            Err(e) => {
+                if !json {
+                    println!("  {} {}: {}", "[ERROR]".red(), spec, e);
+                }
+            }
+        }
+    }
+
     if json {
         println!(
             "{}",
@@ -383,53 +575,91 @@ pub(super) fn cmd_upgrade_java_notice(
                 "mode":"java",
                 "apply": apply,
                 "dry_run": dry_run,
-                "packages": packages,
-                "message":"Use Maven/Gradle for Java dependency upgrades"
+                "manifest": project.manifest.to_string_lossy(),
+                "packages": packages
             }))?
         );
-        return Ok(());
+    } else {
+        println!();
     }
-    println!("\n  {}", "ven upgrade (java)".bold().cyan());
-    println!(
-        "  {} Java upgrades are managed by Maven/Gradle.",
-        "[INFO]".cyan()
-    );
-    println!(
-        "  {} No direct package upgrade performed by ven.",
-        "[TIP]".cyan()
-    );
-    println!();
     Ok(())
 }
 
-pub(super) fn cmd_upgrade_deno_notice(
+pub(super) fn cmd_upgrade_deno(
     packages: &[String],
     apply: bool,
     dry_run: bool,
     json: bool,
 ) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    if !json {
+        println!("\n  {}", "ven upgrade (deno)".bold().cyan());
+    }
+
+    if dry_run || !apply {
+        for pkg in packages {
+            if !json {
+                println!("  {} deno add {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+        }
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "mode":"deno_dry_run",
+                    "packages": packages
+                }))?
+            );
+        }
+        return Ok(());
+    }
+
+    // Re-add bumps versions to the latest tag the user typed (or `latest`).
+    let used = matches!(deno_imports::try_deno_add(packages), Ok(true));
+    let mut updated = Vec::new();
+    if used {
+        for p in packages {
+            if let Ok((key, target)) = deno_imports::parse_spec(p) {
+                updated.push((key, target));
+            }
+        }
+    } else {
+        let mut manifest = DenoManifest::load_or_create(&cwd)?;
+        for spec in packages {
+            match deno_imports::parse_spec(spec) {
+                Ok((key, target)) => {
+                    manifest.upsert_import(&key, &target);
+                    updated.push((key, target));
+                }
+                Err(e) => {
+                    if !json {
+                        println!("  {} {}: {}", "[ERROR]".red(), spec, e);
+                    }
+                }
+            }
+        }
+        manifest.write()?;
+    }
+
+    if !updated.is_empty() {
+        let _ = update_ven_toml_packages(&updated);
+    }
+
     if json {
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
                 "mode":"deno",
-                "apply": apply,
-                "dry_run": dry_run,
-                "packages": packages,
-                "message":"Deno manages dependencies via imports/deno.json; ven does not upgrade packages"
+                "updated": updated
             }))?
         );
-        return Ok(());
+    } else {
+        println!(
+            "  {} {} import(s) refreshed",
+            "[OK]".green(),
+            updated.len()
+        );
     }
-    println!("\n  {}", "ven upgrade (deno)".bold().cyan());
-    println!(
-        "  {} Deno dependencies are managed by imports/deno.json (and optionally deno.lock).",
-        "[INFO]".cyan()
-    );
-    println!(
-        "  {} No direct package upgrade performed by ven.",
-        "[TIP]".cyan()
-    );
     println!();
     Ok(())
 }

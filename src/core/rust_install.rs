@@ -5,6 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::core::integrity;
+
 #[derive(Debug, Clone)]
 pub struct RustDownloader {
     storage_root: PathBuf,
@@ -155,8 +157,42 @@ pub fn install_rust(downloader: &RustDownloader, version: &str) -> Result<()> {
         return Err(anyhow!("rustup-init failed to install Rust {}", version));
     }
 
-    let _ = downloader.get_bin_path(&version)?;
+    let bin = downloader.get_bin_path(&version)?;
+    let cargo = if cfg!(target_os = "windows") {
+        bin.join("cargo.exe")
+    } else {
+        bin.join("cargo")
+    };
+    let rustc = if cfg!(target_os = "windows") {
+        bin.join("rustc.exe")
+    } else {
+        bin.join("rustc")
+    };
+    let cargo_smoke = integrity::smoke_test_binary(&cargo, &["--version"], "cargo")
+        .with_context(|| format!("cargo --version smoke test failed at {}", cargo.display()))?;
+    integrity::print_smoke_ok(&cargo_smoke);
+    let rustc_smoke = integrity::smoke_test_binary(&rustc, &["--version"], "rustc")
+        .with_context(|| format!("rustc --version smoke test failed at {}", rustc.display()))?;
+    integrity::print_smoke_ok(&rustc_smoke);
     Ok(())
+}
+
+fn rustup_init_url() -> Result<&'static str> {
+    if cfg!(target_os = "windows") && cfg!(target_arch = "x86_64") {
+        Ok("https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe")
+    } else if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
+        Ok("https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe")
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
+        Ok("https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init")
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
+        Ok("https://static.rust-lang.org/rustup/dist/x86_64-apple-darwin/rustup-init")
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+        Ok("https://static.rust-lang.org/rustup/dist/aarch64-apple-darwin/rustup-init")
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+        Ok("https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rustup-init")
+    } else {
+        Err(anyhow!("Unsupported platform for rustup-init download"))
+    }
 }
 
 fn ensure_rustup_init(install_root: &Path) -> Result<PathBuf> {
@@ -172,19 +208,7 @@ fn ensure_rustup_init(install_root: &Path) -> Result<PathBuf> {
         return Ok(target);
     }
 
-    let url = if cfg!(target_os = "windows") {
-        "https://win.rustup.rs/x86_64"
-    } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
-        "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
-        "https://static.rust-lang.org/rustup/dist/x86_64-apple-darwin/rustup-init"
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-        "https://static.rust-lang.org/rustup/dist/aarch64-apple-darwin/rustup-init"
-    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
-        "https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rustup-init"
-    } else {
-        return Err(anyhow!("Unsupported platform for rustup-init download"));
-    };
+    let url = rustup_init_url()?;
 
     let resp = Client::new()
         .get(url)
@@ -192,6 +216,21 @@ fn ensure_rustup_init(install_root: &Path) -> Result<PathBuf> {
         .with_context(|| format!("Failed to download {}", url))?
         .error_for_status()?;
     fs::write(&target, resp.bytes()?)?;
+
+    let sidecar = format!("{}.sha256", url);
+    match integrity::fetch_sidecar_sha256(&sidecar) {
+        Ok(hex) => match integrity::verify_sha256(&target, &hex) {
+            Ok(()) => integrity::print_checksum_ok(filename),
+            Err(e) => {
+                let _ = fs::remove_file(&target);
+                return Err(anyhow!(
+                    "rustup-init checksum mismatch ({}). Cached file removed; rerun.",
+                    e
+                ));
+            }
+        },
+        Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+    }
 
     #[cfg(not(target_os = "windows"))]
     {

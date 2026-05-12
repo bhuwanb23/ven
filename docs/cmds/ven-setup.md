@@ -4,6 +4,8 @@
 
 The installer also falls back to **sibling files on disk** when an embedded payload is empty, so development builds and `cargo run --bin ven-setup` still work.
 
+> **Supported shells**: bash, zsh, fish, PowerShell (5.1+ and 7+). Windows `cmd.exe` is **not** a supported activation shell — install via PowerShell, or use [`ven-launcher`](../ven-launcher.md) when no install at all is allowed.
+
 ## Install modes
 
 ### Windows
@@ -55,7 +57,7 @@ flowchart TD
   extract --> write[write ven + ven-launcher<br/>install_dir, chmod 0755 on Unix]
   write --> path[update PATH<br/>HKCU / HKLM / rc files / /etc/profile.d]
   path --> hooks[run ven setup<br/>per-user shell hooks]
-  hooks --> verify[spawn cmd / sh<br/>ven --version with merged PATH]
+  hooks --> verify[spawn child process<br/>ven --version with merged PATH]
 ```
 
 ## Usage
@@ -121,7 +123,7 @@ If both numbers print as `0`, run the release command again.
 - **Unix rc files**: a delimited block in `~/.bashrc` / `~/.zshrc` / `~/.profile` appends the install dir to `PATH`. The block is idempotent (skipped if `# >>> ven-setup PATH >>>` is already present).
 - **Unix system PATH**: `/etc/profile.d/ven.sh` (`0755`) guards against duplicate entries with a `case` check.
 - **Shell hooks**: the freshly-installed `ven` is invoked as `ven setup` to install per-user hooks (see [`setup.md`](setup.md)). System install on Unix **skips** per-user hooks and prints a hint to run `ven setup` from each user account.
-- **Verification**: spawned `cmd /C ven --version` (Windows) or `sh -c 'ven --version'` (Unix) with `PATH = <install_dir> + current PATH` so the check works without waiting for the broadcast / new shell.
+- **Verification**: a child process is spawned with `PATH = <install_dir> + current PATH` so the check works without waiting for the broadcast / new shell. Windows uses `cmd.exe /C ven --version` purely as a no-install process spawner (it is **not** a supported activation shell — see [`setup.md`](setup.md) for the supported list); Unix uses `sh -c 'ven --version'`.
 
 ## Open a new terminal
 

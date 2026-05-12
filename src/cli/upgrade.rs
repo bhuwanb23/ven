@@ -9,7 +9,7 @@ use colored::Colorize;
 use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
 use languages::{
-    cmd_upgrade_bun, cmd_upgrade_deno_notice, cmd_upgrade_java_notice, cmd_upgrade_python,
+    cmd_upgrade_bun, cmd_upgrade_deno, cmd_upgrade_go, cmd_upgrade_java, cmd_upgrade_python,
     cmd_upgrade_ruby, cmd_upgrade_rust,
 };
 use std::path::Path;
@@ -64,6 +64,14 @@ pub fn cmd_upgrade(
         && cfg.runtime.node.is_empty()
         && cfg.runtime.python.is_empty()
         && cfg.runtime.go.is_empty()
+        && cfg.runtime.ruby.is_empty()
+        && cfg.runtime.bun.is_empty();
+    let go_mode = !cfg.runtime.go.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.rust.is_empty()
+        && cfg.runtime.java.is_empty()
+        && cfg.runtime.deno.is_empty()
         && cfg.runtime.ruby.is_empty()
         && cfg.runtime.bun.is_empty();
     let java_mode = !cfg.runtime.java.is_empty()
@@ -126,11 +134,14 @@ pub fn cmd_upgrade(
     if rust_mode {
         return cmd_upgrade_rust(&target_packages, apply, dry_run, json);
     }
+    if go_mode {
+        return cmd_upgrade_go(&target_packages, apply, dry_run, json);
+    }
     if java_mode {
-        return cmd_upgrade_java_notice(&target_packages, apply, dry_run, json);
+        return cmd_upgrade_java(&target_packages, apply, dry_run, json);
     }
     if deno_mode {
-        return cmd_upgrade_deno_notice(&target_packages, apply, dry_run, json);
+        return cmd_upgrade_deno(&target_packages, apply, dry_run, json);
     }
     if bun_mode {
         return cmd_upgrade_bun(&target_packages, apply, dry_run, json);

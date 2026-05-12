@@ -435,10 +435,15 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn auto_install_version(spec: &str) -> Result<()> {
-    println!("\n  {} Installing node {}...", "[AUTO-FIX]".cyan(), spec);
-    crate::cli::install::cmd_install("node", spec)?;
-    println!("  {} node {} installed", "✓".green(), spec);
+pub(super) fn auto_install_version(language: &str, spec: &str) -> Result<()> {
+    println!(
+        "\n  {} Installing {} {}...",
+        "[AUTO-FIX]".cyan(),
+        language,
+        spec
+    );
+    crate::cli::install::cmd_install(language, spec)?;
+    println!("  {} {} {} installed", "✓".green(), language, spec);
     Ok(())
 }
 

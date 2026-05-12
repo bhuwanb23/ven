@@ -5,6 +5,10 @@ use std::process::Command;
 
 use super::update_ven_toml_packages;
 
+use crate::core::deno_imports::{self, DenoManifest};
+use crate::core::gemfile::Gemfile;
+use crate::core::java_manifest::{self, JavaCoord};
+use crate::core::requirements::{requirement_from_spec, Requirements};
 use crate::core::ruby_gems;
 
 pub(super) fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<()> {
@@ -47,10 +51,29 @@ pub(super) fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<
 
     if !installed.is_empty() {
         update_ven_toml_packages(&installed)?;
+        sync_requirements_after_add(package_specs)?;
     }
     println!();
     Ok(())
 }
+
+/// Mirror successful `pip install <spec>` calls into `requirements.txt`.
+fn sync_requirements_after_add(specs: &[String]) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let mut req = Requirements::load_or_empty(&cwd)?;
+    for spec in specs {
+        let (name, raw) = requirement_from_spec(spec);
+        req.upsert(&name, &raw);
+    }
+    req.write()?;
+    println!(
+        "  {} {}",
+        "[REQ]".cyan(),
+        format!("Synced requirements.txt").dimmed()
+    );
+    Ok(())
+}
+
 
 pub(super) fn cmd_add_go(package_specs: &[String], dry_run: bool) -> Result<()> {
     println!("\n{}", "ven add (go)".bold().cyan());
@@ -127,26 +150,91 @@ pub(super) fn cmd_add_rust(package_specs: &[String], dry_run: bool) -> Result<()
     Ok(())
 }
 
-pub(super) fn cmd_add_java_notice(package_specs: &[String], dry_run: bool) -> Result<()> {
+pub(super) fn cmd_add_java(package_specs: &[String], dry_run: bool) -> Result<()> {
     println!("\n{}", "ven add (java)".bold().cyan());
     println!("  {} {} item(s)", "[PLAN]".cyan(), package_specs.len());
+
+    let cwd = std::env::current_dir()?;
+    let project = match java_manifest::detect(&cwd) {
+        Some(p) => p,
+        None => {
+            println!(
+                "  {} No pom.xml or build.gradle(.kts) found.",
+                "[ERROR]".red()
+            );
+            println!(
+                "  {} Run `ven init --template` or create a Maven/Gradle project first.",
+                "[TIP]".cyan()
+            );
+            println!();
+            return Ok(());
+        }
+    };
+
     if dry_run {
         println!(
-            "  {} Java dependencies are managed by Maven/Gradle.",
-            "[INFO]".cyan()
+            "  {} {} detected: {}",
+            "[INFO]".cyan(),
+            format!("{:?}", project.tool).bold(),
+            project.manifest.display()
         );
-        println!("  {} No changes made.", "[DRY-RUN]".yellow());
+        for spec in package_specs {
+            match JavaCoord::parse(spec) {
+                Ok(c) => println!(
+                    "  {} {}:{} version {:?}",
+                    "[PREVIEW]".cyan(),
+                    c.group.bold(),
+                    c.artifact.bold(),
+                    c.version
+                ),
+                Err(e) => println!("  {} {}: {}", "[ERROR]".red(), spec, e),
+            }
+        }
         println!();
         return Ok(());
     }
-    println!(
-        "  {} Java package management is delegated to Maven/Gradle.",
-        "[INFO]".cyan()
-    );
-    println!(
-        "  {} Use your build tool (e.g. mvn/gradle) to add dependencies.",
-        "[TIP]".cyan()
-    );
+
+    let mut installed = Vec::new();
+    for spec in package_specs {
+        let coord = match JavaCoord::parse(spec) {
+            Ok(c) => c,
+            Err(e) => {
+                println!("  {} {}: {}", "[ERROR]".red(), spec, e);
+                continue;
+            }
+        };
+        match java_manifest::add(&project, &coord) {
+            Ok(()) => {
+                println!(
+                    "  {} {}",
+                    "[OK]".green(),
+                    format!(
+                        "Added {}:{}{}",
+                        coord.group,
+                        coord.artifact,
+                        coord
+                            .version
+                            .as_ref()
+                            .map(|v| format!(":{v}"))
+                            .unwrap_or_default()
+                    )
+                    .bold()
+                );
+                installed.push((
+                    coord.ven_toml_key(),
+                    coord
+                        .version
+                        .clone()
+                        .unwrap_or_else(|| "latest".to_string()),
+                ));
+            }
+            Err(e) => println!("  {} {}: {}", "[ERROR]".red(), spec, e),
+        }
+    }
+
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
     println!();
     Ok(())
 }
@@ -154,11 +242,22 @@ pub(super) fn cmd_add_java_notice(package_specs: &[String], dry_run: bool) -> Re
 pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()> {
     println!("\n{}", "ven add (ruby)".bold().cyan());
     println!("  {} {} gem(s)", "[PLAN]".cyan(), package_specs.len());
+
+    let cwd = std::env::current_dir()?;
+    let gemfile_path = Gemfile::path_for(&cwd);
+    let use_bundler = gemfile_path.is_file() && which_bundle();
+
     if dry_run {
         println!(
             "  {} Dry run mode — no changes will be made",
             "[DRY-RUN]".yellow()
         );
+        if use_bundler {
+            println!(
+                "  {} Gemfile detected — would use `bundle add`",
+                "[INFO]".cyan()
+            );
+        }
         println!();
         for spec in package_specs {
             let (name, declared) = parse_ruby_gem_spec(spec);
@@ -171,15 +270,30 @@ pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()
 
     let mut installed = Vec::new();
     for spec in package_specs {
-        let (name, _) = parse_ruby_gem_spec(spec);
+        let (name, version_opt) = parse_ruby_gem_spec(spec);
         let ver = gem_version_arg_from_spec(spec);
-        match ruby_gems::gem_install(&name, ver.as_deref()) {
+
+        let ok = if use_bundler {
+            run_bundle_add(&name, ver.as_deref())
+        } else {
+            ruby_gems::gem_install(&name, ver.as_deref()).map(|_| ())
+        };
+
+        match ok {
             Ok(()) => {
                 println!(
                     "  {} {}",
                     "[OK]".green(),
                     format!("Installed {}", spec.bold())
                 );
+                if !use_bundler {
+                    if let Ok(mut gf) = Gemfile::load_or_default(&cwd) {
+                        if gf.exists() {
+                            gf.upsert(&name, version_opt.as_deref());
+                            let _ = gf.write();
+                        }
+                    }
+                }
                 let declared = ruby_gems::gem_local_version(&name)?
                     .filter(|v| !v.is_empty())
                     .map(|v| format!(">={v}"))
@@ -194,6 +308,27 @@ pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()
         update_ven_toml_packages(&installed)?;
     }
     println!();
+    Ok(())
+}
+
+fn which_bundle() -> bool {
+    Command::new("bundle")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn run_bundle_add(name: &str, version: Option<&str>) -> Result<()> {
+    let mut cmd = Command::new("bundle");
+    cmd.args(["add", name]);
+    if let Some(v) = version {
+        cmd.args(["--version", v]);
+    }
+    let status = cmd.status().map_err(|e| anyhow::anyhow!("bundle add failed to start: {e}"))?;
+    if !status.success() {
+        anyhow::bail!("bundle add exit code {:?}", status.code());
+    }
     Ok(())
 }
 
@@ -215,26 +350,65 @@ fn parse_ruby_gem_spec(spec: &str) -> (String, Option<String>) {
     (spec.to_string(), None)
 }
 
-pub(super) fn cmd_add_deno_notice(package_specs: &[String], dry_run: bool) -> Result<()> {
+pub(super) fn cmd_add_deno(package_specs: &[String], dry_run: bool) -> Result<()> {
     println!("\n{}", "ven add (deno)".bold().cyan());
     println!("  {} {} item(s)", "[PLAN]".cyan(), package_specs.len());
+
+    let cwd = std::env::current_dir()?;
     if dry_run {
-        println!(
-            "  {} Deno dependencies are managed by imports/deno.json.",
-            "[INFO]".cyan()
-        );
-        println!("  {} No changes made.", "[DRY-RUN]".yellow());
+        for spec in package_specs {
+            match deno_imports::parse_spec(spec) {
+                Ok((k, v)) => println!("  {} {} -> {}", "[PREVIEW]".cyan(), k.bold(), v),
+                Err(e) => println!("  {} {}: {}", "[ERROR]".red(), spec, e),
+            }
+        }
         println!();
         return Ok(());
     }
-    println!(
-        "  {} Deno package management is not handled by ven.",
-        "[INFO]".cyan()
-    );
-    println!(
-        "  {} Add dependencies via imports or deno.json (and optionally deno.lock).",
-        "[TIP]".cyan()
-    );
+
+    // Try `deno add` first (Deno >= 1.42).
+    let used_deno = match deno_imports::try_deno_add(package_specs) {
+        Ok(true) => {
+            println!(
+                "  {} Used `deno add` for {} item(s)",
+                "[OK]".green(),
+                package_specs.len()
+            );
+            true
+        }
+        _ => false,
+    };
+
+    let mut installed = Vec::new();
+    if !used_deno {
+        let mut manifest = DenoManifest::load_or_create(&cwd)?;
+        for spec in package_specs {
+            match deno_imports::parse_spec(spec) {
+                Ok((key, target)) => {
+                    manifest.upsert_import(&key, &target);
+                    installed.push((key, target));
+                }
+                Err(e) => println!("  {} {}: {}", "[ERROR]".red(), spec, e),
+            }
+        }
+        manifest.write()?;
+        println!(
+            "  {} Updated {}",
+            "[OK]".green(),
+            manifest.path().display()
+        );
+    } else {
+        // Reflect the new entries in ven.toml as well.
+        for spec in package_specs {
+            if let Ok((key, target)) = deno_imports::parse_spec(spec) {
+                installed.push((key, target));
+            }
+        }
+    }
+
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
     println!();
     Ok(())
 }

@@ -12,8 +12,7 @@ use colored::Colorize;
 use std::collections::HashMap;
 
 use languages::{
-    cmd_add_bun, cmd_add_deno_notice, cmd_add_go, cmd_add_java_notice, cmd_add_python,
-    cmd_add_ruby, cmd_add_rust,
+    cmd_add_bun, cmd_add_deno, cmd_add_go, cmd_add_java, cmd_add_python, cmd_add_ruby, cmd_add_rust,
 };
 pub use toml::update_ven_toml_packages;
 
@@ -129,10 +128,10 @@ pub fn cmd_add(
         return cmd_add_rust(package_specs, dry_run);
     }
     if java_mode {
-        return cmd_add_java_notice(package_specs, dry_run);
+        return cmd_add_java(package_specs, dry_run);
     }
     if deno_mode {
-        return cmd_add_deno_notice(package_specs, dry_run);
+        return cmd_add_deno(package_specs, dry_run);
     }
     if bun_mode {
         return cmd_add_bun(package_specs, dry_run);

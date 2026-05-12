@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 #[cfg(not(target_os = "windows"))]
 use tar::Archive;
 
+use crate::core::integrity;
+
 #[derive(Debug, Clone)]
 pub struct RubyDownloader {
     storage_root: PathBuf,
@@ -160,7 +162,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         let (url, fname) = ri2_pick_asset_url(&semver)
             .ok_or_else(|| anyhow!("No RubyInstaller2 build found for {}", semver))?;
         fs::create_dir_all(&dl.cache_dir)?;
-        let archive = dl.cache_dir.join(fname);
+        let archive = dl.cache_dir.join(&fname);
         if !archive.is_file() {
             let resp = Client::new()
                 .get(&url)
@@ -171,6 +173,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
                 .with_context(|| format!("HTTP error for {}", url))?;
             fs::write(&archive, resp.bytes()?)?;
         }
+        verify_ruby_archive(&archive, &fname, &url);
         let install_dir = dl.get_install_dir(&semver);
         if install_dir.exists() {
             fs::remove_dir_all(&install_dir)?;
@@ -189,8 +192,9 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         let fname = Path::new(&url)
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("ruby.tar.gz");
-        let archive = dl.cache_dir.join(fname);
+            .unwrap_or("ruby.tar.gz")
+            .to_string();
+        let archive = dl.cache_dir.join(&fname);
         if !archive.is_file() {
             let resp = Client::new()
                 .get(&url)
@@ -201,6 +205,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
                 .with_context(|| format!("HTTP error for {}", url))?;
             fs::write(&archive, resp.bytes()?)?;
         }
+        verify_ruby_archive(&archive, &fname, &url);
         let install_dir = dl.get_install_dir(&semver);
         if install_dir.exists() {
             fs::remove_dir_all(&install_dir)?;
@@ -211,8 +216,49 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         extract_tar_gz(&archive, &unpack_root)?;
         relocate_into_install_dir(&unpack_root, &install_dir)?;
     }
-    let _ = dl.get_bin_path(&semver)?;
+    let bin_dir = dl.get_bin_path(&semver)?;
+    let ruby_bin = if cfg!(target_os = "windows") {
+        bin_dir.join("ruby.exe")
+    } else {
+        bin_dir.join("ruby")
+    };
+    let smoke = integrity::smoke_test_binary(&ruby_bin, &["--version"], "ruby")
+        .with_context(|| format!("ruby --version smoke test failed at {}", ruby_bin.display()))?;
+    integrity::print_smoke_ok(&smoke);
     Ok(())
+}
+
+/// Try to verify the Ruby archive's SHA256.
+/// Windows: look for `SHA256SUMS.txt` next to the asset on the same release.
+/// Unix: try `<url>.sha256` sidecar.
+/// Either way, missing checksums degrade to a warning — Ruby's upstream sources
+/// don't always publish per-asset hashes.
+fn verify_ruby_archive(archive: &Path, filename: &str, url: &str) {
+    // 1) sibling sidecar `<url>.sha256`
+    let sidecar = format!("{}.sha256", url);
+    if let Ok(hex) = integrity::fetch_sidecar_sha256(&sidecar) {
+        return apply_ruby_checksum(archive, filename, &hex);
+    }
+    // 2) sibling SHA256SUMS.txt manifest (RubyInstaller2)
+    if let Some(slash) = url.rfind('/') {
+        let manifest = format!("{}/SHA256SUMS.txt", &url[..slash]);
+        if let Ok(hex) = integrity::fetch_manifest_sha256(&manifest, filename) {
+            return apply_ruby_checksum(archive, filename, &hex);
+        }
+    }
+    integrity::print_checksum_unavailable(filename, "no SHA256 sidecar/manifest available upstream");
+}
+
+fn apply_ruby_checksum(archive: &Path, filename: &str, hex: &str) {
+    match integrity::verify_sha256(archive, hex) {
+        Ok(()) => integrity::print_checksum_ok(filename),
+        Err(e) => {
+            let _ = fs::remove_file(archive);
+            eprintln!(
+                "[ERROR] Ruby checksum mismatch for {filename}: {e} — cached file removed; rerun."
+            );
+        }
+    }
 }
 
 #[cfg(not(target_os = "windows"))]

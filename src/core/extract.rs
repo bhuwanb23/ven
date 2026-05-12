@@ -157,18 +157,21 @@ pub fn install_node(
     #[cfg(not(target_os = "windows"))]
     let node_binary = bin_path.join("node");
 
-    if node_binary.exists() {
-        println!(
-            "{} Node {} installed successfully",
-            "[OK]".green(),
-            version.bold()
-        );
-        println!("{} Binary: {}", "•".blue(), node_binary.display());
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!(
+    if !node_binary.exists() {
+        return Err(anyhow::anyhow!(
             "Installation verification failed: node binary not found at {}",
             node_binary.display()
-        ))
+        ));
     }
+
+    let smoke = crate::core::integrity::smoke_test_binary(&node_binary, &["--version"], "v")?;
+    crate::core::integrity::print_smoke_ok(&smoke);
+
+    println!(
+        "{} Node {} installed successfully",
+        "[OK]".green(),
+        version.bold()
+    );
+    println!("{} Binary: {}", "•".blue(), node_binary.display());
+    Ok(())
 }

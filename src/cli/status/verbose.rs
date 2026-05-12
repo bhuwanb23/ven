@@ -57,7 +57,7 @@ pub(super) fn display_verbose_status(
             );
 
             if fix {
-                auto_install_version(node_spec)?;
+                auto_install_version("node", node_spec)?;
             }
         }
     }
@@ -75,7 +75,7 @@ pub(super) fn display_verbose_status(
                 "not installed"
             );
             if fix {
-                println!("      {} Run: ven install python {}", "[!]".yellow(), spec);
+                auto_install_version("python", spec)?;
             }
         }
     }
@@ -88,7 +88,7 @@ pub(super) fn display_verbose_status(
         } else {
             println!("    {} go {} - {}", "✗".red(), spec.bold(), "not installed");
             if fix {
-                println!("      {} Run: ven install go {}", "[!]".yellow(), spec);
+                auto_install_version("go", spec)?;
             }
         }
     }
@@ -106,7 +106,7 @@ pub(super) fn display_verbose_status(
                 "not installed"
             );
             if fix {
-                println!("      {} Run: ven install rust {}", "[!]".yellow(), spec);
+                auto_install_version("rust", spec)?;
             }
         }
     }
@@ -124,7 +124,7 @@ pub(super) fn display_verbose_status(
                 "not installed"
             );
             if fix {
-                println!("      {} Run: ven install java {}", "[!]".yellow(), spec);
+                auto_install_version("java", spec)?;
             }
         }
     }
@@ -142,7 +142,7 @@ pub(super) fn display_verbose_status(
                 "not installed"
             );
             if fix {
-                println!("      {} Run: ven install deno {}", "[!]".yellow(), spec);
+                auto_install_version("deno", spec)?;
             }
         }
     }
@@ -160,7 +160,7 @@ pub(super) fn display_verbose_status(
                 "not installed"
             );
             if fix {
-                println!("      {} Run: ven install ruby {}", "[!]".yellow(), spec);
+                auto_install_version("ruby", spec)?;
             }
         }
     }
@@ -178,7 +178,7 @@ pub(super) fn display_verbose_status(
                 "not installed"
             );
             if fix {
-                println!("      {} Run: ven install bun {}", "[!]".yellow(), spec);
+                auto_install_version("bun", spec)?;
             }
         }
     }
@@ -217,11 +217,9 @@ pub(super) fn display_verbose_status(
             && config.runtime.bun.is_empty()
         {
             println!(
-                "    {} Ruby uses Gemfile/Bundler — ven does not reconcile [packages] with gem yet.",
+                "    {} Ruby gems are managed via `ven add` and reconciled with Gemfile when present.",
                 "[INFO]".cyan()
             );
-            println!();
-            return Ok(());
         }
 
         let mut installed_count = 0;

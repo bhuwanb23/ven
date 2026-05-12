@@ -1,7 +1,9 @@
 //! `ven sync` — validate `ven.lock` graph, then install pinned versions.
 
+use crate::cli::add::update_ven_toml_packages;
 use crate::core::load_config;
 use crate::core::packages;
+use crate::core::requirements::{requirement_from_spec, Requirements};
 use crate::intelligence::conflicts::analyze_npm_graph;
 use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::store::{IntelligenceStore, PACKAGE_CACHE_TTL_SECS};
@@ -10,12 +12,22 @@ use crate::intelligence::ven_lock::{
 };
 use anyhow::{Context, Result};
 use colored::Colorize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 pub fn cmd_sync(dry_run: bool, json: bool, skip_validate: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let cfg =
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+
+    // Python-mode sync: if ven.toml declares Python runtime and no Node, sync
+    // via requirements.txt + pip. Reconciles into [packages] so the source of
+    // truth stays in ven.toml.
+    let python_mode =
+        !cfg.runtime.python.is_empty() && cfg.runtime.node.is_empty() && cfg.runtime.bun.is_empty();
+    if python_mode {
+        return sync_python(&cwd, dry_run, json);
+    }
 
     let lock_path = cwd.join("ven.lock");
     if !lock_path.is_file() {
@@ -126,4 +138,106 @@ fn sync_json(
         }
     }
     Ok(())
+}
+
+fn sync_python(cwd: &Path, dry_run: bool, json: bool) -> Result<()> {
+    let req = Requirements::load_or_empty(cwd)?;
+    let pinned = req.pinned();
+    if json {
+        let out = serde_json::json!({
+            "mode": "python",
+            "requirements_path": req.path().to_string_lossy(),
+            "exists": req.exists(),
+            "pinned_count": pinned.len(),
+            "pinned": pinned,
+            "dry_run": dry_run
+        });
+        println!("{}", serde_json::to_string_pretty(&out)?);
+        if !req.exists() {
+            return Ok(());
+        }
+    } else {
+        println!(
+            "{}",
+            "Python sync via requirements.txt".bold().cyan()
+        );
+        println!("  {} {}", "Path:".dimmed(), req.path().display());
+        if !req.exists() {
+            println!(
+                "  {} {} not present; nothing to sync.",
+                "[INFO]".cyan(),
+                "requirements.txt".bold()
+            );
+            return Ok(());
+        }
+        println!("  {} {} pinned entries", "[OK]".green(), pinned.len());
+    }
+
+    if dry_run {
+        if !json {
+            println!(
+                "  {} Would run: pip install -r requirements.txt",
+                "[DRY-RUN]".yellow()
+            );
+        }
+        return Ok(());
+    }
+
+    let python = resolve_python_cmd();
+    let status = Command::new(&python)
+        .args(["-m", "pip", "install", "-r"])
+        .arg(req.path())
+        .status()
+        .with_context(|| "Failed to invoke pip install -r requirements.txt")?;
+    if !status.success() {
+        anyhow::bail!("pip install -r requirements.txt failed (exit {:?})", status.code());
+    }
+    if !json {
+        println!("  {} pip install completed", "[OK]".green());
+    }
+
+    let entries: Vec<(String, String)> = pinned
+        .into_iter()
+        .map(|(_, raw)| {
+            let (name, raw_pin) = requirement_from_spec(&raw);
+            (name, raw_pin)
+        })
+        .collect();
+    if !entries.is_empty() {
+        update_ven_toml_packages(&entries)?;
+    }
+
+    if !json {
+        println!("  {} Sync complete.", "[OK]".green());
+    }
+    Ok(())
+}
+
+fn resolve_python_cmd() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            let p = PathBuf::from(venv).join("Scripts").join("python.exe");
+            if p.is_file() {
+                return p;
+            }
+        }
+        if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
+            if let Some(home) = dirs::home_dir() {
+                let p = home
+                    .join(".ven")
+                    .join("python")
+                    .join(ver)
+                    .join("python.exe");
+                if p.is_file() {
+                    return p;
+                }
+            }
+        }
+        PathBuf::from("python")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        PathBuf::from("python3")
+    }
 }

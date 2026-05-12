@@ -2,6 +2,8 @@
 
 `scripts/install.ps1` (Windows) and `scripts/install.sh` (Linux / macOS) install `ven` directly from a GitHub release. They are thin orchestrators around [`ven-setup`](cmds/ven-setup.md): they detect the platform, fetch the release JSON, pick the right asset, optionally verify SHA256, and then either **delegate** to the self-contained `ven-setup` binary or **replicate** the install in shell when only raw-binary archives are present.
 
+> **Supported shells**: bash, zsh, fish, PowerShell (5.1+ and 7+). Windows `cmd.exe` is **not** supported — run `install.ps1` from PowerShell. The shell hooks installed by `ven setup` likewise target bash/zsh/fish/PowerShell only.
+
 ## One-liners
 
 ### Windows (PowerShell 5.1+)

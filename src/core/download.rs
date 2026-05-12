@@ -2,9 +2,10 @@ use anyhow::{anyhow, Result};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
-use sha2::{Digest, Sha256};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+
+use crate::core::integrity;
 
 /// Node.js downloader - handles downloading from nodejs.org with checksum verification
 pub struct NodeDownloader {
@@ -158,19 +159,6 @@ impl NodeDownloader {
         Err(anyhow!("Checksum not found for {}", filename))
     }
 
-    /// Verify SHA256 checksum of a file
-    fn verify_checksum(file_path: &Path, expected: &str) -> Result<bool> {
-        let mut file = std::fs::File::open(file_path)?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&buffer);
-        let actual = format!("{:x}", hasher.finalize());
-
-        Ok(actual == expected)
-    }
-
     /// Download a Node.js version archive — returns path to the cached archive file
     pub fn download(&self, version: &str) -> Result<PathBuf> {
         println!(
@@ -193,24 +181,19 @@ impl NodeDownloader {
             self.download_file(&url, &cache_path)?;
         }
 
-        // Verify checksum
         println!("{} Verifying checksum...", "•".blue());
         match Self::fetch_checksum(version) {
-            Ok(expected) => {
-                if Self::verify_checksum(&cache_path, &expected)? {
-                    println!("{} Checksum verified", "[OK]".green());
-                } else {
-                    // Remove corrupted file so next run re-downloads
+            Ok(expected) => match integrity::verify_sha256(&cache_path, &expected) {
+                Ok(()) => integrity::print_checksum_ok(filename),
+                Err(e) => {
                     let _ = std::fs::remove_file(&cache_path);
                     return Err(anyhow!(
-                        "Checksum mismatch! Corrupted download removed. Try again."
+                        "Checksum mismatch! Corrupted download removed. Try again.\n  {}",
+                        e
                     ));
                 }
-            }
-            Err(e) => {
-                println!("{} Warning: Could not verify checksum: {}", "!".yellow(), e);
-                println!("{} Continuing without verification...", "•".blue());
-            }
+            },
+            Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
         }
 
         Ok(cache_path)

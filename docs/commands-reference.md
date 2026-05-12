@@ -15,17 +15,17 @@ Unless noted, paths default to the **current working directory**; many commands 
 |---------|---------|
 | `ven init` | Create `ven.toml` (interactive with `--template`). |
 | `ven status` | Show resolved runtime, packages/env summary; `--verbose`, `--json`, `--fix`. |
-| `ven install <runtime> [version]` | Install a language/toolchain version under ven’s store; `-y` / `--dry-run`; `--verbose`; `-q`. Interactive mode lists versions when version omitted (where supported). |
+| `ven install <runtime> [version]` | Install a language/toolchain version under ven’s store; `-y` / `--dry-run`; `--verbose`; `-q`. Every install verifies a **SHA256 checksum** (sidecar / manifest / vendor API per language) and runs a **post-install binary smoke test** before declaring success. Interactive mode lists versions when version omitted (where supported). |
 | `ven list [runtime]` | List installed versions (`runtime` optional filter). |
 | `ven use [PATH]` | Print shell exports to apply nearest `ven.toml`; **evaluate** output (`eval "$(ven use)"`, PowerShell: parse stderr hint / use hooks). |
 | `ven deactivate` | Print exports that undo `ven use` overlay for current shell session. |
-| `ven add <packages…>` | Add npm/PyPI/etc. packages per `[packages]` / runtime rules; updates `ven.toml`. (Rubygems / Bundler: use **`gem`** / **`bundle`** in the activated shell.) |
+| `ven add <packages…>` | Unified add. Calls the native package manager **and** updates the language-native manifest **and** `ven.toml [packages]`: `package.json` (Node/Bun), `requirements.txt` (Python), `Gemfile` (Ruby — uses `bundle add` when present, otherwise direct edit + `gem install`), `pom.xml` / `build.gradle[.kts]` (Java — accepts Maven coords `group:artifact[@version]`), `deno.json` `imports` (Deno — prefers `deno add` ≥ 1.42), `go.mod` (Go — `go get`), `Cargo.toml` (Rust — `cargo add`). |
 | `ven check-add <packages…>` | **Dependency intelligence**: simulate an add (peers, pins, engines) **without** installing; `--json`. |
 | `ven graph` | Show last persisted simulation graph or a manifest/`node_modules` snapshot; `--json`, `--resolve` (skip SQLite snapshot). |
 | `ven lock` | Write **`ven.lock`** (merged resolved graph + `content_hash`) for npm/Node-Bun projects. |
-| `ven sync` | Read **`ven.lock`**, validate graph + hash, refresh SQLite package/dependency cache, then **`npm install`** each root; `--dry-run`, `--json`, `--skip-validate`. |
-| `ven remove [packages…]` | Remove packages; `--cleanup` removes orphans. |
-| `ven upgrade [packages…]` | Upgrade pins; `--all`, `--apply`, `--dry-run`. Uses the same intelligence layer before apply. |
+| `ven sync` | Read **`ven.lock`** (Node/Bun), validate graph + hash, refresh SQLite package/dependency cache, then **`npm install`** each root. For Python projects (`ven.toml` declares `python` only), runs `pip install -r requirements.txt` and reconciles `[packages]`. `--dry-run`, `--json`, `--skip-validate`. |
+| `ven remove [packages…]` | Unified remove. Mirrors `ven add`: native uninstall + manifest + `ven.toml` cleanup for every supported language (Python `pip uninstall` + `requirements.txt`, Ruby `bundle remove` / `gem uninstall` + `Gemfile`, Java `pom.xml` / `build.gradle[.kts]`, Deno `deno.json` `imports`, Go `go get pkg@none` + `go mod tidy`, Rust `cargo remove`). `--cleanup` removes orphans. |
+| `ven upgrade [packages…]` | Unified upgrade. Mirrors `ven add`: native upgrade + manifest + `ven.toml` for every supported language (Python `pip install --upgrade` + `requirements.txt`, Ruby `bundle update` / `gem install`, Java `pom.xml` / `build.gradle[.kts]`, Deno `deno.json` `imports`, Go `go get -u` + `go mod tidy`, Rust `cargo update -p`). `--all`, `--apply`, `--dry-run`. Uses the same intelligence layer before apply. |
 
 ## Dependency intelligence
 
@@ -39,7 +39,7 @@ Pre-install analysis lives in `src/intelligence/`: runtime **adapters** (npm fam
 
 | Command | Purpose |
 |---------|---------|
-| `ven setup` | Install/update shell hooks and optional profiles (bash/zsh/fish/PowerShell). |
+| `ven setup` | Install/update shell hooks and optional profiles. **Supported shells**: bash, zsh, fish, PowerShell (5.1+ and 7+). Windows `cmd.exe` is **not** a supported activation target — use PowerShell or `ven-launcher` for portable invocation. |
 
 Hidden / advanced:
 

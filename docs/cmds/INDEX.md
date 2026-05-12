@@ -12,15 +12,30 @@ Complete documentation for all `ven` commands and their subcommands.
 
 ## 📋 Package Management
 
+`ven add` / `ven remove` / `ven upgrade` are **unified** across every supported
+language: each call invokes the native package manager **and** keeps both the
+language-native manifest and `ven.toml [packages]` in sync.
+
+| Language    | Native manifest kept in sync             | Tool used                                    |
+|-------------|------------------------------------------|----------------------------------------------|
+| Node.js     | `package.json` (+ `package-lock.json`)   | `npm`                                        |
+| Bun         | `package.json` (+ `bun.lockb`)           | `bun`                                        |
+| Python      | `requirements.txt`                       | `pip` (venv-aware)                           |
+| Ruby        | `Gemfile`                                | `bundle add/remove/update` when Gemfile present, else `gem install/uninstall` + direct Gemfile edit |
+| Java        | `pom.xml` / `build.gradle[.kts]`         | direct manifest edit; coords `group:artifact[@version]` |
+| Deno        | `deno.json` `imports`                    | `deno add`/`deno remove` (≥ 1.42), else direct JSON edit |
+| Go          | `go.mod`                                 | `go get` / `go get pkg@none` / `go get -u` + `go mod tidy` |
+| Rust        | `Cargo.toml`                             | `cargo add` / `cargo remove` / `cargo update -p` |
+
 | Command | Description | Documentation |
 |---------|-------------|---------------|
-| `ven add` | Install packages with compatibility checking | [→ add.md](add.md) |
+| `ven add` | Install packages (compatibility check + native install + manifest + `ven.toml` sync) | [→ add.md](add.md) |
 | `ven check-add` | Query add compatibility without installing | [→ check-add.md](check-add.md) |
 | `ven graph` | Inspect dependency graph / last simulation | [→ graph.md](graph.md) |
-| `ven remove` | Remove packages with dependency safety | [→ remove.md](remove.md) |
-| `ven upgrade` | Preview and apply package upgrades | [→ upgrade.md](upgrade.md) |
+| `ven remove` | Remove packages (native uninstall + manifest + `ven.toml` cleanup) | [→ remove.md](remove.md) |
+| `ven upgrade` | Preview and apply package upgrades (native upgrade + manifest + `ven.toml` sync) | [→ upgrade.md](upgrade.md) |
 | `ven lock` | Write `ven.lock` from resolved graphs | [→ lock.md](lock.md) |
-| `ven sync` | Validate `ven.lock` and install pins | [→ sync.md](sync.md) |
+| `ven sync` | Validate `ven.lock` and install pins (Node/Bun); `pip install -r requirements.txt` for Python projects | [→ sync.md](sync.md) |
 | `ven resolve` | Auto-resolve conflicts and apply fixes | [→ resolve.md](resolve.md) |
 
 ## ⚙️ Project Setup
@@ -63,9 +78,9 @@ node --version                   # Shows version from ven.toml
 
 ## Architecture
 
-- **Native Installation**: Downloads directly from nodejs.org (no fnm/pyenv needed)
+- **Native Installation**: Downloads directly from each language's official source (nodejs.org, python.org, go.dev, static.rust-lang.org, Adoptium, deno.com, oven-sh, RubyInstaller2 / ruby-builder). SHA256 verified + binary smoke-tested before being marked installed.
 - **Plugin Registry**: Extensible architecture for multi-language support
 - **Smart Compatibility**: Pre-install checks prevent breaking changes
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Cross-Platform**: Works on Windows (PowerShell 5.1+, PowerShell 7+), macOS (bash, zsh), and Linux (bash, zsh, fish). Windows `cmd.exe` is **not** a supported activation shell — use PowerShell, or use `ven-launcher` for a no-install portable shell.
 
 For detailed architecture documentation, see the main [README](../README.md).

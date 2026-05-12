@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use zip::ZipArchive;
 
+use crate::core::integrity;
+
 const GET_PIP_URL: &str = "https://bootstrap.pypa.io/get-pip.py";
 
 pub struct PythonDownloader {
@@ -183,6 +185,8 @@ impl PythonDownloader {
                 println!("{} Using cached {}", "[OK]".green(), cache_zip.display());
             }
 
+            verify_python_archive(&cache_zip, filename, &ver);
+
             let install_dir = self.get_install_dir(&ver);
             if install_dir.exists() {
                 fs::remove_dir_all(&install_dir)
@@ -194,9 +198,73 @@ impl PythonDownloader {
             enable_embed_import_site(&install_dir)?;
             bootstrap_pip(&install_dir)?;
             validate_python_pip(&install_dir, &ver)?;
+
+            let python_exe = install_dir.join("python.exe");
+            let smoke = integrity::smoke_test_binary(&python_exe, &["--version"], "Python")
+                .with_context(|| {
+                    format!(
+                        "python --version smoke test failed at {}",
+                        python_exe.display()
+                    )
+                })?;
+            integrity::print_smoke_ok(&smoke);
             Ok(())
         }
     }
+}
+
+/// Try to verify the embeddable archive's SHA256 against the python.org release
+/// page. python.org doesn't ship per-archive sidecars, so this scrapes the HTML
+/// table; if anything fails we degrade to a warning (Node's UX) so air-gapped
+/// or HTML-changed environments still install.
+fn verify_python_archive(archive: &Path, filename: &str, version: &str) {
+    match fetch_python_release_sha256(filename, version) {
+        Ok(hex) => match integrity::verify_sha256(archive, &hex) {
+            Ok(()) => integrity::print_checksum_ok(filename),
+            Err(e) => {
+                let _ = fs::remove_file(archive);
+                eprintln!(
+                    "  {} {}",
+                    "[ERROR]".to_string(),
+                    format!("checksum mismatch for {filename}: {e}")
+                );
+            }
+        },
+        Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+    }
+}
+
+/// Scrape `https://www.python.org/downloads/release/python-<ver_nodots>/` for
+/// the SHA256 hash that follows the archive filename in the download table.
+fn fetch_python_release_sha256(filename: &str, version: &str) -> Result<String> {
+    let nodots: String = version.chars().filter(|c| c.is_ascii_digit()).collect();
+    if nodots.is_empty() {
+        return Err(anyhow!("invalid version for release page: {}", version));
+    }
+    let url = format!("https://www.python.org/downloads/release/python-{}/", nodots);
+    let html = Client::new()
+        .get(&url)
+        .send()
+        .with_context(|| format!("Could not fetch {}", url))?
+        .error_for_status()
+        .with_context(|| format!("Release page HTTP error {}", url))?
+        .text()?;
+
+    // Find the row containing the archive filename, then the next hex64 token.
+    let idx = html
+        .find(filename)
+        .ok_or_else(|| anyhow!("filename {} not found on release page", filename))?;
+    let window = &html[idx..idx.saturating_add(2048).min(html.len())];
+    for tok in window.split(|c: char| !c.is_ascii_hexdigit()) {
+        if tok.len() == 64 && tok.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Ok(tok.to_ascii_lowercase());
+        }
+    }
+    Err(anyhow!(
+        "no SHA256 token found near {} on {}",
+        filename,
+        url
+    ))
 }
 
 fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {

@@ -4,6 +4,8 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::integrity;
+
 #[derive(Debug, Clone)]
 pub struct DenoDownloader {
     storage_root: PathBuf,
@@ -137,9 +139,8 @@ pub fn install_deno(downloader: &DenoDownloader, version: &str) -> Result<()> {
     let version = version.trim().trim_start_matches('v');
     let url = build_download_url(version)?;
     fs::create_dir_all(&downloader.cache_dir)?;
-    let archive = downloader
-        .cache_dir
-        .join(url.split('/').last().unwrap_or("deno.zip"));
+    let archive_filename = url.split('/').last().unwrap_or("deno.zip").to_string();
+    let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
         let resp = Client::new()
             .get(&url)
@@ -150,13 +151,38 @@ pub fn install_deno(downloader: &DenoDownloader, version: &str) -> Result<()> {
         fs::write(&archive, resp.bytes()?)?;
     }
 
+    let sidecar_url = format!("{}.sha256sum", url);
+    match integrity::fetch_sidecar_sha256(&sidecar_url) {
+        Ok(hex) => match integrity::verify_sha256(&archive, &hex) {
+            Ok(()) => integrity::print_checksum_ok(&archive_filename),
+            Err(e) => {
+                let _ = fs::remove_file(&archive);
+                return Err(anyhow!(
+                    "Deno archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                    archive_filename,
+                    e
+                ));
+            }
+        },
+        Err(e) => integrity::print_checksum_unavailable(&archive_filename, &e.to_string()),
+    }
+
     let install_dir = downloader.get_install_dir(version);
     if install_dir.exists() {
         fs::remove_dir_all(&install_dir)?;
     }
     fs::create_dir_all(&install_dir)?;
     extract_deno_zip(&archive, &install_dir)?;
-    let _ = downloader.get_bin_path(version)?;
+
+    let bin_dir = downloader.get_bin_path(version)?;
+    let deno_bin = if cfg!(target_os = "windows") {
+        bin_dir.join("deno.exe")
+    } else {
+        bin_dir.join("deno")
+    };
+    let smoke = integrity::smoke_test_binary(&deno_bin, &["--version"], "deno")
+        .with_context(|| format!("deno --version smoke test failed at {}", deno_bin.display()))?;
+    integrity::print_smoke_ok(&smoke);
     Ok(())
 }
 

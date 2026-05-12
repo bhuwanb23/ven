@@ -341,19 +341,28 @@ ven check-add lodash     # check before installing
 
 ## 📋 Supported Languages
 
-| Language   | Install | Packages     | Auto-Switch | Status |
-| ---------- | :-----: | :----------: | :---------: | :----: |
-| Node.js    | ✅      | npm          | ✅          | Stable |
-| Python     | ✅      | pip          | ✅          | Stable |
-| Go         | ✅      | go mod       | ✅          | Stable |
-| Rust       | ✅      | cargo        | ✅          | Stable |
-| Java (JDK) | ✅      | Maven/Gradle | ✅          | Stable |
-| Ruby       | ✅      | gem/bundler  | ✅          | Stable |
-| Deno       | ✅      | native/npm   | ✅          | Stable |
-| Bun        | ✅      | bun/npm      | ✅          | Stable |
-| PHP        | 🔜      | composer     | 🔜          | Planned|
-| Elixir     | 🔜      | mix          | 🔜          | Planned|
-| .NET       | 🔜      | nuget        | 🔜          | Planned|
+Every install pulls from the **official source** for the language, verifies a
+**SHA256 checksum**, and runs a **post-install binary smoke test** before the
+runtime is registered as installed.
+
+| Language   | Install | Package commands keep this in sync | Auto-Switch | Status  |
+| ---------- | :-----: | ---------------------------------- | :---------: | :-----: |
+| Node.js    | ✅      | `package.json` (npm)               | ✅          | Stable  |
+| Bun        | ✅      | `package.json` (bun/npm)           | ✅          | Stable  |
+| Python     | ✅      | `requirements.txt` (pip)           | ✅          | Stable  |
+| Ruby       | ✅      | `Gemfile` (bundle/gem)             | ✅          | Stable  |
+| Java (JDK) | ✅      | `pom.xml` / `build.gradle[.kts]`   | ✅          | Stable  |
+| Deno       | ✅      | `deno.json` `imports`              | ✅          | Stable  |
+| Go         | ✅      | `go.mod` (`go get`)                | ✅          | Stable  |
+| Rust       | ✅      | `Cargo.toml` (`cargo add/remove`)  | ✅          | Stable  |
+| PHP        | 🔜      | composer                           | 🔜          | Planned |
+| Elixir     | 🔜      | mix                                | 🔜          | Planned |
+| .NET       | 🔜      | nuget                              | 🔜          | Planned |
+
+`ven add`, `ven remove`, and `ven upgrade` work uniformly across every
+**Stable** language — they invoke the native package manager and keep both the
+language-native manifest **and** `ven.toml [packages]` in sync. `ven status
+--fix` will auto-install a missing runtime for any of them, not just Node.
 
 ---
 

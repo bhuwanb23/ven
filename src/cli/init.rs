@@ -51,6 +51,16 @@ pub fn cmd_init(
                 ],
             ),
             (
+                "Vue + Vite Frontend",
+                "node",
+                "20",
+                vec![
+                    ("vue", "^3.4.0"),
+                    ("vite", "^5.0.0"),
+                    ("@vitejs/plugin-vue", "^5.0.0"),
+                ],
+            ),
+            (
                 "Next.js Full-stack",
                 "node",
                 "20",

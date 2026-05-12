@@ -4,6 +4,8 @@ use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::integrity;
+
 #[derive(Debug, Clone)]
 pub struct GoDownloader {
     storage_root: PathBuf,
@@ -14,6 +16,15 @@ pub struct GoDownloader {
 struct GoRelease {
     version: String,
     stable: bool,
+    #[serde(default)]
+    files: Vec<GoFile>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct GoFile {
+    filename: String,
+    #[serde(default)]
+    sha256: String,
 }
 
 impl GoDownloader {
@@ -196,14 +207,62 @@ pub fn resolve_go_version_spec(spec: &str, available: &[String]) -> Result<Strin
 
 pub fn install_go(downloader: &GoDownloader, version: &str) -> Result<()> {
     let archive = downloader.download(version)?;
+    let archive_filename = GoDownloader::archive_filename(version)?;
+
+    match fetch_go_sha256(&archive_filename) {
+        Ok(hex) => match integrity::verify_sha256(&archive, &hex) {
+            Ok(()) => integrity::print_checksum_ok(&archive_filename),
+            Err(e) => {
+                let _ = fs::remove_file(&archive);
+                return Err(anyhow!(
+                    "Go archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                    archive_filename,
+                    e
+                ));
+            }
+        },
+        Err(e) => integrity::print_checksum_unavailable(&archive_filename, &e.to_string()),
+    }
+
     let install_root = downloader.get_install_dir(version);
     if install_root.exists() {
         fs::remove_dir_all(&install_root)?;
     }
     fs::create_dir_all(&install_root)?;
     extract_go_archive(&archive, &install_root)?;
-    let _ = downloader.get_bin_path(version)?;
+
+    let bin_dir = downloader.get_bin_path(version)?;
+    let go_bin = if cfg!(target_os = "windows") {
+        bin_dir.join("go.exe")
+    } else {
+        bin_dir.join("go")
+    };
+    let smoke = integrity::smoke_test_binary(&go_bin, &["version"], "go version")
+        .with_context(|| format!("go version smoke test failed at {}", go_bin.display()))?;
+    integrity::print_smoke_ok(&smoke);
     Ok(())
+}
+
+/// Look up the SHA256 for `filename` from `https://go.dev/dl/?mode=json&include=all`.
+fn fetch_go_sha256(filename: &str) -> Result<String> {
+    let releases: Vec<GoRelease> = Client::new()
+        .get("https://go.dev/dl/?mode=json&include=all")
+        .send()
+        .with_context(|| "Could not fetch go.dev release index")?
+        .error_for_status()
+        .with_context(|| "go.dev release index returned non-2xx")?
+        .json()
+        .with_context(|| "Failed to parse Go release index for checksum lookup")?;
+    for r in releases {
+        for f in r.files {
+            if f.filename == filename {
+                if f.sha256.len() == 64 && f.sha256.chars().all(|c| c.is_ascii_hexdigit()) {
+                    return Ok(f.sha256.to_ascii_lowercase());
+                }
+            }
+        }
+    }
+    Err(anyhow!("no SHA256 entry for {} in go.dev index", filename))
 }
 
 fn extract_go_archive(archive_path: &Path, dest: &Path) -> Result<()> {
