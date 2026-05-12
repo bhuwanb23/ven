@@ -6,7 +6,7 @@
 //! Python side. There is no platform-specific logic here.
 
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -205,7 +205,7 @@ fn spec_satisfied_by(spec: &str, pinned: &str) -> bool {
 
 // ── Python drift ───────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PythonInstalled {
     pub name: String,
     pub version: String,
@@ -344,32 +344,54 @@ fn python_spec_satisfied_by(spec: &str, installed: &str) -> bool {
         Err(_) => return constraint.trim_start_matches("==").trim() == installed,
     };
     if let Some(rest) = constraint.strip_prefix(">=") {
-        if let Ok(v) = semver::Version::parse(rest.trim()) {
+        if let Some(v) = parse_loose_version(rest.trim()) {
             return installed_v >= v;
         }
     }
     if let Some(rest) = constraint.strip_prefix("<=") {
-        if let Ok(v) = semver::Version::parse(rest.trim()) {
+        if let Some(v) = parse_loose_version(rest.trim()) {
             return installed_v <= v;
         }
     }
+    if let Some(rest) = constraint.strip_prefix("!=") {
+        if let Some(v) = parse_loose_version(rest.trim()) {
+            return installed_v != v;
+        }
+    }
     if let Some(rest) = constraint.strip_prefix('>') {
-        if let Ok(v) = semver::Version::parse(rest.trim()) {
+        if let Some(v) = parse_loose_version(rest.trim()) {
             return installed_v > v;
         }
     }
     if let Some(rest) = constraint.strip_prefix('<') {
-        if let Ok(v) = semver::Version::parse(rest.trim()) {
+        if let Some(v) = parse_loose_version(rest.trim()) {
             return installed_v < v;
         }
     }
-    if let Some(rest) = constraint.strip_prefix("!=") {
-        if let Ok(v) = semver::Version::parse(rest.trim()) {
-            return installed_v != v;
-        }
-    }
-    // Conservative default: assume mismatch.
     false
+}
+
+/// PEP-440 versions are commonly written `2.32` or `2`; semver insists on
+/// `MAJOR.MINOR.PATCH`. Pad missing components with zero before parsing.
+fn parse_loose_version(s: &str) -> Option<semver::Version> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    let mut parts: Vec<&str> = s.splitn(2, |c: char| c == '+' || c == '-').collect();
+    let core = parts.remove(0);
+    let mut nums: Vec<&str> = core.split('.').collect();
+    while nums.len() < 3 {
+        nums.push("0");
+    }
+    let padded = nums.join(".");
+    let candidate = if parts.is_empty() {
+        padded
+    } else {
+        let sep = if core.contains('-') && !s[core.len()..].starts_with('+') { "-" } else { "+" };
+        format!("{}{}{}", padded, sep, parts[0])
+    };
+    semver::Version::parse(&candidate).ok()
 }
 
 #[cfg(test)]

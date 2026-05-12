@@ -1,0 +1,269 @@
+name: Release
+
+# Triggers
+# --------
+# Push a tag matching `v*` (e.g. `v0.1.0`, `v1.2.3-rc.1`) and this workflow
+# builds the six platform asset pairs + SHA256 sidecars + a global SHA256SUMS
+# manifest, then publishes everything to a GitHub Release at that tag.
+#
+# Manual dispatch is also supported for dry-run testing: it builds the assets
+# but only uploads them as workflow artifacts (no GitHub Release is created).
+#
+# Asset naming contract: see docs/install-scripts.md "Release asset naming
+# contract". `scripts/install.ps1` and `scripts/install.sh` look up assets by
+# exact filename; any change here MUST also update that doc.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name to use for dry-run artifact naming (e.g. v0.1.0-dev)"
+        required: false
+        default: "v0.0.0-dev"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # build: one job per (os, arch). Two-pass cargo build (build.rs needs to
+  # see the freshly-built ven + ven-launcher artifacts on its second pass
+  # before ven-setup can embed them). Produces three assets per matrix entry:
+  #
+  #   - ven-{os}-{arch}.{zip|tar.gz}    (Replicate-path archive)
+  #   - ven-setup-{os}-{arch}[.exe]     (Delegate-path installer)
+  #   - <each-asset>.sha256             (per-asset sidecar)
+  # ---------------------------------------------------------------------------
+  build:
+    name: build ${{ matrix.os_label }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_label: windows
+            arch: x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+            exe_ext: ".exe"
+            cross: false
+          - os_label: windows
+            arch: arm64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            archive_ext: zip
+            exe_ext: ".exe"
+            cross: true
+          - os_label: linux
+            arch: x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive_ext: tar.gz
+            exe_ext: ""
+            cross: false
+          - os_label: linux
+            arch: arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            archive_ext: tar.gz
+            exe_ext: ""
+            cross: true
+          - os_label: macos
+            arch: x64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+            exe_ext: ""
+            cross: false
+          - os_label: macos
+            arch: arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+            exe_ext: ""
+            cross: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux arm64 cross-compiler
+        if: matrix.os_label == 'linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Configure Linux arm64 linker
+        if: matrix.os_label == 'linux' && matrix.arch == 'arm64'
+        run: |
+          mkdir -p .cargo
+          cat >> .cargo/config.toml <<EOF
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-${{ matrix.target }}-
+
+      # ---- pass 1: build ven + ven-launcher --------------------------------
+      - name: Build pass 1 (ven + ven-launcher)
+        run: cargo build --release --target ${{ matrix.target }} --bin ven --bin ven-launcher --locked
+
+      # ---- pass 2: build ven-setup (build.rs embeds pass-1 artifacts) ------
+      - name: Build pass 2 (ven-setup with embedded payloads)
+        run: cargo build --release --target ${{ matrix.target }} --bin ven-setup --locked
+
+      # ---- package: archive + standalone setup binary ----------------------
+      - name: Package assets (Windows)
+        if: matrix.os_label == 'windows'
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "stage"
+          $dist  = Join-Path $env:RUNNER_TEMP "dist"
+          New-Item -ItemType Directory -Force -Path $stage, $dist | Out-Null
+
+          $src = "target/${{ matrix.target }}/release"
+          Copy-Item "$src/ven.exe"          (Join-Path $stage "ven.exe")
+          Copy-Item "$src/ven-launcher.exe" (Join-Path $stage "ven-launcher.exe")
+
+          $archive = Join-Path $dist "ven-${{ matrix.os_label }}-${{ matrix.arch }}.zip"
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $archive -Force
+
+          Copy-Item "$src/ven-setup.exe" `
+            (Join-Path $dist "ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}.exe")
+
+          # Per-asset sha256 sidecars
+          Get-ChildItem $dist -File | Where-Object { $_.Extension -ne '.sha256' } | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -Encoding ascii -FilePath ("$($_.FullName).sha256") -NoNewline
+          }
+
+          "DIST=$dist" | Out-File -FilePath $env:GITHUB_ENV -Encoding ascii -Append
+          Get-ChildItem $dist
+
+      - name: Package assets (Unix)
+        if: matrix.os_label != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="${RUNNER_TEMP}/stage"
+          dist="${RUNNER_TEMP}/dist"
+          mkdir -p "$stage" "$dist"
+
+          src="target/${{ matrix.target }}/release"
+          install -m 0755 "$src/ven"           "$stage/ven"
+          install -m 0755 "$src/ven-launcher"  "$stage/ven-launcher"
+
+          archive="$dist/ven-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
+          tar -C "$stage" -czf "$archive" ven ven-launcher
+
+          install -m 0755 "$src/ven-setup" \
+            "$dist/ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}"
+
+          # Per-asset sha256 sidecars (prefer sha256sum, fall back to shasum)
+          shacmd() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi }
+          cd "$dist"
+          for f in *; do
+            case "$f" in *.sha256) continue;; esac
+            shacmd "$f" | awk '{printf "%s  %s", $1, $2}' > "$f.sha256"
+          done
+
+          echo "DIST=$dist" >> "$GITHUB_ENV"
+          ls -la "$dist"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ven-${{ matrix.os_label }}-${{ matrix.arch }}
+          path: ${{ env.DIST }}/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # release: collect every artifact, build a global SHA256SUMS manifest, then
+  # publish them to a GitHub Release tied to the pushed tag. On manual dispatch
+  # the assets are simply attached to the workflow run for inspection.
+  # ---------------------------------------------------------------------------
+  release:
+    name: release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-staged
+
+      - name: Flatten + build SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Each matrix job uploaded a single folder under dist-staged/<name>/.
+          # Flatten by moving every file to the top-level dist/.
+          find dist-staged -type f -exec mv -n {} dist/ \;
+          ls -la dist/
+
+          cd dist
+          # Build a global SHA256SUMS over the real assets (not the sidecars).
+          : > SHA256SUMS
+          for f in *; do
+            case "$f" in *.sha256|SHA256SUMS) continue;; esac
+            sha256sum "$f" >> SHA256SUMS
+          done
+          echo "--- SHA256SUMS ---"
+          cat SHA256SUMS
+
+      - name: Resolve tag name
+        id: tag
+        shell: bash
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "publish=true"            >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "publish=false"                       >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/ven-*
+            dist/SHA256SUMS
+
+      - name: Re-upload consolidated dist as workflow artifact
+        if: steps.tag.outputs.publish != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ven-release-${{ steps.tag.outputs.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

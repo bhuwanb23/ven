@@ -49,9 +49,44 @@ fn main() {
     embed_or_stub(&ven_src, &ven_dst, "ven");
     embed_or_stub(&launcher_src, &launcher_dst, "ven-launcher");
 
+    // Windows-only: bake an `asInvoker` manifest into `ven-setup` so Windows'
+    // Installer Detection heuristics don't auto-elevate every invocation just
+    // because the filename contains "setup". The Rust installer's
+    // `relaunch_elevated` path is the only thing that legitimately needs UAC.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        embed_setup_manifest();
+    }
+
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/bin/setup/ven-setup.manifest");
     println!("cargo:rerun-if-changed={}", ven_src.display());
     println!("cargo:rerun-if-changed={}", launcher_src.display());
+}
+
+fn embed_setup_manifest() {
+    // Only the MSVC toolchain supports /MANIFESTUAC; gnu builds skip silently.
+    if env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
+        return;
+    }
+    let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap())
+        .join("src")
+        .join("bin")
+        .join("setup")
+        .join("ven-setup.manifest");
+    if !manifest.is_file() {
+        println!(
+            "cargo:warning=ven-setup: manifest not found at {} -- skipping asInvoker embed",
+            manifest.display()
+        );
+        return;
+    }
+    // Apply linker args only to the `ven-setup` binary (per-bin scoping).
+    println!(
+        "cargo:rustc-link-arg-bin=ven-setup=/MANIFESTINPUT:{}",
+        manifest.display()
+    );
+    println!("cargo:rustc-link-arg-bin=ven-setup=/MANIFEST:EMBED");
+    println!("cargo:rustc-link-arg-bin=ven-setup=/MANIFESTUAC:NO");
 }
 
 fn embed_or_stub(src: &Path, dst: &Path, label: &str) {

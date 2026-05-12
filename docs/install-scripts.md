@@ -90,7 +90,7 @@ The Delegate path is **always preferred** when the appropriate `ven-setup-*` ass
 
 ## Release asset naming contract
 
-The scripts look up assets by exact filename. Any release workflow that produces `ven` artifacts MUST publish these names (a future `.github/workflows/release.yml` is out of scope for this change but bound by the same contract):
+The scripts look up assets by exact filename. The release workflow at [`.github/workflows/release.yml`](../.github/workflows/release.yml) produces exactly these names — it triggers on `v*` tag pushes, runs a 6-cell matrix (windows / linux / macos × x64 / arm64), does the canonical two-pass cargo build per target, then publishes both the Delegate and Replicate assets plus per-asset `.sha256` sidecars and a global `SHA256SUMS` manifest to a GitHub Release. `workflow_dispatch` is also wired up so the same pipeline can be exercised against the `main` branch without cutting a tag.
 
 ### Delegate-path binaries (preferred)
 
@@ -198,7 +198,6 @@ Both scripts intentionally avoid external dependencies beyond the platform basel
 
 ## Out of scope
 
-- `.github/workflows/release.yml` -- producing the assets listed above is a separate concern. The naming contract above is the only coupling.
 - `get.ven.sh` DNS and hosting -- use the raw GitHub URLs until the domain exists.
 - `ven self-update` -- a future feature; for now re-run the install one-liner.
 - Uninstall -- planned as `ven-setup --uninstall` (separate plan).
