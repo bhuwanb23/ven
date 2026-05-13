@@ -49,7 +49,7 @@ export default function ScriptedTerminal({
 
   // Drive the script forward.
   useEffect(() => {
-    if (!playing) return
+    if (!playing) return undefined
     if (step >= flatScript.length) {
       if (loop) {
         timeoutRef.current = setTimeout(() => reset(), 2000)
@@ -62,7 +62,9 @@ export default function ScriptedTerminal({
       timeoutRef.current = setTimeout(() => {
         setStep((s) => s + 1)
       }, entry.ms ?? 400)
-      return
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      }
     }
 
     if (entry.kind === 'output') {
@@ -73,32 +75,39 @@ export default function ScriptedTerminal({
       timeoutRef.current = setTimeout(() => {
         setStep((s) => s + 1)
       }, entry.ms ?? 220)
-      return
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      }
     }
 
-    // command — typewriter effect.
+    // command — typewriter effect. Hold the fully-typed line for 250ms,
+    // then commit it to renderedLines, reset the typed buffer, and advance
+    // step in the same tick so we never render the line twice.
     if (entry.kind === 'command') {
       if (typedCount < entry.text.length) {
         timeoutRef.current = setTimeout(() => {
           setTypedCount((c) => c + 1)
         }, TYPE_MS)
       } else {
-        // commit typed line, advance.
-        setRenderedLines((prev) => [
-          ...prev,
-          {
-            kind: 'command',
-            text: entry.text,
-            prompt: entry.prompt ?? '$',
-          },
-        ])
         timeoutRef.current = setTimeout(() => {
+          setRenderedLines((prev) => [
+            ...prev,
+            {
+              kind: 'command',
+              text: entry.text,
+              prompt: entry.prompt ?? '$',
+            },
+          ])
           setTypedCount(0)
           setStep((s) => s + 1)
         }, 250)
       }
-      return
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      }
     }
+
+    return undefined
   }, [playing, step, typedCount, flatScript, loop, reset])
 
   // Auto-scroll the body as new lines appear.

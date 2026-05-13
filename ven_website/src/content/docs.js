@@ -25,12 +25,14 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Usage' },
       { kind: 'code', lang: 'bash', code: 'ven init                  # interactive\nven init --template       # pick a template\nven init --with-packages  # multi-select popular packages\nven init --validate       # validate after writing' },
       { kind: 'h2', text: 'Templates' },
-      { kind: 'ul', items: [
-        'Express API Server — node + express + cors + dotenv',
-        'React + Vite Frontend — node + react + react-dom + vite',
-        'Next.js Full-stack — node + next + react + react-dom',
-        'Empty Project — pick language + version, no packages',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Express API Server — node + express + cors + dotenv',
+          'React + Vite Frontend — node + react + react-dom + vite',
+          'Next.js Full-stack — node + next + react + react-dom',
+          'Empty Project — pick language + version, no packages',
+        ]
+      },
       { kind: 'h2', text: 'Generated ven.toml' },
       { kind: 'code', lang: 'toml', code: '[runtime]\nnode = "20"\n\n[packages]\nexpress = "^4.18.2"\ncors    = "^2.8.5"\ndotenv  = "^16.3.1"\n\n[env]\nNODE_ENV = "development"\nPORT     = "3000"' },
       { kind: 'h2', text: 'Validation' },
@@ -49,28 +51,34 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Usage' },
       { kind: 'code', lang: 'bash', code: 'ven install <lang> <version>\nven install node 20\nven install python 3.11\nven install rust 1.75' },
       { kind: 'h2', text: 'Version resolution' },
-      { kind: 'ul', items: [
-        '"20"        → resolves to latest patch of 20.x',
-        '"latest"    → newest stable release',
-        '"lts"       → most recent LTS (Node, Java, Ruby)',
-        '"20.20.2"   → exact pin',
-      ]},
+      {
+        kind: 'ul', items: [
+          '"20"        → resolves to latest patch of 20.x',
+          '"latest"    → newest stable release',
+          '"lts"       → most recent LTS (Node, Java, Ruby)',
+          '"20.20.2"   → exact pin',
+        ]
+      },
       { kind: 'h2', text: 'What happens' },
-      { kind: 'ul', items: [
-        'Resolves alias → exact version',
-        'Downloads from the official source (nodejs.org, python.org, …)',
-        'Verifies SHA256 against the upstream checksum file',
-        'Extracts into ~/.ven/<lang>/<version>/',
-        'Runs a smoke-test (e.g. `node --version`)',
-        'Activates in the current shell',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Resolves alias → exact version',
+          'Downloads from the official source (nodejs.org, python.org, …)',
+          'Verifies SHA256 against the upstream checksum file',
+          'Extracts into ~/.ven/<lang>/<version>/',
+          'Runs a smoke-test (e.g. `node --version`)',
+          'Activates in the current shell',
+        ]
+      },
       { kind: 'callout', tone: 'info', title: 'No admin / sudo', text: 'Everything happens inside ~/.ven/. Nothing is written to system paths.' },
       { kind: 'h2', text: 'Exit codes' },
-      { kind: 'table', head: ['Code', 'Meaning'], rows: [
-        ['0', 'Installed and activated successfully'],
-        ['1', 'Download / extract failed'],
-        ['2', 'SHA256 mismatch — the artifact was rejected'],
-      ]},
+      {
+        kind: 'table', head: ['Code', 'Meaning'], rows: [
+          ['0', 'Installed and activated successfully'],
+          ['1', 'Download / extract failed'],
+          ['2', 'SHA256 mismatch — the artifact was rejected'],
+        ]
+      },
     ],
     related: ['list', 'init', 'status'],
   },
@@ -83,13 +91,15 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Usage' },
       { kind: 'code', lang: 'bash', code: 'ven status\nven status --verbose\nven status --json' },
       { kind: 'h2', text: 'What it reports' },
-      { kind: 'ul', items: [
-        'Active runtime versions (resolved, not just declared)',
-        'Installed vs missing toolchains',
-        'Package summary (count, recent additions)',
-        'Health overview — short OSV + EOL teaser',
-        'VEN_*_VERSION shell markers + activation state',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Active runtime versions (resolved, not just declared)',
+          'Installed vs missing toolchains',
+          'Package summary (count, recent additions)',
+          'Health overview — short OSV + EOL teaser',
+          'VEN_*_VERSION shell markers + activation state',
+        ]
+      },
       { kind: 'h2', text: '--json output' },
       { kind: 'p', text: 'Stable, documented JSON schema. Designed for CI gates and editor extensions.' },
       { kind: 'code', lang: 'json', code: '{\n  "active": true,\n  "runtimes": [{ "lang": "node", "declared": "20", "resolved": "20.20.2" }],\n  "packages": { "count": 12 },\n  "health": { "cves": 0, "eol_warnings": 0 }\n}' },
@@ -105,22 +115,26 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Usage' },
       { kind: 'code', lang: 'bash', code: 'ven add express\nven add express@4.18.2\nven add -D typescript     # dev dependency where the ecosystem supports it' },
       { kind: 'h2', text: 'Pipeline' },
-      { kind: 'ul', items: [
-        'Build the full dependency graph (recursive, includes transitive deps)',
-        'Simulate the install — flag conflicts before touching disk',
-        'Run a CVE pre-scan via OSV (cached)',
-        'Apply via the ecosystem\'s native PM (npm / pip / cargo / …)',
-        'Update [packages] in ven.toml',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Build the full dependency graph (recursive, includes transitive deps)',
+          'Simulate the install — flag conflicts before touching disk',
+          'Run a CVE pre-scan via OSV (cached)',
+          'Apply via the ecosystem\'s native PM (npm / pip / cargo / …)',
+          'Update [packages] in ven.toml',
+        ]
+      },
       { kind: 'callout', tone: 'success', text: 'You never have to run npm/pip/cargo manually for normal workflows — ven keeps ven.toml as the source of truth.' },
       { kind: 'h2', text: 'Per-ecosystem mapping' },
-      { kind: 'table', head: ['Runtime', 'Underlying command'], rows: [
-        ['node / bun', 'npm install / bun add'],
-        ['python', 'pip install (venv-aware)'],
-        ['ruby', 'gem install'],
-        ['rust', 'cargo add'],
-        ['go / java / deno', 'native — ven coordinates ven.toml + lockfile only'],
-      ]},
+      {
+        kind: 'table', head: ['Runtime', 'Underlying command'], rows: [
+          ['node / bun', 'npm install / bun add'],
+          ['python', 'pip install (venv-aware)'],
+          ['ruby', 'gem install'],
+          ['rust', 'cargo add'],
+          ['go / java / deno', 'native — ven coordinates ven.toml + lockfile only'],
+        ]
+      },
     ],
     related: ['lock', 'check', 'sync'],
   },
@@ -135,11 +149,13 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Lockfile schema (v2)' },
       { kind: 'code', lang: 'toml', code: 'version = 2\ngenerated = "2024-01-15T10:30:00Z"\n\n[runtimes]\nnode = { version = "20.20.2", sha256 = "…" }\n\n[[packages]]\nname      = "express"\nversion   = "4.18.2"\nsource    = "npm"\nintegrity = "sha512-…"   # SRI hash of the tarball\ndependencies = ["body-parser", "cookie-parser"]' },
       { kind: 'h2', text: 'Why SRI hashes?' },
-      { kind: 'ul', items: [
-        'Detect upstream tampering — npm pulls the registry, ven verifies the bytes',
-        'CI can use --check to fail builds when a teammate forgets to commit ven.lock',
-        'Stable across machines: ven sync rejects any package whose integrity differs',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Detect upstream tampering — npm pulls the registry, ven verifies the bytes',
+          'CI can use --check to fail builds when a teammate forgets to commit ven.lock',
+          'Stable across machines: ven sync rejects any package whose integrity differs',
+        ]
+      },
       { kind: 'callout', tone: 'info', title: 'v1 → v2 migration', text: 'Running ven lock against a v1 file auto-upgrades it. The CLI prints "lockfile upgraded: v1 → v2" so it shows up in code review.' },
     ],
     related: ['sync', 'add', 'check'],
@@ -157,11 +173,13 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'CI example (GitHub Actions)' },
       { kind: 'code', lang: 'yaml', code: '- run: ven sync --check\n  # Fails the job if ven.lock is stale or someone installed a package without committing.' },
       { kind: 'h2', text: 'Exit codes' },
-      { kind: 'table', head: ['Code', 'Meaning'], rows: [
-        ['0', 'No drift'],
-        ['1', 'Drift detected — at least one package mismatched'],
-        ['2', 'ven.lock is missing or malformed'],
-      ]},
+      {
+        kind: 'table', head: ['Code', 'Meaning'], rows: [
+          ['0', 'No drift'],
+          ['1', 'Drift detected — at least one package mismatched'],
+          ['2', 'ven.lock is missing or malformed'],
+        ]
+      },
     ],
     related: ['lock', 'check', 'add'],
   },
@@ -174,25 +192,31 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Usage' },
       { kind: 'code', lang: 'bash', code: 'ven check                  # CVE + EOL\nven check --security       # CVE only\nven check --eol            # EOL only\nven check --json           # CI / scripting' },
       { kind: 'h2', text: 'How it works' },
-      { kind: 'ul', items: [
-        'Reads ven.lock when present (otherwise [packages]) for pinned (name, version) pairs',
-        'POSTs batches of 1000 to https://api.osv.dev/v1/querybatch',
-        'Enriches every vuln via /v1/vulns/<id> for severity + summary + fixed-in version',
-        'GETs https://endoflife.date/api/<product>.json per runtime in [runtime]',
-        'Caches everything in ~/.ven/intelligence.db with stale-on-failure fallback',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Reads ven.lock when present (otherwise [packages]) for pinned (name, version) pairs',
+          'POSTs batches of 1000 to https://api.osv.dev/v1/querybatch',
+          'Enriches every vuln via /v1/vulns/<id> for severity + summary + fixed-in version',
+          'GETs https://endoflife.date/api/<product>.json per runtime in [runtime]',
+          'Caches everything in ~/.ven/intelligence.db with stale-on-failure fallback',
+        ]
+      },
       { kind: 'h2', text: 'Severity buckets' },
-      { kind: 'table', head: ['CVSS', 'Bucket'], rows: [
-        ['≥ 9.0', 'CRITICAL'],
-        ['≥ 7.0', 'HIGH'],
-        ['≥ 4.0', 'MODERATE'],
-        ['> 0', 'LOW'],
-      ]},
+      {
+        kind: 'table', head: ['CVSS', 'Bucket'], rows: [
+          ['≥ 9.0', 'CRITICAL'],
+          ['≥ 7.0', 'HIGH'],
+          ['≥ 4.0', 'MODERATE'],
+          ['> 0', 'LOW'],
+        ]
+      },
       { kind: 'h2', text: 'Exit codes' },
-      { kind: 'table', head: ['Code', 'Meaning'], rows: [
-        ['0', 'No actionable issues'],
-        ['1', 'Any HIGH/CRITICAL CVE or a passed-EOL runtime'],
-      ]},
+      {
+        kind: 'table', head: ['Code', 'Meaning'], rows: [
+          ['0', 'No actionable issues'],
+          ['1', 'Any HIGH/CRITICAL CVE or a passed-EOL runtime'],
+        ]
+      },
       { kind: 'callout', tone: 'info', title: 'Offline-friendly', text: 'OSV cache lives 6 hours, EOL cache 24 hours. On network failure, ven serves the last-known-good entry and prints a "stale" warning.' },
     ],
     related: ['scan', 'lock', 'docs'],
@@ -206,12 +230,14 @@ const CMD_DOCS = {
       { kind: 'h2', text: 'Usage' },
       { kind: 'code', lang: 'bash', code: 'ven docs express                       # terminal-rendered\nven docs express --browser             # open registry page in your browser\nven docs express --diff 4.18.2 5.0.0   # API diff between two versions' },
       { kind: 'h2', text: 'How it works' },
-      { kind: 'ul', items: [
-        'Resolves the version from ven.lock → ven.toml → registry latest',
-        'Pulls the README / API metadata from the ecosystem\'s registry (npm, PyPI, crates.io, RubyGems)',
-        'Renders Markdown to terminal via termimad — or opens the registry page via the system browser',
-        'Caches fetched docs under ~/.ven/cache/docs/<pkg>/<version>/',
-      ]},
+      {
+        kind: 'ul', items: [
+          'Resolves the version from ven.lock → ven.toml → registry latest',
+          'Pulls the README / API metadata from the ecosystem\'s registry (npm, PyPI, crates.io, RubyGems)',
+          'Renders Markdown to terminal via termimad — or opens the registry page via the system browser',
+          'Caches fetched docs under ~/.ven/cache/docs/<pkg>/<version>/',
+        ]
+      },
       { kind: 'h2', text: '--diff' },
       { kind: 'p', text: 'Diffs the public API surface between two versions of the same package (function/class signatures). Highlights additions, removals, and signature changes. Useful before any major-version upgrade.' },
     ],
