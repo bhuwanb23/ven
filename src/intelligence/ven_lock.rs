@@ -229,12 +229,23 @@ fn merge_intel_graph(dst: &mut IntelGraph, src: &IntelGraph) -> Result<()> {
 }
 
 /// Hash canonical JSON of the lock **without** `content_hash` set.
+///
+/// Important: `VenLockFile::packages` is a `HashMap` whose iteration order is
+/// non-deterministic (Rust randomises the hasher per-process). Serialising it
+/// directly with `to_string` would therefore yield a different byte sequence
+/// across runs — and `ven sync --check` would always reject the file written
+/// minutes earlier by `ven lock`.
+///
+/// We round-trip through `serde_json::Value` first: its `Map<String, Value>`
+/// is a `BTreeMap` (sorted alphabetically), so the resulting JSON is stable
+/// regardless of HashMap insertion order.
 pub fn compute_lock_content_hash(lock: &VenLockFile) -> Result<String> {
     let mut tmp = lock.clone();
     tmp.content_hash = None;
-    let json = serde_json::to_string(&tmp)?;
+    let value = serde_json::to_value(&tmp)?;
+    let canonical = serde_json::to_string(&value)?;
     let mut hasher = Sha256::new();
-    hasher.update(json.as_bytes());
+    hasher.update(canonical.as_bytes());
     Ok(format!("{:x}", hasher.finalize()))
 }
 
@@ -391,6 +402,96 @@ mod tests {
         let h1 = compute_lock_content_hash(&lock).unwrap();
         let h2 = compute_lock_content_hash(&lock).unwrap();
         assert_eq!(h1, h2);
+    }
+
+    /// Regression test: prior to the canonical-JSON fix, two `VenLockFile`s
+    /// with the same content but built in different insertion orders would
+    /// hash differently because `HashMap` iteration order depends on the
+    /// per-instance random hasher seed. This caused `ven sync --check` to
+    /// reject every freshly-written `ven.lock`.
+    #[test]
+    fn hash_is_stable_across_hashmap_seeds() {
+        let mk = |entries: Vec<(&str, &str)>| -> VenLockFile {
+            let mut packages = HashMap::new();
+            for (k, v) in entries {
+                packages.insert(
+                    k.to_string(),
+                    VenLockPackage {
+                        version: v.to_string(),
+                        integrity: None,
+                        metadata: None,
+                    },
+                );
+            }
+            VenLockFile {
+                lock_format_version: LOCK_FORMAT_VERSION,
+                ecosystem: "npm".into(),
+                runtime_kind: RuntimeKind::NpmFamily,
+                runtime_version: "20".into(),
+                roots: vec!["a".into()],
+                packages,
+                edges: vec![],
+                content_hash: None,
+            }
+        };
+        let forward = mk(vec![
+            ("a", "1.0.0"),
+            ("b", "2.0.0"),
+            ("c", "3.0.0"),
+            ("d", "4.0.0"),
+            ("e", "5.0.0"),
+        ]);
+        let reverse = mk(vec![
+            ("e", "5.0.0"),
+            ("d", "4.0.0"),
+            ("c", "3.0.0"),
+            ("b", "2.0.0"),
+            ("a", "1.0.0"),
+        ]);
+        let h1 = compute_lock_content_hash(&forward).unwrap();
+        let h2 = compute_lock_content_hash(&reverse).unwrap();
+        assert_eq!(
+            h1, h2,
+            "hash must be independent of HashMap insertion order"
+        );
+    }
+
+    /// End-to-end: write -> read -> rehash must reproduce the stamped hash.
+    /// Same scenario as `ven lock` followed by `ven sync --check`.
+    #[test]
+    fn hash_round_trip_through_json_matches_stamp() {
+        let mut packages = HashMap::new();
+        for (k, v) in [("alpha", "1.2.3"), ("beta", "0.0.1"), ("gamma", "2.4.6")] {
+            packages.insert(
+                k.into(),
+                VenLockPackage {
+                    version: v.into(),
+                    integrity: None,
+                    metadata: None,
+                },
+            );
+        }
+        let mut lock = VenLockFile {
+            lock_format_version: LOCK_FORMAT_VERSION,
+            ecosystem: "npm".into(),
+            runtime_kind: RuntimeKind::NpmFamily,
+            runtime_version: "20".into(),
+            roots: vec!["alpha".into()],
+            packages,
+            edges: vec![],
+            content_hash: None,
+        };
+        lock.content_hash = Some(compute_lock_content_hash(&lock).unwrap());
+        let stamped = lock.content_hash.clone().unwrap();
+
+        // Simulate disk round-trip.
+        let on_disk = serde_json::to_string_pretty(&lock).unwrap();
+        let mut read_back: VenLockFile = serde_json::from_str(&on_disk).unwrap();
+        let recomputed = {
+            read_back.content_hash = None;
+            compute_lock_content_hash(&read_back).unwrap()
+        };
+        assert_eq!(stamped, recomputed);
     }
 
     #[test]
