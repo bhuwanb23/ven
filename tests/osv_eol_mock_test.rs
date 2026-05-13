@@ -6,9 +6,32 @@
 //!
 //! Cross-platform: pure Rust mocks; runs identically on Windows / macOS /
 //! Linux in CI.
+//!
+//! ## Serialisation
+//!
+//! All three tests mutate process-wide env vars (`VEN_STORAGE_PATH`,
+//! `VEN_OSV_BASE_URL`, `VEN_OSV_TTL_SECS`, `VEN_EOL_BASE_URL`). Cargo runs
+//! `#[tokio::test]` cases concurrently within one process, so without a
+//! shared lock test A's `set_var` is clobbered by test B's, and when test A
+//! eventually constructs its client it reads the path test B wrote — whose
+//! tempdir may already have been dropped, manifesting as
+//! `unable to open database file`. A `Mutex` held for the full body of each
+//! test forces them to run one-at-a-time within the same process.
+
+use std::sync::{Mutex, MutexGuard};
 
 use ven::core::endoflife::EndOfLifeClient;
 use ven::core::osv::{OsvClient, OsvQuery};
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+/// Acquire the shared env lock. Recovers from poison so a panicking sibling
+/// test doesn't permanently disable the remaining ones.
+fn lock_env() -> MutexGuard<'static, ()> {
+    ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner())
+}
 
 fn isolate_storage(label: &str) -> tempfile::TempDir {
     let tmp = tempfile::Builder::new()
@@ -21,6 +44,7 @@ fn isolate_storage(label: &str) -> tempfile::TempDir {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn osv_returns_vulns_from_mocked_server() {
+    let _env = lock_env();
     let _tmp = isolate_storage("osv");
     let mut server = mockito::Server::new_async().await;
 
@@ -76,6 +100,7 @@ async fn osv_returns_vulns_from_mocked_server() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn osv_serves_stale_on_network_failure_after_warm_cache() {
+    let _env = lock_env();
     let _tmp = isolate_storage("osv-stale");
     // TTL=0 so every read counts as expired — forces the fallback path
     // through the network on every call.
@@ -118,6 +143,7 @@ async fn osv_serves_stale_on_network_failure_after_warm_cache() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn eol_picks_matching_cycle_from_mocked_endpoint() {
+    let _env = lock_env();
     let _tmp = isolate_storage("eol");
     let mut server = mockito::Server::new_async().await;
 

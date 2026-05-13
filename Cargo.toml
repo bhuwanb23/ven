@@ -16,6 +16,11 @@ path = "src/bin/launcher.rs"
 [[bin]]
 name = "ven-setup"
 path = "src/bin/setup/main.rs"
+# The unsigned debug exe is rejected by Windows Application Control
+# (os error 4551) on locked-down hosts. There are no `#[test]` items inside
+# this bin, so skipping the spawned-test discovery costs us nothing and
+# unblocks `cargo test --workspace` everywhere.
+test = false
 
 [dependencies]
 # CLI
