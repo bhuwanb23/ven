@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import Icon from '../components/ui/Icon.jsx'
@@ -9,6 +9,36 @@ import Reveal from '../components/effects/Reveal.jsx'
 import TiltCard from '../components/effects/TiltCard.jsx'
 import { LANGUAGES, COMING_SOON, MOST_REQUESTED } from '../content/languages.js'
 import { REQUEST_LANGUAGE_URL, GITHUB_URL } from '../content/site.js'
+
+/**
+ * Tracks the current Tailwind breakpoint column count for the languages grid
+ * (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`) so we can position the
+ * expand-in-place detail panel right after the *row* that contains the
+ * clicked card. The breakpoints match the Tailwind defaults the markup uses.
+ */
+function useGridColumns() {
+  const [cols, setCols] = useState(() => {
+    if (typeof window === 'undefined') return 4
+    if (window.matchMedia('(min-width: 1024px)').matches) return 4
+    if (window.matchMedia('(min-width: 640px)').matches) return 2
+    return 1
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const sm = window.matchMedia('(min-width: 640px)')
+    const lg = window.matchMedia('(min-width: 1024px)')
+    const update = () => {
+      setCols(lg.matches ? 4 : sm.matches ? 2 : 1)
+    }
+    sm.addEventListener('change', update)
+    lg.addEventListener('change', update)
+    return () => {
+      sm.removeEventListener('change', update)
+      lg.removeEventListener('change', update)
+    }
+  }, [])
+  return cols
+}
 
 function HeroBar() {
   // Stats are derived once from the canonical content file so they stay
@@ -175,52 +205,94 @@ function LanguageCard({ lang, expanded, onToggle }) {
   )
 }
 
-function DetailPanel({ lang }) {
+/**
+ * Accordion-style detail panel. Rendered inline within the language grid
+ * (slotted right after the row containing the active card via `col-span`),
+ * so the connection between which card was clicked and where the details
+ * appear is always obvious.
+ *
+ * - Pointer triangle on the top edge visually anchors the panel to its row.
+ * - Close button gives an explicit dismissal affordance (the card itself is
+ *   also still clickable to toggle).
+ * - `key={lang.slug}` on the host fragment in the parent makes this panel
+ *   remount on language change, re-firing the reveal entrance animation.
+ */
+function DetailPanel({ lang, onClose, arrowOffsetPct }) {
   return (
-    <GlassCard tone="neutral" className="p-8 mt-8">
-      <div className="flex items-start justify-between flex-wrap gap-4 mb-6">
-        <div>
-          <h2 className="font-display-lg text-3xl text-primary mb-2">{lang.name}</h2>
-          <p className="text-on-surface-variant max-w-2xl">{lang.tagline}</p>
-        </div>
-        <Button to={`/docs/${lang.slug}`} variant="ghost" size="md">
-          Read {lang.name} docs <Icon name="arrow_forward" />
-        </Button>
+    <div className="relative reveal-init reveal-in">
+      {/* Pointer triangle on the top edge, positioned over the active card's
+          column. Pure-CSS — uses two stacked borders to draw an outlined
+          triangle that matches the panel's border + background. */}
+      <div
+        className="absolute -top-2 z-10 pointer-events-none"
+        style={{ left: `calc(${arrowOffsetPct}% - 8px)` }}
+      >
+        <div className="w-4 h-4 rotate-45 bg-surface-container-low border-t border-l border-primary-fixed-dim/40" />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <DetailBlock label="Install" lines={lang.install} prompt="$" />
-        <DetailBlock
-          label="ven.toml"
-          lines={lang.venToml.split('\n')}
-          prompt=""
-          mono
-        />
-        <DetailBlock
-          label="What ven sets"
-          lines={lang.env.map(([k, v]) => `${k}  →  ${v}`)}
-          prompt=""
-          mono
-        />
-        <DetailBlock
-          label="Package operations"
-          lines={lang.packageOps.map(([from, to]) => `${from.padEnd(22)} → ${to}`)}
-          prompt=""
-          mono
-        />
-      </div>
+      <GlassCard tone="neutral" className="relative p-8 border-primary-fixed-dim/40 cyan-glow">
+        {/* Top accent strip — fades from cyan into transparent so the eye
+            reads the connection between the card row above and the panel. */}
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary-fixed-dim/70 to-transparent rounded-t-2xl" />
 
-      <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-on-surface-variant">
-        <div>
-          <span className="text-outline mr-2">Includes:</span>
-          <span className="font-mono text-on-surface">{lang.includes.join('  ')}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close details"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim hover:bg-surface-container-high transition-colors"
+        >
+          <Icon name="close" />
+        </button>
+
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-6 pr-10">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-primary-fixed-dim/80 px-2 py-0.5 border border-primary-fixed-dim/30 rounded-full bg-primary-fixed-dim/5">
+                {lang.code}
+              </span>
+              <h2 className="font-display-lg text-3xl text-primary">{lang.name}</h2>
+            </div>
+            <p className="text-on-surface-variant max-w-2xl">{lang.tagline}</p>
+          </div>
+          <Button to={`/docs/${lang.slug}`} variant="ghost" size="md">
+            Read {lang.name} docs <Icon name="arrow_forward" />
+          </Button>
         </div>
-        <div>
-          <span className="text-outline mr-2">Downloads from:</span>
-          <span className="font-mono text-on-surface">{lang.downloads}</span>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          <DetailBlock label="Install" lines={lang.install} prompt="$" />
+          <DetailBlock
+            label="ven.toml"
+            lines={lang.venToml.split('\n')}
+            prompt=""
+            mono
+          />
+          <DetailBlock
+            label="What ven sets"
+            lines={lang.env.map(([k, v]) => `${k}  →  ${v}`)}
+            prompt=""
+            mono
+          />
+          <DetailBlock
+            label="Package operations"
+            lines={lang.packageOps.map(([from, to]) => `${from.padEnd(22)} → ${to}`)}
+            prompt=""
+            mono
+          />
         </div>
-      </div>
-    </GlassCard>
+
+        <div className="mt-6 pt-6 border-t border-outline-variant/20 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-on-surface-variant">
+          <div>
+            <span className="text-outline mr-2">Includes:</span>
+            <span className="font-mono text-on-surface">{lang.includes.join('  ')}</span>
+          </div>
+          <div>
+            <span className="text-outline mr-2">Downloads from:</span>
+            <span className="font-mono text-on-surface">{lang.downloads}</span>
+          </div>
+        </div>
+      </GlassCard>
+    </div>
   )
 }
 
@@ -364,24 +436,70 @@ function isolationFor(slug) {
 
 export default function Languages() {
   const [openSlug, setOpenSlug] = useState(null)
-  const open = LANGUAGES.find((l) => l.slug === openSlug)
+  const cols = useGridColumns()
+  const panelRef = useRef(null)
+
+  const openIdx = openSlug ? LANGUAGES.findIndex((l) => l.slug === openSlug) : -1
+  const open = openIdx >= 0 ? LANGUAGES[openIdx] : null
+
+  // Drop the panel after the last visible-row tail so it always sits
+  // immediately under the row containing the clicked card. Clamped to the
+  // last card index so opening the final card still renders correctly.
+  const insertAfterIdx =
+    openIdx >= 0
+      ? Math.min(
+          LANGUAGES.length - 1,
+          Math.floor(openIdx / cols) * cols + cols - 1
+        )
+      : -1
+
+  // Horizontal position of the pointer triangle, expressed as a % of the
+  // panel's width so it lines up with the column the active card lives in.
+  // For `cols = 1` the triangle is centered.
+  const columnInRow = openIdx >= 0 ? openIdx % cols : 0
+  const arrowOffsetPct =
+    cols <= 1 ? 50 : ((columnInRow + 0.5) / cols) * 100
+
+  // Smooth-scroll the freshly-opened panel into view so users on small
+  // screens don't miss it when it slots in below.
+  useEffect(() => {
+    if (openSlug && panelRef.current) {
+      panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [openSlug])
+
   return (
     <>
       <HeroBar />
       <Reveal as="section" className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto pb-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {LANGUAGES.map((l) => (
-            <LanguageCard
-              key={l.slug}
-              lang={l}
-              expanded={openSlug === l.slug}
-              onToggle={() =>
-                setOpenSlug((cur) => (cur === l.slug ? null : l.slug))
-              }
-            />
+          {LANGUAGES.map((l, i) => (
+            <Fragment key={l.slug}>
+              <LanguageCard
+                lang={l}
+                expanded={openSlug === l.slug}
+                onToggle={() =>
+                  setOpenSlug((cur) => (cur === l.slug ? null : l.slug))
+                }
+              />
+              {i === insertAfterIdx && open && (
+                <div
+                  ref={panelRef}
+                  className="col-span-1 sm:col-span-2 lg:col-span-4 scroll-mt-24"
+                >
+                  <DetailPanel
+                    // Remount on slug change so the entrance animation
+                    // re-fires when the user picks a different language.
+                    key={open.slug}
+                    lang={open}
+                    onClose={() => setOpenSlug(null)}
+                    arrowOffsetPct={arrowOffsetPct}
+                  />
+                </div>
+              )}
+            </Fragment>
           ))}
         </div>
-        {open && <DetailPanel lang={open} />}
       </Reveal>
       <ComparisonTable />
       <ComingSoonSection />
