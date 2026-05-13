@@ -220,14 +220,47 @@ function DemoSection() {
 
 // ---- Feature grid ----------------------------------------------------------
 
+// Each feature carries a `tone` so the card paints itself with a coordinated
+// icon ring, accent bar, and command-pill colour. Three tones — primary (cyan),
+// secondary (green), tertiary (red) — keep the grid scannable in one glance
+// while still letting CVE/EOL items read as warnings.
+const TONE = {
+  primary: {
+    accent: 'from-primary-fixed-dim/80 via-primary-fixed-dim/40 to-transparent',
+    ring: 'border-primary-fixed-dim/40 group-hover:border-primary-fixed-dim',
+    iconBg: 'bg-primary-fixed-dim/10',
+    iconText: 'text-primary-fixed-dim',
+    pill: 'text-primary-fixed-dim border-primary-fixed-dim/30 bg-primary-fixed-dim/5',
+    glow: 'group-hover:shadow-cyan-glow',
+  },
+  secondary: {
+    accent: 'from-secondary-fixed-dim/80 via-secondary-fixed-dim/40 to-transparent',
+    ring: 'border-secondary-fixed-dim/40 group-hover:border-secondary-fixed-dim',
+    iconBg: 'bg-secondary-fixed-dim/10',
+    iconText: 'text-secondary-fixed-dim',
+    pill: 'text-secondary-fixed-dim border-secondary-fixed-dim/30 bg-secondary-fixed-dim/5',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(0,230,57,0.18)]',
+  },
+  tertiary: {
+    accent: 'from-error/80 via-error/40 to-transparent',
+    ring: 'border-error/30 group-hover:border-error/60',
+    iconBg: 'bg-error/10',
+    iconText: 'text-error',
+    pill: 'text-error border-error/30 bg-error/5',
+    glow: 'group-hover:shadow-red-glow',
+  },
+}
+
 const FEATURES = [
   {
     icon: 'sync_alt',
+    tone: 'primary',
     title: 'Auto-switching shells',
-    body: "Drop a ven.toml in your repo. cd into it from PowerShell, Bash, Zsh, or Fish — the runtime, PATH, and language-specific env vars swap automatically. Per-terminal, never global.",
+    cmd: 'cd ./my-project',
+    body: 'cd into any directory with a ven.toml — PowerShell, Bash, Zsh, and Fish all swap the runtime, PATH, and language env vars automatically. Per-terminal isolation, never global.',
     extra: (
-      <div className="bg-black/50 p-3 rounded font-mono text-[12px] border border-outline-variant/20">
-        <span className="text-on-surface-variant">→ Switching to: </span>
+      <div className="bg-[#050505] p-3 rounded font-mono text-[12px] border border-outline-variant/30">
+        <span className="text-on-surface-variant">→ Switching to </span>
         <span className="text-secondary-fixed-dim">node 22.22.2</span>
         <span className="text-on-surface-variant"> + </span>
         <span className="text-secondary-fixed-dim">python 3.13.12</span>
@@ -236,26 +269,30 @@ const FEATURES = [
   },
   {
     icon: 'hub',
+    tone: 'primary',
     title: 'Pre-install graph check',
-    body: 'Every `ven add` builds the full dependency graph and replays peer constraints, version ranges, and CVE matches before touching node_modules. See the conflict before you create it.',
+    cmd: 'ven add express',
+    body: 'Every `ven add` walks the full dependency graph and replays peer constraints, version ranges, and OSV CVE matches before any byte hits node_modules.',
     extra: (
       <div className="space-y-2">
-        <div className="h-1 w-full bg-surface-container-high rounded-full overflow-hidden">
-          <div className="h-full bg-primary-fixed-dim" style={{ width: '78%' }} />
+        <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-primary-fixed-dim to-secondary-fixed-dim" style={{ width: '78%' }} />
         </div>
         <div className="font-mono text-[11px] flex justify-between text-on-surface-variant">
           <span>12 packages walked</span>
-          <span className="text-secondary-fixed-dim">0 conflicts</span>
+          <span className="text-secondary-fixed-dim font-bold">0 conflicts</span>
         </div>
       </div>
     ),
   },
   {
     icon: 'security',
+    tone: 'tertiary',
     title: 'OSV + EOL, offline-cached',
-    body: '`ven check --security` queries osv.dev for advisories; `--eol` queries endoflife.date. Both responses are cached in a local SQLite store and served stale on network failure.',
+    cmd: 'ven check --security',
+    body: '`ven check --security` queries osv.dev; `--eol` hits endoflife.date. Both responses are cached in a local SQLite store and served stale on network failure.',
     extra: (
-      <div className="red-pulse bg-error-container/20 p-3 rounded border border-error/30 flex items-center gap-3">
+      <div className="red-pulse bg-error/10 p-3 rounded border border-error/30 flex items-center gap-3">
         <Icon name="warning" className="text-error" />
         <span className="font-mono text-[12px] text-error">GHSA-cxjh-pqwp-8mfp blocked</span>
       </div>
@@ -263,10 +300,12 @@ const FEATURES = [
   },
   {
     icon: 'lock',
+    tone: 'secondary',
     title: 'Deterministic ven.lock',
-    body: 'One canonical-JSON SHA-256 hash per lockfile. `ven sync --check` will fail loudly if anything has drifted, and every package row carries an integrity hash so you can verify what was installed.',
+    cmd: 'ven sync --check',
+    body: 'One canonical-JSON SHA-256 content hash per lockfile. `ven sync --check` fails loudly on drift, and every package row carries its own SRI integrity string.',
     extra: (
-      <div className="font-mono text-[11px] text-on-surface-variant space-y-1">
+      <div className="font-mono text-[11px] text-on-surface-variant space-y-1 bg-[#050505] p-3 rounded border border-outline-variant/30">
         <div>content_hash <span className="text-primary-fixed-dim">7b2f4e91…</span></div>
         <div>integrity   <span className="text-secondary-fixed-dim">sha256-aB3…</span></div>
       </div>
@@ -274,49 +313,119 @@ const FEATURES = [
   },
   {
     icon: 'travel_explore',
-    title: 'Ghost-dep scanner',
-    body: '`ven scan --ghosts` walks your source tree (gitignore-aware) and flags packages you `import` but never declared. Works across all 8 ecosystems with the same regex-fast scanner.',
+    tone: 'tertiary',
+    title: 'Ghost-dependency scanner',
+    cmd: 'ven scan --ghosts',
+    body: 'Walks your source tree (gitignore-aware) and flags packages you `import` but never declared. Same regex-fast scanner across all 8 ecosystems.',
     extra: (
-      <div className="font-mono text-[11px] text-error/80 leading-relaxed">
+      <div className="font-mono text-[11px] text-error/80 leading-relaxed bg-error/5 p-3 rounded border border-error/20">
         ⚠ src/app.js imports <span className="text-on-surface">axios</span> · not in package.json
       </div>
     ),
   },
   {
     icon: 'workspaces',
-    title: 'No-admin launcher',
-    body: 'Drop `ven-launcher.exe` on a locked-down corporate box. No installer, no registry writes, no PATH mutation — it spawns a shell with your project\'s ven.toml applied and disappears on exit.',
+    tone: 'secondary',
+    title: 'No-admin portable launcher',
+    cmd: './ven-launcher.exe',
+    body: 'Drop `ven-launcher.exe` on a locked-down corporate box. No installer, no registry writes, no PATH mutation — it spawns a shell with your project applied and disappears on exit.',
     extra: (
-      <div className="font-mono text-[11px] text-on-surface-variant">
-        <span className="text-secondary-fixed-dim">✓</span> Writes nothing to the host machine
+      <div className="font-mono text-[11px] text-on-surface-variant flex items-center gap-2">
+        <span className="text-secondary-fixed-dim font-bold">✓</span>
+        <span>Writes nothing to the host machine</span>
       </div>
     ),
   },
 ]
 
+function FeatureCard({ feature, index }) {
+  const t = TONE[feature.tone]
+  return (
+    <TiltCard
+      max={4}
+      className={clsx(
+        'group relative flex flex-col h-full p-7 rounded-2xl bg-surface-container-low border transition-all duration-300',
+        'hover:-translate-y-1',
+        t.ring,
+        t.glow
+      )}
+    >
+      {/* Top accent strip — fades from tone-coloured to transparent so the
+          eye is drawn to the icon corner. */}
+      <div
+        className={clsx(
+          'absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl bg-gradient-to-r',
+          t.accent
+        )}
+      />
+
+      <div className="flex items-start justify-between mb-5">
+        <div
+          className={clsx(
+            'w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-transform duration-300 group-hover:scale-110',
+            t.iconBg,
+            t.iconText
+          )}
+        >
+          <Icon name={feature.icon} />
+        </div>
+        <span className="font-mono text-[10px] text-outline tabular-nums tracking-widest">
+          {String(index + 1).padStart(2, '0')} / 06
+        </span>
+      </div>
+
+      <h3 className="font-headline-md text-xl font-bold text-on-surface mb-3">
+        {feature.title}
+      </h3>
+
+      <p className="font-body-base text-sm text-on-surface-variant leading-relaxed mb-5 flex-grow">
+        {feature.body}
+      </p>
+
+      <div className="space-y-3">
+        <div
+          className={clsx(
+            'inline-flex items-center gap-2 font-mono text-[11px] px-2.5 py-1 rounded border tracking-wide',
+            t.pill
+          )}
+        >
+          <span className="opacity-60">$</span>
+          {feature.cmd}
+        </div>
+        {feature.extra}
+      </div>
+    </TiltCard>
+  )
+}
+
 function FeatureGrid() {
   return (
-    <Reveal as="section" className="py-24 overflow-x-hidden">
-      <div className="max-w-max-width mx-auto px-margin-desktop mb-12">
-        <h2 className="font-display-lg text-display-lg text-primary">Core intelligence</h2>
-        <p className="font-body-base text-on-surface-variant mt-3 max-w-2xl">
-          Everything below is shipping in the binary today — verified by the 84-case test matrix.
-        </p>
-      </div>
-      <div className="flex gap-gutter px-margin-desktop overflow-x-auto pb-12 snap-x no-scrollbar">
-        {FEATURES.map((f) => (
-          <TiltCard
-            key={f.title}
-            className="min-w-[320px] md:min-w-[400px] glass-card p-8 rounded-xl snap-center hover:border-primary-fixed-dim/50 transition-colors group"
-          >
-            <div className="w-12 h-12 bg-primary-container/20 rounded-lg flex items-center justify-center text-primary-fixed-dim mb-6 group-hover:scale-110 transition-transform">
-              <Icon name={f.icon} />
+    <Reveal as="section" className="py-24">
+      <div className="max-w-max-width mx-auto px-margin-desktop">
+        <div className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <div className="font-mono text-xs uppercase tracking-widest text-primary-fixed-dim/80 mb-3">
+              · Core intelligence
             </div>
-            <h3 className="font-headline-md text-headline-md text-primary mb-4">{f.title}</h3>
-            <p className="font-body-base text-body-base text-on-surface-variant mb-6">{f.body}</p>
-            {f.extra}
-          </TiltCard>
-        ))}
+            <h2 className="font-display-lg text-display-lg text-primary">
+              Six engines, one binary
+            </h2>
+            <p className="font-body-base text-on-surface-variant mt-4 max-w-2xl">
+              Every capability below is shipping in the binary today — verified by the 84-case test matrix
+              that runs on every commit.
+            </p>
+          </div>
+          <div className="hidden md:flex items-center gap-2 text-xs font-mono text-on-surface-variant">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim animate-pulse" />
+            v1.0.0 · all green
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {FEATURES.map((f, i) => (
+            <FeatureCard key={f.title} feature={f} index={i} />
+          ))}
+        </div>
       </div>
     </Reveal>
   )
@@ -360,90 +469,141 @@ function GraphSection() {
 
 // ---- Languages strip -------------------------------------------------------
 
-// 2-line mini-demos cycled through one rotating tile in LanguagesStrip.
+// One-line demos cycled through the standalone "live demo" strip below the
+// language grid (the grid itself stays perfectly uniform).
 const LANG_DEMOS = {
-  node:   [{ kind: 'command', text: 'ven add express' }, { kind: 'output', text: '✓ 12 packages · 0 CVE', tone: 'success' }],
-  python: [{ kind: 'command', text: 'ven add flask' },   { kind: 'output', text: '✓ installed in ./venv', tone: 'success' }],
-  go:     [{ kind: 'command', text: 'ven add gin' },     { kind: 'output', text: '✓ go.mod updated',     tone: 'success' }],
-  rust:   [{ kind: 'command', text: 'ven add serde' },   { kind: 'output', text: '✓ Cargo.toml updated', tone: 'success' }],
-  java:   [{ kind: 'command', text: 'ven add guava' },   { kind: 'output', text: '✓ pom.xml updated',    tone: 'success' }],
-  ruby:   [{ kind: 'command', text: 'ven add rails' },   { kind: 'output', text: '✓ Gemfile updated',    tone: 'success' }],
-  deno:   [{ kind: 'command', text: 'ven add npm:chalk' }, { kind: 'output', text: '✓ deno.json updated', tone: 'success' }],
-  bun:    [{ kind: 'command', text: 'ven add chalk' },   { kind: 'output', text: '✓ package.json updated', tone: 'success' }],
+  node:   { cmd: 'ven add express',   out: '✓ 12 packages · 0 CVE',     mgr: 'npm' },
+  python: { cmd: 'ven add flask',     out: '✓ installed in ./venv',     mgr: 'pip' },
+  go:     { cmd: 'ven add gin',       out: '✓ go.mod updated',          mgr: 'go mod' },
+  rust:   { cmd: 'ven add serde',     out: '✓ Cargo.toml updated',      mgr: 'cargo' },
+  java:   { cmd: 'ven add guava',     out: '✓ pom.xml updated',         mgr: 'maven' },
+  ruby:   { cmd: 'ven add rails',     out: '✓ Gemfile updated',         mgr: 'gem' },
+  deno:   { cmd: 'ven add npm:chalk', out: '✓ deno.json updated',       mgr: 'deno' },
+  bun:    { cmd: 'ven add chalk',     out: '✓ package.json updated',    mgr: 'bun' },
+}
+
+function LangTile({ lang, active, onActivate }) {
+  const pinned = lang.versions[lang.versions.length - 1]
+  return (
+    <TiltCard
+      max={4}
+      as={Link}
+      to={`/docs/${lang.slug}`}
+      onMouseEnter={onActivate}
+      onFocus={onActivate}
+      className={clsx(
+        'group relative flex flex-col items-start gap-3 p-5 rounded-2xl bg-surface-container-low border transition-all duration-300 hover:-translate-y-1',
+        active
+          ? 'border-primary-fixed-dim cyan-glow'
+          : 'border-outline-variant/30 hover:border-primary-fixed-dim/50'
+      )}
+    >
+      <div className="flex items-start justify-between w-full">
+        <div
+          className={clsx(
+            'w-10 h-10 rounded-lg flex items-center justify-center font-bold text-base tracking-tighter transition-colors',
+            active
+              ? 'bg-primary-fixed-dim/15 text-primary-fixed-dim'
+              : 'bg-surface-container-high text-on-surface-variant group-hover:text-primary-fixed-dim'
+          )}
+        >
+          {lang.code}
+        </div>
+        <span className="font-mono text-[10px] tracking-widest uppercase text-secondary-fixed-dim/80 px-2 py-0.5 border border-secondary-fixed-dim/30 rounded bg-secondary-fixed-dim/5">
+          stable
+        </span>
+      </div>
+      <div className="text-left w-full">
+        <div className="font-bold text-on-surface text-base mb-0.5">{lang.name}</div>
+        <div className="font-mono text-[11px] text-on-surface-variant tabular-nums">v{pinned}</div>
+      </div>
+      <div className="font-mono text-[10px] text-outline uppercase tracking-widest">
+        {lang.pkgMgr}
+      </div>
+      {active && (
+        <div className="absolute inset-x-0 -bottom-[1px] h-[2px] bg-gradient-to-r from-transparent via-primary-fixed-dim to-transparent" />
+      )}
+    </TiltCard>
+  )
+}
+
+function LiveDemoStrip({ lang }) {
+  const demo = LANG_DEMOS[lang.slug] ?? LANG_DEMOS.node
+  return (
+    <div className="glass-card rounded-2xl border border-primary-fixed-dim/30 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-outline-variant/20 bg-surface-container-low">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex w-2 h-2 rounded-full bg-secondary-fixed-dim animate-pulse" />
+          <span className="font-mono text-[11px] uppercase tracking-widest text-on-surface-variant">
+            Live · {lang.name}
+          </span>
+        </div>
+        <span className="font-mono text-[10px] tracking-widest uppercase text-outline">
+          ven → {demo.mgr}
+        </span>
+      </div>
+      <div
+        // Remount via key on every language change so the reveal transition
+        // re-runs and the cmd/output appear to type in from blank.
+        key={lang.slug}
+        className="p-5 font-mono text-sm bg-[#050505] reveal-init reveal-in flex flex-col gap-1.5"
+      >
+        <div>
+          <span className="text-secondary-fixed-dim mr-2">$</span>
+          <span className="text-on-surface">{demo.cmd}</span>
+          <span className="inline-block w-1.5 h-3.5 align-middle bg-primary-fixed-dim/70 animate-caret-blink ml-0.5" />
+        </div>
+        <div className="text-secondary-fixed-dim">{demo.out}</div>
+      </div>
+    </div>
+  )
 }
 
 function LanguagesStrip() {
   const reduced = usePrefersReducedMotion()
-  const [rotIdx, setRotIdx] = useState(0)
+  const [activeIdx, setActiveIdx] = useState(0)
+  const activeLang = LANGUAGES[activeIdx] ?? LANGUAGES[0]
 
   useEffect(() => {
     if (reduced) return undefined
     const t = setInterval(() => {
-      setRotIdx((cur) => (cur + 1) % LANGUAGES.length)
-    }, 5000)
+      setActiveIdx((cur) => (cur + 1) % LANGUAGES.length)
+    }, 4500)
     return () => clearInterval(t)
   }, [reduced])
 
   return (
-    <Reveal as="section" className="py-24 px-margin-desktop max-w-max-width mx-auto text-center">
-      <h2 className="font-headline-md text-headline-md text-primary mb-4">Universal support</h2>
-      <p className="text-on-surface-variant mb-12 max-w-xl mx-auto">
-        Eight runtimes. Same commands. Same lockfile. Same guarantees. Verified by the 84-case test matrix
-        on every release.
-      </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-6">
-        {LANGUAGES.map((l, i) => {
-          const isRot = !reduced && i === rotIdx
-          if (isRot) {
-            const demo = LANG_DEMOS[l.slug] ?? LANG_DEMOS.node
-            const cmd = demo[0].text
-            const out = demo[1].text
-            return (
-              <Link
-                key={l.slug}
-                to="/languages"
-                // Use rotIdx as key so the whole tile remounts on each rotation,
-                // re-firing the reveal transition for the typing-feel effect.
-                className="glass-card rounded-xl overflow-hidden flex flex-col gap-2 p-5 text-left border-primary-fixed-dim/60 cyan-glow transition-colors hover:border-primary-fixed-dim"
-              >
-                <div key={`rot-${rotIdx}`} className="flex flex-col gap-2 reveal-init reveal-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-primary-fixed-dim text-[11px] uppercase font-mono tracking-widest">
-                      {l.name}
-                    </span>
-                    <span className="text-secondary-fixed-dim text-[10px] uppercase font-mono tracking-widest flex items-center gap-1">
-                      <span className="inline-block w-1.5 h-1.5 bg-secondary-fixed-dim rounded-full animate-pulse" />
-                      live
-                    </span>
-                  </div>
-                  <div className="font-mono text-[12px] text-on-surface">
-                    <span className="text-secondary-fixed-dim mr-1">$</span>
-                    {cmd}
-                  </div>
-                  <div className="font-mono text-[11px] text-secondary-fixed-dim">{out}</div>
-                </div>
-              </Link>
-            )
-          }
-          return (
-            <TiltCard
-              key={l.slug}
-              max={4}
-              as={Link}
-              to="/languages"
-              className="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group"
-            >
-              <div className="text-3xl text-on-surface-variant group-hover:text-primary-fixed-dim transition-colors font-bold tracking-tighter">
-                {l.code}
-              </div>
-              <div className="font-mono text-[10px] px-2 py-1 border border-secondary-fixed-dim/40 text-secondary-fixed-dim rounded uppercase">
-                Stable
-              </div>
-              <div className="font-body-base text-sm font-bold">{l.name}</div>
-            </TiltCard>
-          )
-        })}
+    <Reveal as="section" className="py-24 px-margin-desktop max-w-max-width mx-auto">
+      <div className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <div className="font-mono text-xs uppercase tracking-widest text-primary-fixed-dim/80 mb-3">
+            · Universal support
+          </div>
+          <h2 className="font-display-lg text-display-lg text-primary">
+            Eight runtimes, one CLI surface
+          </h2>
+          <p className="font-body-base text-on-surface-variant mt-4 max-w-2xl">
+            Same `ven init / add / status / lock` commands across every language. Same `ven.toml`
+            manifest. Same SHA-256 verified install pipeline. Verified by the 84-case test matrix.
+          </p>
+        </div>
+        <Button to="/languages" variant="ghost">
+          See all languages <Icon name="arrow_forward" />
+        </Button>
       </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
+        {LANGUAGES.map((l, i) => (
+          <LangTile
+            key={l.slug}
+            lang={l}
+            active={i === activeIdx}
+            onActivate={() => setActiveIdx(i)}
+          />
+        ))}
+      </div>
+
+      <LiveDemoStrip lang={activeLang} />
     </Reveal>
   )
 }

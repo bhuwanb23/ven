@@ -11,26 +11,127 @@ import { LANGUAGES, COMING_SOON, MOST_REQUESTED } from '../content/languages.js'
 import { REQUEST_LANGUAGE_URL, GITHUB_URL } from '../content/site.js'
 
 function HeroBar() {
+  // Stats are derived once from the canonical content file so they stay
+  // accurate when LANGUAGES grows. Counting unique package managers gives a
+  // more interesting figure than just `LANGUAGES.length` repeated twice.
+  const totalLanguages = LANGUAGES.length
+  const uniqueManagers = new Set(LANGUAGES.flatMap((l) => l.pkgMgr.split(/[\s+/]+/))).size
+  const totalVersions = LANGUAGES.reduce((sum, l) => sum + l.versions.length, 0)
+
   return (
-    <section className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto pt-16 pb-12 text-center">
-      <h1 className="font-display-lg text-display-lg text-primary mb-4">
-        8 Languages. One Tool. Zero Conflicts.
-      </h1>
-      <p className="text-on-surface-variant max-w-xl mx-auto mb-8">
-        ven manages runtimes, packages, and environments for every language below — with the same commands.
-      </p>
-      <div className="flex flex-wrap justify-center gap-2">
-        {LANGUAGES.map((l) => (
-          <a
-            key={l.slug}
-            href={`#${l.slug}`}
-            className="font-mono text-[12px] px-3 py-1 border border-outline-variant/40 rounded text-on-surface-variant hover:text-primary-fixed-dim hover:border-primary-fixed-dim/40 transition-colors"
-          >
-            {l.name}
-          </a>
-        ))}
+    <section className="relative overflow-hidden border-b border-outline-variant/20">
+      {/* Decorative dot grid, ultra-low opacity — gives the hero panel some
+          texture without competing with the chip wall on the right. */}
+      <div
+        className="absolute inset-0 z-0 opacity-[0.04] pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, #00dbe7 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
+        }}
+      />
+
+      <div className="relative z-10 px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto pt-20 pb-16 grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
+        {/* Left column: tagline + stats + CTAs. */}
+        <div>
+          <div className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-primary-fixed-dim/80 mb-6 px-3 py-1 border border-primary-fixed-dim/30 rounded-full bg-primary-fixed-dim/5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-fixed-dim animate-pulse" />
+            Multi-runtime · Zero conflicts
+          </div>
+
+          <h1 className="font-display-lg text-display-lg text-primary mb-5 leading-[1.05]">
+            One CLI that speaks{' '}
+            <span className="text-primary-fixed-dim">eight</span> languages
+          </h1>
+          <p className="text-on-surface-variant text-lg max-w-xl mb-8 leading-relaxed">
+            ven manages runtimes, packages, and environments for every language below — with the same{' '}
+            <code className="text-primary-fixed-dim font-mono">init / add / lock / sync</code> commands and
+            one <code className="text-primary-fixed-dim font-mono">ven.toml</code> manifest.
+          </p>
+
+          {/* Stats row — three counters, tabular numerals so they snap to a
+              uniform width regardless of digit count. */}
+          <div className="grid grid-cols-3 gap-4 mb-8 max-w-md">
+            <Stat n={totalLanguages} label="Runtimes" tone="primary" />
+            <Stat n={totalVersions} label="Pinned versions" tone="secondary" />
+            <Stat n={uniqueManagers} label="Package managers" tone="primary" />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button to="/install" size="md">
+              Install ven <Icon name="arrow_forward" />
+            </Button>
+            <Button to="/playground" variant="ghost" size="md">
+              Try in playground <Icon name="play_arrow" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Right column: a "language constellation" wall — anchor chips
+            scrollspy-style. Visually balances the headline and gives a quick
+            jump-to for each language card below. */}
+        <div className="relative">
+          <div
+            className="absolute -inset-8 pointer-events-none blur-2xl"
+            style={{
+              background:
+                'radial-gradient(circle at 50% 50%, rgba(0,219,231,0.12), transparent 70%)',
+            }}
+          />
+          <div className="relative glass-card rounded-2xl p-6 border-primary-fixed-dim/30">
+            <div className="flex items-center justify-between mb-5">
+              <span className="font-mono text-[11px] uppercase tracking-widest text-on-surface-variant">
+                Jump to language
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-secondary-fixed-dim flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim" />
+                all stable
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {LANGUAGES.map((l) => (
+                <a
+                  key={l.slug}
+                  href={`#${l.slug}`}
+                  className="group flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/30 hover:border-primary-fixed-dim/60 hover:bg-primary-fixed-dim/5 transition-all duration-200"
+                >
+                  <span className="w-7 h-7 rounded-md bg-surface-container-high text-on-surface-variant group-hover:text-primary-fixed-dim group-hover:bg-primary-fixed-dim/10 flex items-center justify-center font-bold text-[12px] tracking-tighter transition-colors">
+                    {l.code}
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-bold text-on-surface truncate">{l.name}</span>
+                    <span className="font-mono text-[10px] text-outline truncate">
+                      {l.versions[l.versions.length - 1]}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+            <div className="mt-5 pt-4 border-t border-outline-variant/20 flex items-center justify-between font-mono text-[11px] text-on-surface-variant">
+              <span>
+                <span className="text-primary-fixed-dim">$</span> ven install &lt;lang&gt; &lt;ver&gt;
+              </span>
+              <span className="opacity-50">SHA-256 verified</span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
+  )
+}
+
+// Small stat sub-component for the hero. Kept local to this file because it's
+// only used here and the styling is bespoke to the hero panel.
+function Stat({ n, label, tone }) {
+  const color = tone === 'primary' ? 'text-primary-fixed-dim' : 'text-secondary-fixed-dim'
+  return (
+    <div className="border-l-2 border-outline-variant/40 pl-3">
+      <div className={clsx('text-2xl font-bold tabular-nums tracking-tighter', color)}>
+        {n}
+      </div>
+      <div className="text-[10px] uppercase tracking-widest text-on-surface-variant mt-0.5">
+        {label}
+      </div>
+    </div>
   )
 }
 
