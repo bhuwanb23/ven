@@ -33,10 +33,17 @@ impl DenoManifest {
         let doc = if path.is_file() {
             let body = fs::read_to_string(&path)
                 .with_context(|| format!("Read {}", path.display()))?;
+            // Strip UTF-8 BOM if present (PowerShell / Notepad / VS Code can add one).
+            let body = body.strip_prefix('\u{feff}').unwrap_or(&body);
             // deno.jsonc may have // comments — strip a best-effort.
-            let stripped = strip_comments_if_jsonc(&path, &body);
-            serde_json::from_str(&stripped)
-                .with_context(|| format!("Parse {}", path.display()))?
+            let stripped = strip_comments_if_jsonc(&path, body);
+            let trimmed = stripped.trim();
+            if trimmed.is_empty() {
+                Value::Object(Map::new())
+            } else {
+                serde_json::from_str(trimmed)
+                    .with_context(|| format!("Parse {}", path.display()))?
+            }
         } else {
             Value::Object(Map::new())
         };
@@ -179,7 +186,8 @@ fn jsr_name_from(rest: &str) -> &str {
 /// Try to invoke `deno add` (Deno >= 1.42). Returns Ok(true) on success,
 /// Ok(false) if deno is absent or too old, Err on real failure.
 pub fn try_deno_add(specs: &[String]) -> Result<bool> {
-    let mut cmd = Command::new("deno");
+    let deno = crate::core::runtime_bin::runtime_tool("deno", "deno");
+    let mut cmd = Command::new(&deno);
     cmd.arg("add");
     for s in specs {
         cmd.arg(s);
@@ -193,7 +201,8 @@ pub fn try_deno_add(specs: &[String]) -> Result<bool> {
 
 /// Try to invoke `deno remove`. Same semantics as `try_deno_add`.
 pub fn try_deno_remove(names: &[String]) -> Result<bool> {
-    let mut cmd = Command::new("deno");
+    let deno = crate::core::runtime_bin::runtime_tool("deno", "deno");
+    let mut cmd = Command::new(&deno);
     cmd.arg("remove");
     for n in names {
         cmd.arg(n);

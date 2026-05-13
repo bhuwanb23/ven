@@ -170,6 +170,19 @@ pub enum Commands {
         /// Node.js version to use (legacy option, kept for backward compatibility)
         #[arg(short, long)]
         node: Option<String>,
+
+        /// Non-interactive: scaffold ven.toml with the given language (and version).
+        /// Picks the newest installed runtime if `--ver` is omitted. Required in CI.
+        #[arg(short = 'l', long)]
+        lang: Option<String>,
+
+        /// Pin the language version (e.g. `20.20.2`). Honoured only with --lang.
+        #[arg(long)]
+        ver: Option<String>,
+
+        /// Skip every prompt; combine with --lang to fully scaffold a project headlessly.
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
 
     /// Add package(s) to the project with compatibility checking
@@ -530,7 +543,18 @@ pub fn run(cli: Cli) -> Result<()> {
             template,
             with_packages,
             validate,
-        } => init::cmd_init(node.as_deref(), template, with_packages, validate),
+            lang,
+            ver,
+            yes,
+        } => init::cmd_init(
+            node.as_deref(),
+            template,
+            with_packages,
+            validate,
+            lang.as_deref(),
+            ver.as_deref(),
+            yes,
+        ),
         Commands::Add {
             packages,
             skip_check,

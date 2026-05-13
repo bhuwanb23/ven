@@ -9,12 +9,22 @@ pub fn cmd_init(
     use_template: bool,
     with_packages: bool,
     validate: bool,
+    lang_flag: Option<&str>,
+    ver_flag: Option<&str>,
+    yes_flag: bool,
 ) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let toml_path = cwd.join("ven.toml");
 
     if toml_path.exists() {
         return Err(anyhow::anyhow!("ven.toml already exists in this directory"));
+    }
+
+    // Headless / CI scaffold: --lang <node|python|...> [--ver X.Y.Z] [--yes]
+    // Skips every interactive prompt and writes a minimal ven.toml.
+    let auto = yes_flag || lang_flag.is_some() || !crate::core::runtime_bin::stdin_is_interactive();
+    if auto {
+        return cmd_init_headless(&cwd, &toml_path, lang_flag, ver_flag, validate);
     }
 
     print_installed_runtimes_banner()?;
@@ -378,6 +388,111 @@ pub fn cmd_init(
         );
     }
 
+    Ok(())
+}
+
+/// Non-interactive `ven init`. Picks the newest installed version of the
+/// requested language (or asks the user via `--lang`/`--ver` flags). Used by
+/// CI, the SDK, and any context where a TTY isn't available.
+fn cmd_init_headless(
+    cwd: &std::path::Path,
+    toml_path: &std::path::Path,
+    lang_flag: Option<&str>,
+    ver_flag: Option<&str>,
+    validate: bool,
+) -> Result<()> {
+    use crate::plugins::PluginRegistry;
+
+    let lang = lang_flag.map(|s| s.to_ascii_lowercase()).unwrap_or_else(|| {
+        // Fallback: pick the first language with an installed runtime.
+        let registry = PluginRegistry::new();
+        for candidate in registry.list_languages() {
+            if let Ok(plug) = registry.require(candidate) {
+                if plug.list_installed().map(|v| !v.is_empty()).unwrap_or(false) {
+                    return candidate.to_string();
+                }
+            }
+        }
+        "node".to_string()
+    });
+
+    let registry = PluginRegistry::new();
+    let plugin = registry.require(&lang).map_err(|_| {
+        anyhow::anyhow!(
+            "Unknown language `{lang}`. Supported: node, python, go, rust, java, deno, bun, ruby"
+        )
+    })?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    if installed.is_empty() {
+        anyhow::bail!(
+            "No `{lang}` runtime installed under ven. Run: `ven install {lang} latest` first."
+        );
+    }
+
+    let version = match ver_flag {
+        Some(v) if !v.trim().is_empty() => {
+            // Trust the caller; use as-is even if not currently installed (`ven sync`
+            // can install missing toolchains later).
+            v.trim().to_string()
+        }
+        _ => installed.last().cloned().unwrap_or_else(|| "latest".to_string()),
+    };
+
+    let mut content = String::from("[runtime]\n");
+    content.push_str(&format!("{} = \"{}\"\n", lang, version));
+    content.push_str("\n[packages]\n");
+    content.push_str("# Add your dependencies here, e.g.  ven add express\n");
+    if lang == "python" {
+        content.push_str("\n[venv]\nauto_path = true\n");
+    }
+    std::fs::write(toml_path, &content)?;
+
+    println!(
+        "{} Created {} ({} {})",
+        "✓".green(),
+        toml_path.display(),
+        lang.bold(),
+        version.green()
+    );
+
+    if lang == "python" {
+        if let Err(e) = bootstrap_local_python_venv(cwd, &version) {
+            println!("  {} venv bootstrap skipped: {}", "[!]".yellow(), e);
+        }
+    }
+
+    if validate {
+        run_validation(&lang, &version, &[], cwd)?;
+    }
+    Ok(())
+}
+
+/// Auto-create `./venv` for Python projects in headless mode. Mirrors what the
+/// interactive path does, just without prompts or hint banners.
+fn bootstrap_local_python_venv(cwd: &std::path::Path, requested_version: &str) -> Result<()> {
+    use crate::core::config::resolve_python_version;
+    use crate::core::project_venv::{create_local_venv, ensure_gitignore_venv, PROJECT_VENV_DIR};
+    use crate::plugins::{LanguagePlugin, PythonPlugin};
+
+    let plugin = PythonPlugin;
+    let installed = plugin.list_installed().unwrap_or_default();
+    let resolved = resolve_python_version(requested_version, &installed)?;
+    let bin = plugin.bin_path(&resolved)?;
+    #[cfg(target_os = "windows")]
+    let py_exe = bin.join("python.exe");
+    #[cfg(not(target_os = "windows"))]
+    let py_exe = bin.join("python");
+    if !py_exe.is_file() {
+        anyhow::bail!("python interpreter not found at {}", py_exe.display());
+    }
+    let venv_path = create_local_venv(cwd, &py_exe)?;
+    let _ = ensure_gitignore_venv(cwd);
+    println!(
+        "  {} `{}/` created at {}",
+        "[OK]".green(),
+        PROJECT_VENV_DIR,
+        venv_path.display()
+    );
     Ok(())
 }
 
