@@ -123,4 +123,75 @@
       box-shadow: 0 0 24px 2px rgba(255, 59, 48, 0.35);
     }
   }
+
+  /* Scroll-reveal pair driven by `useReveal`. Sections start hidden + nudged
+     down 16px, then fade and slide back into place once they intersect the
+     viewport. Honoring `prefers-reduced-motion` is the hook's job (it sets
+     `revealed = true` immediately under that media query). */
+  .reveal-init {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+    will-change: opacity, transform;
+  }
+  .reveal-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Pure-CSS card tilt. Pages attach a `mousemove` handler that writes two
+     CSS vars onto the element; this rule consumes them. Touch devices and
+     reduced-motion both keep `--rx` and `--ry` at 0 so the card sits flat. */
+  .tilt {
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 200ms ease-out;
+    will-change: transform;
+  }
+
+  /* Hover shimmer overlay for the compare table. A pseudo-element under each
+     row gets `bg-gradient-to-r` from transparent -> cyan -> transparent with
+     `bg-[length:200%_100%]`, and on hover we animate the position. */
+  .shimmer-row {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-row::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 219, 231, 0.12) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-position: -200% 0;
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+  }
+  .shimmer-row:hover::after {
+    opacity: 1;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-init {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .tilt {
+      transform: none !important;
+      transition: none;
+    }
+    .shimmer-row:hover::after {
+      animation: none;
+    }
+    .red-pulse {
+      animation: none;
+      box-shadow: 0 0 16px 1px rgba(255, 59, 48, 0.3);
+    }
+  }
 }

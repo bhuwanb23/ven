@@ -1,104 +1,182 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import Icon from '../components/ui/Icon.jsx'
 import CodeBlock from '../components/ui/CodeBlock.jsx'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import Terminal from '../components/ui/Terminal.jsx'
-
-const PLATFORMS = [
-  {
-    id: 'macos',
-    label: 'macOS',
-    cmd: 'curl -fsSL https://get.ven.sh/install.sh | sh',
-    note: 'Installs to ~/.ven/bin/ven and adds it to PATH automatically.',
-  },
-  {
-    id: 'linux',
-    label: 'Linux',
-    cmd: 'curl -fsSL https://get.ven.sh/install.sh | sh',
-    note: 'Bash / Zsh / Fish supported. Installs to ~/.ven/bin/ven.',
-  },
-  {
-    id: 'windows',
-    label: 'Windows',
-    cmd: 'irm https://get.ven.sh/install.ps1 | iex',
-    note: 'PowerShell 5.1+ or 7+. Installs to %USERPROFILE%\\.ven\\bin.',
-  },
-  {
-    id: 'source',
-    label: 'From Source',
-    cmd: 'git clone https://github.com/yourorg/ven && cd ven && cargo build --release',
-    note: 'Requires the Rust toolchain (rustup.rs). Two-pass build embeds ven + launcher into ven-setup.',
-  },
-]
+import Reveal from '../components/effects/Reveal.jsx'
+import {
+  INSTALL,
+  PLATFORM_ORDER,
+  GITHUB_URL,
+  RELEASES_URL,
+  detectPlatform,
+} from '../content/site.js'
 
 const FAQ = [
   {
-    q: 'Why is it so fast?',
-    a: 'ven is pure Rust with a deterministic version-resolver and a SQLite cache. Shell hooks fire in under 50ms — no shellcheck-killing shims.',
+    q: 'How fast is the auto-switching hook?',
+    a: 'Sub-50ms on a warm cache. The shell hook is a single Rust binary call that reads `ven.toml`, resolves the runtime against `~/.ven`, and exports the new PATH — no shim, no fork-per-command tax.',
   },
   {
     q: 'Does it support Windows?',
-    a: 'Yes. Native PowerShell installer (5.1 and 7+), a portable ven-launcher.exe for locked-down corporate machines, and a UAC-aware ven-setup.exe for system installs.',
+    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines, and a UAC-aware `ven-setup.exe` for system installs.',
   },
   {
     q: 'Can it coexist with nvm / pyenv?',
-    a: 'Yes, but the auto-switching hooks will fight for PATH precedence. Recommended: migrate to ven and remove the others to avoid double resolution.',
+    a: 'Yes, but auto-switching hooks will fight for PATH precedence. Recommended migration: install ven, run `ven status` to confirm your projects resolve, then remove the older tool to avoid double resolution.',
   },
   {
     q: 'Is there a GUI?',
-    a: 'No. ven is CLI-first by design — every workflow is scriptable and CI-friendly. `ven status --json` is the structured surface.',
+    a: 'No — and there won\'t be. ven is CLI-first by design; every workflow is scriptable and CI-friendly. `ven status --json` is the structured surface for editor integrations.',
   },
   {
     q: 'How is it different from mise / asdf?',
-    a: 'ven adds a pre-install dependency graph engine, OSV-backed CVE scanning, EOL alerts, and a unified package management surface across 8 ecosystems. Other multi-runtime tools focus only on the version part.',
+    a: 'mise and asdf manage runtime versions only. ven adds a pre-install dependency graph engine, OSV-backed CVE scanning, endoflife.date EOL alerts, a unified `ven add` package surface across 8 ecosystems, deterministic ven.lock with SHA-256 content hash, and a portable launcher for restricted environments.',
   },
   {
     q: 'Where does ven store data?',
-    a: 'Everything in ~/.ven/. Binaries under ~/.ven/bin, downloaded runtimes under ~/.ven/<lang>/<version>/, and a SQLite cache for OSV/EOL/docs lookups.',
+    a: 'Everything under `~/.ven/`. Binaries in `~/.ven/bin`, downloaded runtimes in `~/.ven/<lang>/<version>/`, and a SQLite cache at `~/.ven/cache/` for OSV / EOL / docs lookups.',
   },
 ]
 
-const DOWNLOADS = [
-  { platform: 'macOS (Apple Silicon)', file: 'ven-macos-arm64.tar.gz', sha: '7b2f4e91…', size: '4.4 MB' },
-  { platform: 'macOS (Intel)', file: 'ven-macos-x64.tar.gz', sha: '8f92a11b…', size: '4.8 MB' },
-  { platform: 'Linux (x64)', file: 'ven-linux-x64.tar.gz', sha: '33a109fc…', size: '5.1 MB' },
-  { platform: 'Windows (x64)', file: 'ven-windows-x64.zip', sha: 'a1c84e02…', size: '5.4 MB' },
-]
-
-export default function Install() {
-  const [active, setActive] = useState(PLATFORMS[0].id)
-  const current = PLATFORMS.find((p) => p.id === active) ?? PLATFORMS[0]
-
+function PlatformTabs({ active, onChange }) {
   return (
-    <div className="max-w-[860px] mx-auto px-margin-mobile md:px-0 py-16">
-      <header className="text-center mb-16">
-        <h1 className="font-display-lg text-display-lg mb-4 text-primary">Install ven</h1>
-        <p className="text-on-surface-variant text-body-base max-w-md mx-auto">
-          The high-performance version manager. Zero dependencies. Native binary. One command to rule them all.
-        </p>
-      </header>
-
-      <div className="flex flex-wrap justify-center gap-2 mb-12">
-        {PLATFORMS.map((p) => (
+    <div className="flex flex-wrap justify-center gap-2 mb-12">
+      {PLATFORM_ORDER.map((id) => {
+        const p = INSTALL[id]
+        const isActive = id === active
+        return (
           <button
-            key={p.id}
+            key={id}
             type="button"
-            onClick={() => setActive(p.id)}
+            onClick={() => onChange(id)}
             className={clsx(
               'px-6 py-2 glass-surface transition-all border-b-2',
-              p.id === active
+              isActive
                 ? 'border-primary-fixed-dim text-primary-fixed-dim font-bold'
                 : 'border-transparent text-on-surface-variant hover:text-primary-fixed-dim'
             )}
           >
             {p.label}
           </button>
-        ))}
-      </div>
+        )
+      })}
+    </div>
+  )
+}
 
-      <section className="mb-20">
-        <Terminal title="Install Command" bodyClassName="bg-surface-container-lowest">
+function DownloadsTable() {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // The manifest lives in `/public` so Vite serves it at the site root.
+    // Fetching as JSON at runtime keeps the page release-cadence-aware
+    // without needing a rebuild for every version bump.
+    fetch('/releases-manifest.json')
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((j) => !cancelled && setData(j))
+      .catch((e) => !cancelled && setErr(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (err) {
+    return (
+      <p className="text-on-surface-variant text-sm opacity-70">
+        Releases manifest unavailable — see{' '}
+        <a className="text-primary-fixed-dim hover:underline" href={RELEASES_URL}>
+          GitHub Releases
+        </a>{' '}
+        for the latest assets.
+      </p>
+    )
+  }
+
+  if (!data) {
+    return <p className="text-on-surface-variant text-sm opacity-70">Loading release assets…</p>
+  }
+
+  return (
+    <>
+      <h2 className="font-headline-md text-headline-md mb-8 flex items-center gap-3 flex-wrap">
+        Direct downloads{' '}
+        <span className="font-mono text-sm text-primary-fixed-dim">v{data.version}</span>
+        <span className="font-mono text-xs text-on-surface-variant opacity-60">· {data.date}</span>
+        <a
+          href={data.notesUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto text-sm text-on-surface-variant hover:text-primary-fixed-dim transition-colors"
+        >
+          release notes →
+        </a>
+      </h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse font-mono text-sm">
+          <thead>
+            <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase text-[10px] tracking-widest">
+              <th className="py-4 px-2">Platform</th>
+              <th className="py-4 px-2">Artifact</th>
+              <th className="py-4 px-2">SHA-256</th>
+              <th className="py-4 px-2 text-right">Size</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant/10">
+            {data.assets.map((d) => (
+              <tr key={d.file} className="hover:bg-surface-container-low transition-colors">
+                <td className="py-4 px-2 font-bold text-primary-fixed-dim">{d.platform}</td>
+                <td className="py-4 px-2">
+                  <a
+                    href={d.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-primary-fixed-dim underline-offset-4 hover:underline"
+                  >
+                    {d.file}
+                  </a>
+                </td>
+                <td className="py-4 px-2 opacity-60">{d.sha256}</td>
+                <td className="py-4 px-2 text-right">{d.size}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-6 text-xs text-on-surface-variant opacity-70">
+        Every asset ships with a `.sha256` sidecar and an aggregate `SHA256SUMS` manifest. The install
+        scripts verify hashes automatically before extraction.
+      </p>
+    </>
+  )
+}
+
+export default function Install() {
+  // Lazy initializer — `detectPlatform` handles missing-navigator gracefully,
+  // so we can compute the default tab without an effect-induced flash.
+  const [active, setActive] = useState(() => detectPlatform())
+
+  const current = INSTALL[active] ?? INSTALL.windows
+
+  return (
+    <div className="max-w-[860px] mx-auto px-margin-mobile md:px-0 py-16">
+      <Reveal as="header" className="text-center mb-16">
+        <h1 className="font-display-lg text-display-lg mb-4 text-primary">Install ven</h1>
+        <p className="text-on-surface-variant text-body-base max-w-md mx-auto">
+          Zero dependencies. Native binary. One command. SHA-256-verified end-to-end.
+        </p>
+      </Reveal>
+
+      <PlatformTabs active={active} onChange={setActive} />
+
+      <Reveal as="section" className="mb-20">
+        <Terminal title="install command" bodyClassName="bg-surface-container-lowest">
           <code className="font-mono text-lg md:text-2xl text-primary-fixed-dim block">
             {current.cmd}
           </code>
@@ -106,9 +184,9 @@ export default function Install() {
         <p className="mt-4 text-center text-on-surface-variant font-mono text-xs opacity-60">
           {current.note}
         </p>
-      </section>
+      </Reveal>
 
-      <section className="mb-24">
+      <Reveal as="section" className="mb-24">
         <h2 className="font-headline-md text-headline-md mb-8 flex items-center gap-3">
           <Icon name="account_tree" className="text-primary-fixed-dim" />
           What gets installed
@@ -125,37 +203,37 @@ export default function Install() {
             <div className="pl-6 border-l border-outline-variant/30 ml-4 py-1 space-y-1">
               <Row arrow="├──" name="ven" inline tag="day-to-day CLI" />
               <Row arrow="├──" name="ven-launcher" inline tag="portable no-admin launcher" />
-              <Row arrow="└──" name="ven-setup" inline tag="optional installer" />
+              <Row arrow="└──" name="ven-setup" inline tag="user / system installer" />
             </div>
             <Row arrow="├──" name="<runtime>/<version>/" tag="managed SDKs (node, python, …)" />
             <Row arrow="├──" name="cache/" tag="OSV / EOL / docs (SQLite)" />
             <Row arrow="└──" name="storage/" tag="lockfile simulations + drift state" />
           </div>
         </GlassCard>
-      </section>
+      </Reveal>
 
-      <section className="mb-24 space-y-12">
+      <Reveal as="section" className="mb-24 space-y-12">
         <h2 className="font-headline-md text-headline-md mb-4">Next steps</h2>
         <div className="grid gap-8">
           {[
             {
               n: 1,
-              title: 'Initialize shell integration',
-              body: 'Install the auto-activation hook. After this, cd into a project with ven.toml and the runtime swaps automatically.',
-              cmd: 'ven setup',
+              title: 'Install the shell hook',
+              body: 'Adds the auto-activation hook to your shell profile. After this, `cd` into any project with a ven.toml and the runtime swaps automatically.',
+              cmd: 'ven shell install',
               tone: 'border-primary-fixed-dim',
             },
             {
               n: 2,
               title: 'Install a runtime',
-              body: 'Pick a language, pick a version. ven verifies the SHA256 and runs a binary smoke-test before activating it.',
-              cmd: 'ven install node 20',
+              body: 'Pick a language, pick a version. ven verifies the SHA-256 and runs a binary smoke-test before linking it under ~/.ven/<lang>/<version>/.',
+              cmd: 'ven install node 22',
               tone: 'border-secondary-fixed-dim',
             },
             {
               n: 3,
-              title: 'Create your first project',
-              body: 'Interactive runtime + package selection. Writes ven.toml. Activates the env in the current shell.',
+              title: 'Bootstrap a project',
+              body: 'Interactive runtime + package selection. Writes ven.toml. For Python, creates `./venv` and routes pip into it automatically.',
               cmd: 'ven init',
               tone: 'border-primary-fixed-dim',
             },
@@ -179,9 +257,9 @@ export default function Install() {
             </div>
           ))}
         </div>
-      </section>
+      </Reveal>
 
-      <section className="mb-24 glass-surface p-8 border-l-4 border-secondary-fixed-dim rounded-r-xl">
+      <Reveal as="section" className="mb-24 glass-surface p-8 border-l-4 border-secondary-fixed-dim rounded-r-xl">
         <div className="flex flex-col md:flex-row gap-8 items-start">
           <div className="grow">
             <h2 className="font-headline-md text-headline-md mb-4 text-secondary-fixed-dim">
@@ -198,9 +276,9 @@ export default function Install() {
             <Icon name="business_center" className="text-[64px] text-secondary-fixed-dim" />
           </div>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="mb-24">
+      <Reveal as="section" className="mb-24">
         <h2 className="font-headline-md text-headline-md mb-8">Verify installation</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="glass-surface p-4 border border-outline-variant/20 rounded-xl">
@@ -216,9 +294,9 @@ export default function Install() {
             <code className="font-mono text-secondary-fixed-dim block">ven 1.0.0 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="mb-24">
+      <Reveal as="section" className="mb-24">
         <h2 className="font-headline-md text-headline-md mb-8">Frequently asked</h2>
         <div className="grid md:grid-cols-2 gap-8">
           {FAQ.map((f) => (
@@ -228,37 +306,13 @@ export default function Install() {
             </div>
           ))}
         </div>
-      </section>
+      </Reveal>
 
-      <section className="mb-24 overflow-x-auto">
-        <h2 className="font-headline-md text-headline-md mb-8">Direct downloads (v1.0.0)</h2>
-        <table className="w-full text-left border-collapse font-mono text-sm">
-          <thead>
-            <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase text-[10px] tracking-widest">
-              <th className="py-4 px-2">Platform</th>
-              <th className="py-4 px-2">Artifact</th>
-              <th className="py-4 px-2">SHA256</th>
-              <th className="py-4 px-2 text-right">Size</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/10">
-            {DOWNLOADS.map((d) => (
-              <tr key={d.file} className="hover:bg-surface-container-low transition-colors">
-                <td className="py-4 px-2 font-bold text-primary-fixed-dim">{d.platform}</td>
-                <td className="py-4 px-2">{d.file}</td>
-                <td className="py-4 px-2 opacity-50">{d.sha}</td>
-                <td className="py-4 px-2 text-right">{d.size}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="mt-6 text-xs text-on-surface-variant opacity-70">
-          All artifacts ship with per-asset .sha256 sidecars and an aggregate SHA256SUMS manifest. The
-          install scripts verify automatically.
-        </p>
-      </section>
+      <Reveal as="section" className="mb-24 overflow-x-auto">
+        <DownloadsTable />
+      </Reveal>
 
-      <section className="mb-24 border-t border-outline-variant/30 pt-16">
+      <Reveal as="section" className="mb-24 border-t border-outline-variant/30 pt-16">
         <div className="text-center max-w-lg mx-auto">
           <h2 className="font-headline-md text-headline-md mb-4">Uninstall</h2>
           <p className="text-on-surface-variant mb-8">
@@ -267,8 +321,22 @@ export default function Install() {
           <div className="bg-surface-container-lowest p-4 font-mono text-on-error border border-error/30 inline-block rounded">
             rm -rf ~/.ven &amp;&amp; sed -i '/\.ven\/bin/d' ~/.bashrc ~/.zshrc
           </div>
+          <p className="mt-6 text-xs text-on-surface-variant opacity-60">
+            On Windows: <code className="text-on-surface">ven-setup --uninstall</code> reverses the PATH
+            edit and removes <code className="text-on-surface">%USERPROFILE%\.ven</code>.
+          </p>
+          <div className="mt-8 text-sm">
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary-fixed-dim hover:underline underline-offset-4"
+            >
+              View source on GitHub →
+            </a>
+          </div>
         </div>
-      </section>
+      </Reveal>
     </div>
   )
 }

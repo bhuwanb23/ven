@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 import Icon from '../ui/Icon.jsx'
+import { GITHUB_URL } from '../../content/site.js'
 
 const NAV = [
   { to: '/docs', label: 'Docs' },
@@ -40,7 +41,7 @@ export default function Header() {
 
         <div className="hidden md:flex gap-3 items-center">
           <a
-            href="https://github.com/yourorg/ven"
+            href={GITHUB_URL}
             target="_blank"
             rel="noreferrer"
             className="font-body-base text-body-base text-on-surface-variant hover:text-primary-fixed-dim transition-colors duration-200"

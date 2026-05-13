@@ -5,7 +5,10 @@ import Icon from '../components/ui/Icon.jsx'
 import Badge from '../components/ui/Badge.jsx'
 import Button from '../components/ui/Button.jsx'
 import GlassCard from '../components/ui/GlassCard.jsx'
+import Reveal from '../components/effects/Reveal.jsx'
+import TiltCard from '../components/effects/TiltCard.jsx'
 import { LANGUAGES, COMING_SOON, MOST_REQUESTED } from '../content/languages.js'
+import { REQUEST_LANGUAGE_URL, GITHUB_URL } from '../content/site.js'
 
 function HeroBar() {
   return (
@@ -33,10 +36,11 @@ function HeroBar() {
 
 function LanguageCard({ lang, expanded, onToggle }) {
   return (
-    <div
+    <TiltCard
       id={lang.slug}
+      max={5}
       className={clsx(
-        'glass-card rounded-xl p-6 cursor-pointer transition-all hover:border-primary-fixed-dim/40',
+        'glass-card rounded-xl p-6 cursor-pointer transition-colors hover:border-primary-fixed-dim/40',
         expanded && 'border-primary-fixed-dim/60 ring-1 ring-primary-fixed-dim/30'
       )}
       onClick={onToggle}
@@ -66,7 +70,7 @@ function LanguageCard({ lang, expanded, onToggle }) {
         <span>{expanded ? 'Hide details' : 'View details'}</span>
         <Icon name={expanded ? 'expand_less' : 'expand_more'} />
       </div>
-    </div>
+    </TiltCard>
   )
 }
 
@@ -139,13 +143,13 @@ function DetailBlock({ label, lines, prompt, mono }) {
 
 function ComingSoonSection() {
   return (
-    <section className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto py-16">
+    <Reveal as="section" className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto py-16">
       <h2 className="font-headline-md text-headline-md text-primary mb-8">Coming soon</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {COMING_SOON.map((c) => (
           <div
             key={c.name}
-            className="glass-surface rounded-xl p-6 text-center border border-outline-variant/30"
+            className="glass-surface rounded-xl p-6 text-center border border-outline-variant/30 hover:border-primary-fixed-dim/40 transition-colors"
           >
             <div className="font-bold text-primary mb-2">{c.name}</div>
             <div className="font-mono text-[11px] text-on-surface-variant mb-3">{c.pkgMgr}</div>
@@ -153,13 +157,13 @@ function ComingSoonSection() {
           </div>
         ))}
       </div>
-    </section>
+    </Reveal>
   )
 }
 
 function RequestSection() {
   return (
-    <section className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto py-16">
+    <Reveal as="section" className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto py-16">
       <GlassCard tone="neutral" className="p-8">
         <h2 className="font-headline-md text-headline-md text-primary mb-2">
           Don't see your language?
@@ -168,10 +172,10 @@ function RequestSection() {
           We add languages based on community demand. Vote on existing requests or open a new issue.
         </p>
         <div className="flex flex-wrap gap-3 mb-8">
-          <Button href="https://github.com/yourorg/ven/issues/new?labels=runtime-request">
+          <Button href={REQUEST_LANGUAGE_URL}>
             Request a language <Icon name="open_in_new" />
           </Button>
-          <Button variant="ghost" href="https://github.com/yourorg/ven#contributing">
+          <Button variant="ghost" href={`${GITHUB_URL}#contributing`}>
             Plugin system guide <Icon name="arrow_forward" />
           </Button>
         </div>
@@ -181,11 +185,11 @@ function RequestSection() {
         </h3>
         <div className="space-y-3 font-mono text-sm">
           {MOST_REQUESTED.map((r) => (
-            <div key={r.name} className="flex items-center gap-4">
+            <div key={r.name} className="flex items-center gap-4 group">
               <span className="w-24 text-on-surface">{r.name}</span>
               <div className="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary-fixed-dim"
+                  className="h-full bg-primary-fixed-dim transition-all duration-700 group-hover:bg-secondary-fixed-dim"
                   style={{ width: `${(r.votes / r.max) * 100}%` }}
                 />
               </div>
@@ -194,13 +198,13 @@ function RequestSection() {
           ))}
         </div>
       </GlassCard>
-    </section>
+    </Reveal>
   )
 }
 
 function ComparisonTable() {
   return (
-    <section className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto py-16">
+    <Reveal as="section" className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto py-16">
       <h2 className="font-headline-md text-headline-md text-primary mb-8">Quick reference</h2>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse font-mono text-sm">
@@ -214,7 +218,10 @@ function ComparisonTable() {
           </thead>
           <tbody className="divide-y divide-outline-variant/20">
             {LANGUAGES.map((l) => (
-              <tr key={l.slug} className="hover:bg-surface-container-low/50 transition-colors">
+              <tr
+                key={l.slug}
+                className="hover:bg-surface-container-low/50 transition-colors shimmer-row"
+              >
                 <td className="py-3 px-2 font-bold text-primary-fixed-dim">
                   <Link to={`/docs/${l.slug}`}>{l.name}</Link>
                 </td>
@@ -228,7 +235,7 @@ function ComparisonTable() {
           </tbody>
         </table>
       </div>
-    </section>
+    </Reveal>
   )
 }
 
@@ -260,7 +267,7 @@ export default function Languages() {
   return (
     <>
       <HeroBar />
-      <section className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto pb-12">
+      <Reveal as="section" className="px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto pb-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {LANGUAGES.map((l) => (
             <LanguageCard
@@ -274,7 +281,7 @@ export default function Languages() {
           ))}
         </div>
         {open && <DetailPanel lang={open} />}
-      </section>
+      </Reveal>
       <ComparisonTable />
       <ComingSoonSection />
       <RequestSection />

@@ -1,4 +1,11 @@
 import { Link } from 'react-router-dom'
+import {
+  GITHUB_URL,
+  ISSUES_URL,
+  DISCUSSIONS_URL,
+  LICENSE_URL,
+  CONTACT_EMAIL,
+} from '../../content/site.js'
 
 const COLUMNS = [
   {
@@ -21,17 +28,21 @@ const COLUMNS = [
   {
     title: 'Community',
     links: [
-      { href: 'https://github.com/yourorg/ven', label: 'GitHub' },
-      { href: 'https://github.com/yourorg/ven/issues', label: 'Issues' },
-      { href: 'https://github.com/yourorg/ven/discussions', label: 'Discussions' },
+      { href: GITHUB_URL, label: 'GitHub' },
+      { href: ISSUES_URL, label: 'Issues' },
+      { href: DISCUSSIONS_URL, label: 'Discussions' },
     ],
   },
   {
     title: 'Legal',
+    // CONTACT_EMAIL is `null`-able — drop the row when not configured so we
+    // don't render a broken mailto:.
     links: [
-      { href: 'https://github.com/yourorg/ven/blob/main/LICENSE', label: 'MIT License' },
+      { href: LICENSE_URL, label: 'MIT License' },
       { to: '/docs/check', label: 'Security' },
-      { href: 'mailto:hello@ven.sh', label: 'Contact' },
+      ...(CONTACT_EMAIL
+        ? [{ href: `mailto:${CONTACT_EMAIL}`, label: 'Contact' }]
+        : []),
     ],
   },
 ]
@@ -45,7 +56,7 @@ export default function Footer() {
             ven
           </div>
           <p className="font-mono text-[12px] text-on-surface-variant leading-relaxed max-w-[14rem]">
-            One tool. Every language. Zero conflicts.
+            One CLI for eight runtimes. Graph-checked installs. Offline-cached CVE scans.
           </p>
         </div>
         {COLUMNS.map((col) => (
@@ -81,8 +92,8 @@ export default function Footer() {
       </div>
       <div className="border-t border-outline-variant/20">
         <div className="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-6 flex flex-col md:flex-row items-center justify-between gap-3 font-mono text-terminal-output text-on-surface-variant">
-          <span>© {new Date().getFullYear()} ven core team. High-performance dependency management.</span>
-          <span className="opacity-60">Built with Rust. Shipped with care.</span>
+          <span>© {new Date().getFullYear()} ven core team. Built with Rust. Shipped with care.</span>
+          <span className="opacity-60">High-performance dependency management.</span>
         </div>
       </div>
     </footer>

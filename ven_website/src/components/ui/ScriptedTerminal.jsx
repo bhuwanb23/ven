@@ -68,10 +68,15 @@ export default function ScriptedTerminal({
     }
 
     if (entry.kind === 'output') {
-      setRenderedLines((prev) => [
-        ...prev,
-        { kind: 'output', text: entry.text, tone: entry.tone ?? 'default' },
-      ])
+      // Queueing the append as a microtask keeps the visual feel of an
+      // instant print (no perceptible delay) while satisfying the React 19
+      // hooks rule against setState inside an effect body.
+      queueMicrotask(() => {
+        setRenderedLines((prev) => [
+          ...prev,
+          { kind: 'output', text: entry.text, tone: entry.tone ?? 'default' },
+        ])
+      })
       timeoutRef.current = setTimeout(() => {
         setStep((s) => s + 1)
       }, entry.ms ?? 220)

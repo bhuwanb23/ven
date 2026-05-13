@@ -1,5 +1,8 @@
-// Per-language data driving both /languages and /docs/<slug> for languages.
-// Source: website_design/language.md and the main repo's docs/languages/.
+// Per-language data driving both /languages and /docs/<slug>.
+//
+// Pinned versions match the values exercised by the verification matrix
+// (`example/_run.ps1`) so the docs never advertise a toolchain that the
+// release binary hasn't been smoke-tested against.
 
 export const LANGUAGES = [
   {
@@ -13,13 +16,13 @@ export const LANGUAGES = [
     tagline: 'The most widely used JavaScript runtime. ven manages Node versions per-project and uses npm for package operations.',
     install: ['ven install node 20', 'ven install node 22'],
     venToml: `[runtime]
-node = "20"
+node = "22"
 
 [packages]
 express = "4.18.2"
 lodash  = "*"`,
     env: [
-      ['PATH', '~/.ven/node/20.20.2/bin'],
+      ['PATH', '~/.ven/node/22.22.2/bin'],
     ],
     packageOps: [
       ['ven add express', 'npm install express'],
@@ -33,29 +36,26 @@ lodash  = "*"`,
     slug: 'python',
     name: 'Python',
     code: 'PY',
-    versions: ['3.10', '3.11', '3.12'],
+    versions: ['3.11', '3.12', '3.13'],
     pkgMgr: 'pip + venv',
     config: 'requirements.txt',
     status: 'stable',
-    tagline: 'General-purpose language with pip for packages and venv for project isolation. ven handles venv creation and activation automatically.',
-    install: ['ven install python 3.11', 'ven install python 3.12'],
+    tagline: 'General-purpose language with pip for packages and venv for project isolation. ven creates ./venv on first `ven add` and routes pip into it — no manual activation.',
+    install: ['ven install python 3.13', 'ven install python 3.12'],
     venToml: `[runtime]
-python = "3.11"
+python = "3.13"
 
 [packages]
 flask    = "3.0.0"
-requests = "*"
-
-[venv]
-path = ".venv"`,
+requests = "*"`,
     env: [
-      ['PATH', '~/.ven/python/3.11.5/bin'],
-      ['PYTHONHOME', '~/.ven/python/3.11.5'],
+      ['PATH', '~/.ven/python/3.13.12/bin'],
+      ['VIRTUAL_ENV', './venv'],
     ],
     packageOps: [
-      ['ven add flask', 'pip install flask'],
-      ['ven remove requests', 'pip uninstall requests'],
-      ['ven upgrade django', 'pip install --upgrade django'],
+      ['ven add flask', './venv/Scripts/pip install flask'],
+      ['ven remove requests', './venv/Scripts/pip uninstall requests'],
+      ['ven upgrade django', './venv/Scripts/pip install --upgrade django'],
     ],
     includes: ['python', 'pip', 'venv'],
     downloads: 'python.org/downloads/',
@@ -64,22 +64,22 @@ path = ".venv"`,
     slug: 'go',
     name: 'Go',
     code: 'GO',
-    versions: ['1.20', '1.21', '1.22'],
+    versions: ['1.22', '1.24', '1.26'],
     pkgMgr: 'go mod',
     config: 'go.mod',
     status: 'stable',
-    tagline: 'Compiled language from Google. ven manages Go versions and sets GOROOT / GOPATH. Package management is handled natively by go mod.',
-    install: ['ven install go 1.21'],
+    tagline: 'Compiled language from Google. ven manages Go versions and sets GOROOT. Package management is handled natively by go mod.',
+    install: ['ven install go 1.26'],
     venToml: `[runtime]
-go = "1.21"`,
+go = "1.26"`,
     env: [
-      ['PATH', '~/.ven/go/1.21.5/bin'],
-      ['GOROOT', '~/.ven/go/1.21.5'],
+      ['PATH', '~/.ven/go/1.26.2/bin'],
+      ['GOROOT', '~/.ven/go/1.26.2'],
       ['GOPATH', '~/go'],
     ],
     packageOps: [
-      ['(native)', 'go get github.com/gin-gonic/gin'],
-      ['(native)', 'go mod tidy'],
+      ['ven add github.com/google/uuid', 'go get github.com/google/uuid'],
+      ['ven remove github.com/google/uuid', 'go mod tidy'],
     ],
     includes: ['go', 'gofmt', 'godoc'],
     downloads: 'go.dev/dl/',
@@ -88,7 +88,7 @@ go = "1.21"`,
     slug: 'rust',
     name: 'Rust',
     code: 'RS',
-    versions: ['1.73', '1.74', '1.75'],
+    versions: ['1.74', '1.75', '1.76'],
     pkgMgr: 'cargo',
     config: 'Cargo.toml',
     status: 'stable',
@@ -116,19 +116,20 @@ tokio = "1.35"`,
     slug: 'java',
     name: 'Java',
     code: 'JV',
-    versions: ['JDK 11', 'JDK 17', 'JDK 21'],
+    versions: ['JDK 17', 'JDK 21', 'JDK 25'],
     pkgMgr: 'Maven / Gradle',
     config: 'pom.xml',
     status: 'stable',
     tagline: 'Enterprise-grade language. ven manages JDK versions and sets JAVA_HOME automatically. Package management via Maven or Gradle (user-managed).',
-    install: ['ven install java 17', 'ven install java 21'],
+    install: ['ven install java 21', 'ven install java 17'],
     venToml: `[runtime]
-java = "17"`,
+java = "21"`,
     env: [
-      ['PATH', '~/.ven/java/17.0.9/bin'],
-      ['JAVA_HOME', '~/.ven/java/17.0.9'],
+      ['PATH', '~/.ven/java/21.0.11+10.0.LTS/bin'],
+      ['JAVA_HOME', '~/.ven/java/21.0.11+10.0.LTS'],
     ],
     packageOps: [
+      ['ven add com.google.guava:guava', 'pom.xml + mvn install'],
       ['(native)', 'mvn install / gradle build'],
     ],
     includes: ['java', 'javac', 'jar', 'jshell'],
@@ -138,22 +139,22 @@ java = "17"`,
     slug: 'ruby',
     name: 'Ruby',
     code: 'RB',
-    versions: ['3.1', '3.2', '3.3'],
+    versions: ['3.2', '3.3', '4.0'],
     pkgMgr: 'gem + bundler',
     config: 'Gemfile',
     status: 'stable',
     tagline: 'Dynamic language popular for web (Rails) and DevOps tooling. ven manages versions and uses gem/bundler for packages.',
-    install: ['ven install ruby 3.2'],
+    install: ['ven install ruby 4.0'],
     venToml: `[runtime]
-ruby = "3.2"
+ruby = "4.0"
 
 [packages]
 rails   = "7.1.0"
 sinatra = "*"`,
     env: [
-      ['PATH', '~/.ven/ruby/3.2.2/bin'],
-      ['GEM_HOME', '~/.ven/ruby/3.2.2'],
-      ['GEM_PATH', '~/.ven/ruby/3.2.2'],
+      ['PATH', '~/.ven/ruby/4.0.3/bin'],
+      ['GEM_HOME', '~/.ven/ruby/4.0.3'],
+      ['GEM_PATH', '~/.ven/ruby/4.0.3'],
     ],
     packageOps: [
       ['ven add rails', 'gem install rails'],
@@ -167,20 +168,20 @@ sinatra = "*"`,
     slug: 'deno',
     name: 'Deno',
     code: 'DN',
-    versions: ['1.38', '1.39', '1.40'],
+    versions: ['2.6', '2.7'],
     pkgMgr: 'native / npm:',
     config: 'deno.json',
     status: 'stable',
     tagline: 'Modern JavaScript / TypeScript runtime by the creator of Node.js. Single binary, no package manager needed — imports via URL natively.',
-    install: ['ven install deno 1.40'],
+    install: ['ven install deno 2.7'],
     venToml: `[runtime]
-deno = "1.40"`,
+deno = "2.7"`,
     env: [
-      ['PATH', '~/.ven/deno/1.40.0'],
+      ['PATH', '~/.ven/deno/2.7.14'],
       ['DENO_DIR', '~/.cache/deno'],
     ],
     packageOps: [
-      ['(native)', 'deno.json import maps'],
+      ['ven add npm:chalk', 'deno add npm:chalk'],
       ['(native)', 'import x from "npm:express@4.18.2"'],
     ],
     includes: ['deno (single binary)'],
@@ -190,24 +191,24 @@ deno = "1.40"`,
     slug: 'bun',
     name: 'Bun',
     code: 'BN',
-    versions: ['1.0', '1.1'],
+    versions: ['1.1', '1.3'],
     pkgMgr: 'bun (npm-compatible)',
     config: 'package.json',
     status: 'stable',
     tagline: 'Fast all-in-one JavaScript runtime. Drop-in Node.js replacement. npm-compatible. Single binary like Deno, package.json like Node.',
-    install: ['ven install bun 1.0'],
+    install: ['ven install bun 1.3'],
     venToml: `[runtime]
-bun = "1.0"
+bun = "1.3"
 
 [packages]
-express = "4.18.2"
+chalk   = "5.3.0"
 lodash  = "*"`,
     env: [
-      ['PATH', '~/.ven/bun/1.0.20'],
-      ['BUN_INSTALL', '~/.ven/bun/1.0.20'],
+      ['PATH', '~/.ven/bun/1.3.13'],
+      ['BUN_INSTALL', '~/.ven/bun/1.3.13'],
     ],
     packageOps: [
-      ['ven add express', 'bun add express'],
+      ['ven add chalk', 'bun add chalk'],
       ['ven remove lodash', 'bun remove lodash'],
       ['ven upgrade react', 'bun update react'],
     ],

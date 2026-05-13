@@ -103,9 +103,31 @@ export default {
           '0%, 49%, 100%': { opacity: '1' },
           '50%, 99%': { opacity: '0' },
         },
+        // Used by the dep-graph component: animates a path's stroke-dashoffset
+        // from `var(--len)` to `0` so the line draws itself in on mount.
+        'draw-line': {
+          '0%': { strokeDashoffset: 'var(--len, 200)' },
+          '100%': { strokeDashoffset: '0' },
+        },
+        // Soft diagonal shimmer for hovered compare-table rows. The element
+        // it animates uses `background-size: 200% 100%` and a 60deg gradient.
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        // Fallback for browsers without IntersectionObserver — the reveal
+        // utility uses opacity + translate directly; this just gives us a
+        // named keyframe if we ever want to apply it imperatively.
+        'reveal-up': {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'caret-blink': 'caret-blink 1s steps(1) infinite',
+        'draw-line': 'draw-line 1.2s ease-out forwards',
+        shimmer: 'shimmer 1.4s ease-in-out infinite',
+        'reveal-up': 'reveal-up 0.7s ease-out forwards',
       },
     },
   },

@@ -3,7 +3,11 @@ import clsx from 'clsx'
 import Icon from '../components/ui/Icon.jsx'
 import Badge from '../components/ui/Badge.jsx'
 import { RELEASES, TAG_META } from '../content/releases.js'
+import { GITHUB_URL, RELEASES_URL } from '../content/site.js'
 
+// Filter chips. We only render the ones that actually match >= 1 release
+// (the 'all' chip is always shown). Order is intentional — major / minor
+// are common, patch / security are rare, so they sit at the right end.
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'major', label: 'Major' },
@@ -54,7 +58,7 @@ function ReleaseCard({ release, defaultOpen }) {
 
           <div className="flex flex-wrap gap-3 pt-2">
             <a
-              href={`https://github.com/yourorg/ven/releases/tag/${release.version}`}
+              href={`${GITHUB_URL}/releases/tag/${release.version}`}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 font-mono text-xs px-3 py-2 border border-primary-fixed-dim/40 text-primary-fixed-dim rounded hover:bg-primary-fixed-dim/10 transition-colors"
@@ -62,7 +66,7 @@ function ReleaseCard({ release, defaultOpen }) {
               <Icon name="download" className="text-sm" /> Download {release.version}
             </a>
             <a
-              href={`https://github.com/yourorg/ven/compare/${release.version}`}
+              href={`${GITHUB_URL}/compare/${release.version}`}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 font-mono text-xs px-3 py-2 border border-outline-variant/40 text-on-surface-variant rounded hover:bg-surface-container-high transition-colors"
@@ -97,6 +101,23 @@ function Group({ label, tone, items }) {
 export default function Changelog() {
   const [filter, setFilter] = useState('all')
 
+  // Build the per-tag counts once and use them to (a) hide chips that don't
+  // match any release, and (b) annotate the visible ones with `· N`. The
+  // previous version always rendered Patch + Security even when both were
+  // empty, which only ever showed the "No releases match this filter" state.
+  const counts = useMemo(() => {
+    const c = { all: RELEASES.length, major: 0, minor: 0, patch: 0, security: 0 }
+    for (const r of RELEASES) {
+      if (c[r.tag] != null) c[r.tag] += 1
+    }
+    return c
+  }, [])
+
+  const visibleFilters = useMemo(
+    () => FILTERS.filter((f) => f.id === 'all' || counts[f.id] > 0),
+    [counts]
+  )
+
   const filtered = useMemo(
     () => RELEASES.filter((r) => filter === 'all' || r.tag === filter),
     [filter]
@@ -114,7 +135,7 @@ export default function Changelog() {
           {latest.date}
         </p>
         <div className="flex flex-wrap items-center gap-2 mb-6">
-          {FILTERS.map((f) => (
+          {visibleFilters.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -127,12 +148,13 @@ export default function Changelog() {
               )}
             >
               {f.label}
+              <span className="opacity-60 ml-1.5">· {counts[f.id]}</span>
             </button>
           ))}
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
           <a
-            href="https://github.com/yourorg/ven/releases"
+            href={RELEASES_URL}
             target="_blank"
             rel="noreferrer"
             className="text-primary-fixed-dim hover:underline underline-offset-4"
@@ -140,7 +162,7 @@ export default function Changelog() {
             All releases on GitHub →
           </a>
           <a
-            href="https://github.com/yourorg/ven/releases.atom"
+            href={`${RELEASES_URL}.atom`}
             target="_blank"
             rel="noreferrer"
             className="text-on-surface-variant hover:underline underline-offset-4"

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import Icon from '../components/ui/Icon.jsx'
 import ScriptedTerminal from '../components/ui/ScriptedTerminal.jsx'
+import Reveal from '../components/effects/Reveal.jsx'
 
 const SCENARIOS = [
   {
@@ -95,13 +96,13 @@ export default function Playground() {
 
   return (
     <div className="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-16">
-      <header className="mb-12 text-center">
+      <Reveal as="header" className="mb-12 text-center">
         <h1 className="font-display-lg text-display-lg text-primary mb-4">Playground</h1>
         <p className="text-on-surface-variant max-w-2xl mx-auto">
           Watch ven in action. Five canned scenarios — replay them as many times as you like. No install
           required.
         </p>
-      </header>
+      </Reveal>
 
       <div className="flex flex-wrap justify-center gap-2 mb-10">
         {SCENARIOS.map((s) => (
@@ -121,7 +122,7 @@ export default function Playground() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_2fr] gap-8 items-start">
+      <Reveal as="div" className="grid lg:grid-cols-[1fr_2fr] gap-8 items-start">
         <aside className="glass-card rounded-xl p-6">
           <div className="text-[10px] uppercase tracking-widest text-outline mb-2">Scenario</div>
           <h2 className="font-headline-md text-headline-md text-primary mb-3">{active.title}</h2>
@@ -158,7 +159,7 @@ export default function Playground() {
           loop={false}
           height={420}
         />
-      </div>
+      </Reveal>
 
       <div className="mt-16 text-center text-sm text-on-surface-variant">
         Ready for the real thing?{' '}

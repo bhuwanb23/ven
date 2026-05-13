@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom'
 import clsx from 'clsx'
 import Icon from '../../components/ui/Icon.jsx'
 import CodeBlock from '../../components/ui/CodeBlock.jsx'
-import GlassCard from '../../components/ui/GlassCard.jsx'
 import { getDoc } from '../../content/docs.js'
 import NotFound from '../NotFound.jsx'
 
