@@ -1,0 +1,232 @@
+// Release timeline driving /changelog. Order: newest first.
+// Source: website_design/changelog.md.
+
+export const RELEASES = [
+  {
+    version: 'v1.0.0',
+    date: 'January 15, 2024',
+    tag: 'major',
+    summary: 'Initial stable release.',
+    sections: {
+      new: [
+        'Node.js · Python · Go · Rust · Java · Ruby · Deno · Bun runtime management',
+        'ven.toml project configuration',
+        'Automatic shell activation on cd',
+        'ven setup — shell hook installation',
+        'ven init — interactive project setup',
+        'ven status — environment observability',
+        'ven add / remove / upgrade — package management',
+        'ven-launcher — no-admin terminal spawner',
+        'PowerShell 5.1 + 7, Bash, Zsh, Fish support',
+        'SHA256 verification on all downloads',
+        'Version alias resolution (20 → 20.20.2)',
+        'Per-terminal environment isolation',
+        'Cross-platform: Windows, macOS, Linux',
+      ],
+      fixed: [],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.9.0',
+    date: 'December 28, 2023',
+    tag: 'minor',
+    summary: 'Bun and Ruby support. Package management improvements.',
+    sections: {
+      new: [
+        'Bun runtime support (install, activate, packages)',
+        'Ruby runtime support (gem-based package management)',
+        'ven upgrade --apply flag',
+        'ven status --json output mode',
+        'GEM_HOME / GEM_PATH environment injection',
+        'BUN_INSTALL environment injection',
+      ],
+      fixed: [
+        'npm subprocess not found on Windows (#47)',
+        'ven.toml not updated after failed install (#51)',
+        'Path resolution on Windows with spaces (#53)',
+        'Python venv not activating on Zsh (#55)',
+      ],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.8.0',
+    date: 'December 10, 2023',
+    tag: 'minor',
+    summary: 'Deno and Java support. Shell integration improvements.',
+    sections: {
+      new: [
+        'Deno runtime support (single binary model)',
+        'Java (JDK) runtime support (JAVA_HOME management)',
+        'ven shell activate / deactivate commands',
+        'ven deactivate — safe overlay removal',
+        'Fish shell support',
+        'DENO_DIR environment injection',
+        'JAVA_HOME auto-set on activation',
+        'ven status --verbose mode',
+      ],
+      fixed: [
+        'Shell hook duplicate entries on re-running setup (#38)',
+        'Version resolution failing for patch versions (#41)',
+        'Go GOPATH not set correctly on Windows (#43)',
+      ],
+      improved: [
+        'Activation speed improved from ~200ms to <50ms',
+        'Download progress bar now shows speed + ETA',
+      ],
+    },
+  },
+  {
+    version: 'v0.7.0',
+    date: 'November 22, 2023',
+    tag: 'minor',
+    summary: 'Rust and Go support. ven-launcher introduced.',
+    sections: {
+      new: [
+        'Rust runtime support (cargo-based packages)',
+        'Go runtime support (go mod aware)',
+        'ven-launcher — standalone terminal spawner',
+        'CARGO_HOME / GOROOT / GOPATH injection',
+        'ven use <lang> <version> --global',
+        'Multiple language support in single ven.toml',
+        'ven list --verbose and --json modes',
+      ],
+      fixed: [
+        'PATH not restored on deactivate (#29)',
+        'ven.toml not found in deeply nested directories (#31)',
+        'Binary verification failing on macOS arm64 (#33)',
+      ],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.6.0',
+    date: 'November 5, 2023',
+    tag: 'minor',
+    summary: 'Python support. venv management.',
+    sections: {
+      new: [
+        'Python runtime support',
+        'Automatic pip installation post-extract',
+        'venv creation and management',
+        '[venv] section in ven.toml',
+        'PYTHONHOME environment injection',
+        'ven add / remove for Python (pip-based)',
+        'requirements.txt sync',
+      ],
+      fixed: [
+        'Node npm path not found on fresh installs (#19)',
+        'ven.toml packages section not updating (#22)',
+        'SHA256 verification failing on partial downloads (#24)',
+      ],
+      improved: [
+        'Error messages now include fix suggestions',
+        'Download retry on network failure (3 attempts)',
+      ],
+    },
+  },
+  {
+    version: 'v0.5.0',
+    date: 'October 18, 2023',
+    tag: 'minor',
+    summary: 'Package management. ven add / remove / upgrade.',
+    sections: {
+      new: [
+        'ven add <package>',
+        'ven add <package>@<version>',
+        'ven remove <package>',
+        'ven upgrade and ven upgrade <package> --apply',
+        'Dependency conflict warning on remove',
+        'ven.toml [packages] sync on all operations',
+        'npm subprocess with ven-managed Node path',
+      ],
+      fixed: [
+        'Auto-activation not firing on PowerShell 5.1 (#12)',
+        'Version aliases not resolving on offline machines (#14)',
+      ],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.4.0',
+    date: 'October 2, 2023',
+    tag: 'minor',
+    summary: 'Shell integration. Auto-switching on cd.',
+    sections: {
+      new: [
+        'ven setup — installs shell hooks',
+        'Auto-activation on cd (PowerShell + Bash + Zsh)',
+        'ven shell activate (manual mode)',
+        'VEN_NODE_VERSION environment marker',
+        'VEN_ACTIVE environment marker',
+        'Nearest ven.toml wins (directory tree walk)',
+        'Global default via ~/.ven/versions/',
+      ],
+      fixed: ['ven.toml not detected in parent directories (#8)'],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.3.0',
+    date: 'September 15, 2023',
+    tag: 'minor',
+    summary: 'ven init and ven status.',
+    sections: {
+      new: [
+        'ven init — interactive project setup',
+        'ven init --template',
+        'ven status (basic + verbose)',
+        'ven.toml [env] section support',
+        'Environment variable injection on activation',
+        'Version validation hints in init',
+      ],
+      fixed: [],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.2.0',
+    date: 'September 1, 2023',
+    tag: 'minor',
+    summary: 'ven.toml support. Version resolution engine.',
+    sections: {
+      new: [
+        'ven.toml project configuration',
+        '[runtime] section parsing',
+        'Version alias resolution (20 → 20.20.2)',
+        'ven list command',
+        'ven list --verbose',
+        'Multiple Node.js versions coexist',
+        '~/.ven/ storage structure',
+      ],
+      fixed: ['Download failing on slow connections (#3)'],
+      improved: [],
+    },
+  },
+  {
+    version: 'v0.1.0',
+    date: 'August 15, 2023',
+    tag: 'major',
+    summary: 'Initial release. Node.js only.',
+    sections: {
+      new: [
+        'ven install node <version>',
+        'Downloads from nodejs.org official source',
+        'SHA256 checksum verification',
+        'Extracts to ~/.ven/node/<version>/',
+        'Binary validation after install',
+        'Windows (x64) + Linux (x64) + macOS (x64 + arm64)',
+      ],
+      fixed: [],
+      improved: [],
+    },
+  },
+]
+
+export const TAG_META = {
+  major: { label: 'MAJOR', tone: 'major', dot: 'bg-secondary-fixed-dim' },
+  minor: { label: 'MINOR', tone: 'minor', dot: 'bg-primary-fixed-dim' },
+  patch: { label: 'PATCH', tone: 'patch', dot: 'bg-outline' },
+  security: { label: 'SECURITY', tone: 'security', dot: 'bg-error' },
+}
