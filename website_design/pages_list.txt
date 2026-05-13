@@ -1,0 +1,7 @@
+/                   ← Main landing (most work)
+/install            ← Install page
+/docs               ← Documentation hub
+/docs/*             ← Individual doc pages
+/languages          ← Language showcase
+/changelog          ← Version history
+/playground         ← Interactive demo (big feature)

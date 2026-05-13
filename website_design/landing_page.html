@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>ven — The Intelligent Version &amp; Dependency Manager</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/geist');
+
+        body {
+            font-family: 'Geist', sans-serif;
+            background-color: #131313;
+            color: #e5e2e1;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .glass-card {
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 219, 231, 0.1);
+        }
+
+        .cyan-glow {
+            box-shadow: 0 0 20px rgba(0, 219, 231, 0.15);
+        }
+
+        .terminal-header-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .hero-gradient {
+            background: radial-gradient(circle at center, rgba(0, 219, 231, 0.08) 0%, transparent 70%);
+        }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#e1fdff",
+                        "tertiary-fixed-dim": "#ffb4aa",
+                        "error-container": "#93000a",
+                        "primary-fixed-dim": "#00dbe7",
+                        "inverse-surface": "#e5e2e1",
+                        "surface-variant": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "secondary-container": "#13ff43",
+                        "on-tertiary-fixed-variant": "#930005",
+                        "on-primary": "#00363a",
+                        "on-secondary-container": "#007117",
+                        "on-secondary-fixed-variant": "#00530e",
+                        "surface-tint": "#00dbe7",
+                        "outline-variant": "#3a494b",
+                        "on-error": "#690005",
+                        "surface": "#131313",
+                        "on-primary-container": "#006a71",
+                        "on-tertiary-container": "#c3000a",
+                        "inverse-on-surface": "#313030",
+                        "surface-container": "#201f1f",
+                        "secondary-fixed-dim": "#00e639",
+                        "inverse-primary": "#00696f",
+                        "on-secondary": "#003907",
+                        "on-primary-fixed": "#002022",
+                        "on-secondary-fixed": "#002203",
+                        "surface-dim": "#131313",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#410001",
+                        "on-tertiary": "#690003",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-surface": "#e5e2e1",
+                        "background": "#131313",
+                        "surface-bright": "#3a3939",
+                        "primary-container": "#00f2ff",
+                        "primary-fixed": "#74f5ff",
+                        "tertiary-container": "#ffd0ca",
+                        "outline": "#849495",
+                        "on-background": "#e5e2e1",
+                        "tertiary": "#fff5f4",
+                        "secondary-fixed": "#72ff70",
+                        "on-surface-variant": "#b9cacb",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1c1b1b",
+                        "on-primary-fixed-variant": "#004f54",
+                        "tertiary-fixed": "#ffdad5",
+                        "secondary": "#ecffe3",
+                        "surface-container-highest": "#353534"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "margin-mobile": "16px",
+                        "max-width": "1280px",
+                        "margin-desktop": "32px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Geist"],
+                        "terminal-output": ["JetBrains Mono"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-base": ["Geist"],
+                        "display-lg": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "terminal-output": ["13px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "code-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="bg-surface text-on-surface selection:bg-primary-fixed-dim/30">
+    <!-- TopNavBar -->
+    <nav
+        class="bg-surface/70 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_0_15px_rgba(0,219,231,0.1)] fixed top-0 w-full z-50">
+        <div class="flex justify-between items-center max-w-max-width mx-auto px-margin-desktop h-16">
+            <div class="font-headline-md text-headline-md font-bold text-primary-fixed-dim tracking-tighter">ven</div>
+            <div class="hidden md:flex gap-8 items-center">
+                <a class="font-body-base text-body-base text-on-surface-variant hover:text-primary-fixed-dim transition-colors duration-200"
+                    href="#">Docs</a>
+                <a class="font-body-base text-body-base text-on-surface-variant hover:text-primary-fixed-dim transition-colors duration-200"
+                    href="#">Benchmarks</a>
+                <a class="font-body-base text-body-base text-on-surface-variant hover:text-primary-fixed-dim transition-colors duration-200"
+                    href="#">Changelog</a>
+            </div>
+            <div class="flex gap-4 items-center">
+                <button
+                    class="font-body-base text-body-base text-on-surface-variant hover:text-primary-fixed-dim transition-colors duration-200">GitHub</button>
+                <button
+                    class="bg-primary-container text-on-primary font-bold px-4 py-2 rounded transition-transform active:scale-95">Get
+                    Started</button>
+            </div>
+        </div>
+    </nav>
+    <main class="pt-16">
+        <!-- Section 1: Hero -->
+        <section
+            class="relative min-h-[921px] flex flex-col items-center justify-center text-center px-margin-mobile hero-gradient overflow-hidden">
+            <div class="absolute inset-0 z-0 opacity-20 pointer-events-none"
+                style="background-image: radial-gradient(circle, #00dbe7 1px, transparent 1px); background-size: 40px 40px;">
+            </div>
+            <div class="mb-8 z-10">
+                <div
+                    class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-surface-container-high border border-primary-fixed-dim/30 cyan-glow mb-6">
+                    <span class="text-primary-fixed-dim text-5xl font-extrabold tracking-tighter">v</span>
+                </div>
+                <h1 class="font-display-lg text-display-lg text-primary mb-4 max-w-3xl mx-auto">
+                    The Intelligent Version &amp; <br class="hidden md:block" /> Dependency Manager
+                </h1>
+                <p class="font-body-base text-body-base text-on-surface-variant max-w-xl mx-auto">
+                    One tool. Every language. Zero conflicts. Ever. Engineered for absolute technical mastery and
+                    performance.
+                </p>
+            </div>
+            <div class="flex flex-col md:flex-row gap-4 mb-12 z-10">
+                <button
+                    class="bg-primary-fixed-dim text-on-primary-fixed font-bold px-8 py-3 rounded-lg text-lg flex items-center gap-2 hover:shadow-[0_0_20px_rgba(0,219,231,0.4)] transition-all">
+                    Get Started <span class="material-symbols-outlined">rocket_launch</span>
+                </button>
+                <button
+                    class="border border-primary-fixed-dim/50 text-primary-fixed-dim font-bold px-8 py-3 rounded-lg text-lg flex items-center gap-2 hover:bg-primary-fixed-dim/10 transition-all">
+                    View on GitHub <span class="material-symbols-outlined">terminal</span>
+                </button>
+            </div>
+            <!-- Install Bar -->
+            <div class="w-full max-w-2xl glass-card rounded-xl overflow-hidden z-10 shadow-2xl">
+                <div class="flex bg-surface-container-high px-4 border-b border-outline-variant/30">
+                    <button
+                        class="px-4 py-2 text-terminal-output font-terminal-output text-primary-fixed-dim border-b-2 border-primary-fixed-dim">Windows</button>
+                    <button
+                        class="px-4 py-2 text-terminal-output font-terminal-output text-on-surface-variant hover:text-on-surface">macOS</button>
+                    <button
+                        class="px-4 py-2 text-terminal-output font-terminal-output text-on-surface-variant hover:text-on-surface">Linux</button>
+                </div>
+                <div class="p-4 bg-surface-container-lowest flex items-center justify-between group">
+                    <code class="font-terminal-output text-terminal-output text-secondary-fixed-dim">
+                        $ irm https://get.ven.sh/install.ps1 | iex
+                    </code>
+                    <button class="text-on-surface-variant hover:text-primary-fixed-dim transition-colors">
+                        <span class="material-symbols-outlined text-sm">content_copy</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+        <!-- Section 2: The Problem -->
+        <section class="py-24 px-margin-desktop max-w-max-width mx-auto grid md:grid-cols-2 gap-16 items-center">
+            <div>
+                <h2 class="font-display-lg text-display-lg text-primary mb-6">The Cycle of <span
+                        class="text-error">Dependency Hell</span></h2>
+                <p class="font-body-base text-body-base text-on-surface-variant mb-8">
+                    Standard package managers operate in silos. They don't talk to your OS, they don't check for
+                    system-level conflicts, and they certainly don't care about your productivity.
+                </p>
+                <ul class="space-y-4">
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-error mt-1">error</span>
+                        <span class="font-body-base text-body-base">Conflicting global binary paths</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-error mt-1">error</span>
+                        <span class="font-body-base text-body-base">Insecure outdated dependencies</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-error mt-1">error</span>
+                        <span class="font-body-base text-body-base">Manual environment variable switching</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="relative">
+                <div class="glass-card rounded-xl p-1 bg-surface-container-highest/30">
+                    <div
+                        class="bg-black rounded-lg p-6 font-terminal-output text-terminal-output h-[400px] overflow-hidden">
+                        <div class="text-on-surface-variant mb-2">$ npm install -g firebase-tools</div>
+                        <div class="text-on-surface-variant mb-2">Fetching packages... [34/122]</div>
+                        <div class="text-on-surface-variant mb-2">Installing dependencies...</div>
+                        <div
+                            class="text-error font-bold p-2 border border-error/50 bg-error-container/20 rounded mt-4 animate-pulse">
+                            npm ERR! code EEXIST<br />
+                            npm ERR! path /usr/local/bin/firebase<br />
+                            npm ERR! File exists: /opt/homebrew/bin/firebase<br />
+                            npm ERR! conflicting versions detected
+                        </div>
+                        <div class="text-on-surface-variant mt-4">$ _</div>
+                    </div>
+                </div>
+                <div class="absolute -bottom-6 -right-6 w-32 h-32 bg-error/10 blur-3xl"></div>
+            </div>
+        </section>
+        <!-- Section 3: Live Interactive Terminal -->
+        <section class="py-24 bg-surface-container-lowest">
+            <div class="max-w-max-width mx-auto px-margin-desktop">
+                <div class="text-center mb-16">
+                    <h2 class="font-headline-md text-headline-md text-primary-fixed-dim uppercase tracking-widest mb-4">
+                        Interactive Demo</h2>
+                    <p class="font-body-base text-body-base text-on-surface-variant">Experience the lightning speed of
+                        ven.</p>
+                </div>
+                <div
+                    class="max-w-3xl mx-auto glass-card rounded-xl overflow-hidden shadow-2xl border-primary-fixed-dim/20">
+                    <div
+                        class="h-10 bg-surface-container-high flex items-center px-4 justify-between border-b border-outline-variant/30">
+                        <div class="flex gap-2">
+                            <div class="terminal-header-dot bg-[#FF5F56]"></div>
+                            <div class="terminal-header-dot bg-[#FFBD2E]"></div>
+                            <div class="terminal-header-dot bg-[#27C93F]"></div>
+                        </div>
+                        <div class="font-terminal-output text-[11px] text-on-surface-variant uppercase tracking-widest">
+                            ven — interactive demo</div>
+                        <div class="w-12"></div>
+                    </div>
+                    <div class="p-8 font-terminal-output text-terminal-output bg-[#050505] min-h-[320px]">
+                        <div class="mb-4">
+                            <span class="text-secondary-fixed-dim">$</span> <span class="text-on-surface">ven install
+                                node 20</span>
+                        </div>
+                        <div class="text-on-surface-variant mb-2">✔ Validating version 20.11.1 (LTS)</div>
+                        <div class="text-on-surface-variant mb-2">✔ Checking for conflicts with local bin</div>
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="text-on-surface-variant whitespace-nowrap">Downloading:</div>
+                            <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+                                <div class="bg-primary-fixed-dim h-full w-full"></div>
+                            </div>
+                            <div class="text-primary-fixed-dim">100%</div>
+                        </div>
+                        <div class="text-secondary-fixed-dim mb-4">✔ Node 20.11.1 successfully linked to global path.
+                        </div>
+                        <div class="flex gap-3 flex-wrap mt-8">
+                            <span
+                                class="px-3 py-1 bg-surface-container border border-primary-fixed-dim/30 text-primary-fixed-dim rounded cursor-pointer hover:bg-primary-fixed-dim/10">[ven
+                                graph]</span>
+                            <span
+                                class="px-3 py-1 bg-surface-container border border-primary-fixed-dim/30 text-primary-fixed-dim rounded cursor-pointer hover:bg-primary-fixed-dim/10">[ven
+                                status]</span>
+                            <span
+                                class="px-3 py-1 bg-surface-container border border-primary-fixed-dim/30 text-primary-fixed-dim rounded cursor-pointer hover:bg-primary-fixed-dim/10">[ven
+                                check]</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Section 4: Feature Showcase -->
+        <section class="py-24 overflow-x-hidden">
+            <div class="max-w-max-width mx-auto px-margin-desktop mb-12">
+                <h2 class="font-display-lg text-display-lg text-primary">Core Intelligence</h2>
+            </div>
+            <div class="flex gap-gutter px-margin-desktop overflow-x-auto pb-12 snap-x no-scrollbar">
+                <!-- Card 1 -->
+                <div
+                    class="min-w-[320px] md:min-w-[400px] glass-card p-8 rounded-xl snap-center hover:border-primary-fixed-dim/50 transition-colors group">
+                    <div
+                        class="w-12 h-12 bg-primary-container/20 rounded-lg flex items-center justify-center text-primary-fixed-dim mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined">sync_alt</span>
+                    </div>
+                    <h3 class="font-headline-md text-headline-md text-primary mb-4">Auto-Switching</h3>
+                    <p class="font-body-base text-body-base text-on-surface-variant mb-6">Ven detects your .node-version
+                        or .python-version files and swaps environments instantly as you `cd` into directories.</p>
+                    <div
+                        class="bg-black/50 p-3 rounded font-terminal-output text-[12px] border border-outline-variant/20">
+                        <span class="text-on-surface-variant">Switching to: </span><span
+                            class="text-secondary-fixed-dim">Node v18.1.0</span>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div
+                    class="min-w-[320px] md:min-w-[400px] glass-card p-8 rounded-xl snap-center hover:border-primary-fixed-dim/50 transition-colors group">
+                    <div
+                        class="w-12 h-12 bg-primary-container/20 rounded-lg flex items-center justify-center text-primary-fixed-dim mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined">hub</span>
+                    </div>
+                    <h3 class="font-headline-md text-headline-md text-primary mb-4">Dependency Intelligence</h3>
+                    <p class="font-body-base text-body-base text-on-surface-variant mb-6">A real-time visual graph of
+                        every dependency across your system. See exactly what uses what and why.</p>
+                    <div class="flex items-center gap-2">
+                        <div class="h-1 w-full bg-surface-container-high rounded-full overflow-hidden">
+                            <div class="h-full bg-primary-fixed-dim w-3/4"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div
+                    class="min-w-[320px] md:min-w-[400px] glass-card p-8 rounded-xl snap-center hover:border-primary-fixed-dim/50 transition-colors group">
+                    <div
+                        class="w-12 h-12 bg-primary-container/20 rounded-lg flex items-center justify-center text-primary-fixed-dim mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined">security</span>
+                    </div>
+                    <h3 class="font-headline-md text-headline-md text-primary mb-4">Built-In Security</h3>
+                    <p class="font-body-base text-body-base text-on-surface-variant mb-6">Automatic CVE scanning for
+                        every binary you install. Ven blocks compromised versions before they hit your disk.</p>
+                    <div class="bg-error-container/20 p-3 rounded border border-error/30 flex items-center gap-3">
+                        <span class="material-symbols-outlined text-error">warning</span>
+                        <span class="font-terminal-output text-[12px] text-error">CVE-2024-1234 Blocked</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Section 5: Dependency Graph -->
+        <section class="py-24 bg-surface-container">
+            <div class="max-w-max-width mx-auto px-margin-desktop grid md:grid-cols-2 gap-16 items-center">
+                <div class="order-2 md:order-1">
+                    <div
+                        class="relative glass-card aspect-square rounded-2xl flex items-center justify-center overflow-hidden">
+                        <!-- Simulated Graph Nodes -->
+                        <div
+                            class="absolute w-24 h-24 border border-primary-fixed-dim/30 rounded-full flex items-center justify-center z-10 bg-surface text-primary-fixed-dim font-bold">
+                            Node.js</div>
+                        <div
+                            class="absolute top-10 left-10 w-20 h-20 border border-outline-variant/30 rounded-full flex items-center justify-center bg-surface-container text-on-surface-variant text-sm">
+                            Express</div>
+                        <div
+                            class="absolute bottom-10 right-10 w-20 h-20 border border-outline-variant/30 rounded-full flex items-center justify-center bg-surface-container text-on-surface-variant text-sm">
+                            Lodash</div>
+                        <div
+                            class="absolute top-10 right-10 w-20 h-20 border border-error/50 rounded-full flex items-center justify-center bg-surface-container text-error text-sm animate-pulse">
+                            Legacy</div>
+                        <!-- Connecting Lines (SVG) -->
+                        <svg class="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
+                            <line stroke="white" stroke-width="1" x1="50%" x2="20%" y1="50%" y2="20%"></line>
+                            <line stroke="white" stroke-width="1" x1="50%" x2="80%" y1="50%" y2="80%"></line>
+                            <line stroke="#ffb4ab" stroke-width="2" x1="50%" x2="80%" y1="50%" y2="20%"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="order-1 md:order-2">
+                    <h2 class="font-display-lg text-display-lg text-primary mb-6">Total Visibility</h2>
+                    <p class="font-body-base text-body-base text-on-surface-variant mb-8">
+                        Stop guessing why a specific version of OpenSSL is breaking your build. Ven maps the internal
+                        structure of your environments so you can pinpoint conflicts in seconds.
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-4 p-4 rounded-lg bg-surface-container-high">
+                            <span class="material-symbols-outlined text-primary-fixed-dim">search_insights</span>
+                            <span class="font-body-base text-body-base">Trace binary origins back to project
+                                manifests</span>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 rounded-lg bg-surface-container-high">
+                            <span class="material-symbols-outlined text-primary-fixed-dim">troubleshoot</span>
+                            <span class="font-body-base text-body-base">Identify "shadow" dependencies taking up disk
+                                space</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Section 6: Language Support -->
+        <section class="py-24 px-margin-desktop max-w-max-width mx-auto text-center">
+            <h2 class="font-headline-md text-headline-md text-primary mb-12">Universal Support</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <!-- Node -->
+                <div
+                    class="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group">
+                    <div class="text-4xl text-on-surface-variant group-hover:text-primary-fixed-dim">JS</div>
+                    <div
+                        class="font-terminal-output text-[10px] px-2 py-1 border border-secondary-fixed-dim/40 text-secondary-fixed-dim rounded uppercase">
+                        Stable</div>
+                    <div class="font-body-base text-sm font-bold">Node.js</div>
+                </div>
+                <!-- Python -->
+                <div
+                    class="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group">
+                    <div class="text-4xl text-on-surface-variant group-hover:text-primary-fixed-dim">PY</div>
+                    <div
+                        class="font-terminal-output text-[10px] px-2 py-1 border border-secondary-fixed-dim/40 text-secondary-fixed-dim rounded uppercase">
+                        Stable</div>
+                    <div class="font-body-base text-sm font-bold">Python</div>
+                </div>
+                <!-- Go -->
+                <div
+                    class="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group">
+                    <div class="text-4xl text-on-surface-variant group-hover:text-primary-fixed-dim">GO</div>
+                    <div
+                        class="font-terminal-output text-[10px] px-2 py-1 border border-secondary-fixed-dim/40 text-secondary-fixed-dim rounded uppercase">
+                        Stable</div>
+                    <div class="font-body-base text-sm font-bold">Go</div>
+                </div>
+                <!-- Rust -->
+                <div
+                    class="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group">
+                    <div class="text-4xl text-on-surface-variant group-hover:text-primary-fixed-dim">RS</div>
+                    <div
+                        class="font-terminal-output text-[10px] px-2 py-1 border border-secondary-fixed-dim/40 text-secondary-fixed-dim rounded uppercase">
+                        Stable</div>
+                    <div class="font-body-base text-sm font-bold">Rust</div>
+                </div>
+                <!-- Ruby -->
+                <div
+                    class="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group opacity-50">
+                    <div class="text-4xl text-on-surface-variant">RB</div>
+                    <div
+                        class="font-terminal-output text-[10px] px-2 py-1 border border-outline/40 text-outline rounded uppercase">
+                        Planned</div>
+                    <div class="font-body-base text-sm font-bold">Ruby</div>
+                </div>
+                <!-- Java -->
+                <div
+                    class="glass-card p-6 rounded-xl flex flex-col items-center gap-3 hover:border-primary-fixed-dim transition-all group opacity-50">
+                    <div class="text-4xl text-on-surface-variant">JV</div>
+                    <div
+                        class="font-terminal-output text-[10px] px-2 py-1 border border-outline/40 text-outline rounded uppercase">
+                        Planned</div>
+                    <div class="font-body-base text-sm font-bold">Java</div>
+                </div>
+            </div>
+        </section>
+        <!-- Section 7: Comparison Table -->
+        <section class="py-24 bg-surface-container-lowest">
+            <div class="max-w-max-width mx-auto px-margin-desktop">
+                <h2 class="font-display-lg text-display-lg text-primary text-center mb-16">Beyond Basic Package Managers
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="border-b border-outline-variant">
+                                <th class="text-left p-6 font-headline-md text-on-surface-variant">Capability</th>
+                                <th class="p-6 font-headline-md text-primary-fixed-dim bg-primary-fixed-dim/5">ven</th>
+                                <th class="p-6 font-headline-md text-on-surface-variant">npm / nvm</th>
+                                <th class="p-6 font-headline-md text-on-surface-variant">mise / asdf</th>
+                            </tr>
+                        </thead>
+                        <tbody class="font-body-base">
+                            <tr class="border-b border-outline-variant/30">
+                                <td class="p-6">Pre-install Conflict Check</td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                            </tr>
+                            <tr class="border-b border-outline-variant/30">
+                                <td class="p-6">Cross-Language Unification</td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                            </tr>
+                            <tr class="border-b border-outline-variant/30">
+                                <td class="p-6">Real-time CVE Scanning</td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                            </tr>
+                            <tr class="border-b border-outline-variant/30">
+                                <td class="p-6">Visual Dependency Graph</td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                            </tr>
+                            <tr class="border-b border-outline-variant/30">
+                                <td class="p-6">Non-Admin/Root Execution</td>
+                                <td class="p-6 text-center text-secondary-fixed-dim"><span
+                                        class="material-symbols-outlined" data-weight="fill">check_circle</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                                <td class="p-6 text-center text-on-surface-variant"><span
+                                        class="material-symbols-outlined">cancel</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- Section 8: Speed Numbers -->
+        <section class="py-24 border-y border-outline-variant/20">
+            <div class="max-w-max-width mx-auto px-margin-desktop grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
+                <div>
+                    <div class="text-6xl font-bold text-primary-fixed-dim mb-4 tracking-tighter">&lt; 50ms</div>
+                    <div class="font-headline-md text-on-surface-variant uppercase text-sm tracking-widest">Switching
+                        Time</div>
+                </div>
+                <div>
+                    <div class="text-6xl font-bold text-secondary-fixed-dim mb-4 tracking-tighter">0</div>
+                    <div class="font-headline-md text-on-surface-variant uppercase text-sm tracking-widest">Unresolved
+                        Conflicts</div>
+                </div>
+                <div>
+                    <div class="text-6xl font-bold text-primary-fixed-dim mb-4 tracking-tighter">8</div>
+                    <div class="font-headline-md text-on-surface-variant uppercase text-sm tracking-widest">Core
+                        Languages</div>
+                </div>
+            </div>
+        </section>
+        <!-- Section 9: Enterprise Block -->
+        <section class="py-24 px-margin-desktop max-w-max-width mx-auto">
+            <div
+                class="glass-card rounded-2xl p-12 flex flex-col md:flex-row gap-16 items-center border-primary-fixed-dim/10">
+                <div class="md:w-1/2">
+                    <h2 class="font-display-lg text-display-lg text-primary mb-6">Built for Restricted Environments</h2>
+                    <p class="font-body-base text-body-base text-on-surface-variant mb-8">
+                        Operating in a locked-down enterprise machine? Ven doesn't require admin rights. It lives
+                        entirely in your user space, shimmed and isolated to ensure compliance with corporate security
+                        while giving you the freedom to innovate.
+                    </p>
+                    <div class="flex gap-4">
+                        <div
+                            class="flex items-center gap-2 text-primary-fixed-dim bg-primary-fixed-dim/10 px-4 py-2 rounded-lg border border-primary-fixed-dim/20">
+                            <span class="material-symbols-outlined">verified_user</span>
+                            <span class="text-sm font-bold">No Sudo Required</span>
+                        </div>
+                        <div
+                            class="flex items-center gap-2 text-primary-fixed-dim bg-primary-fixed-dim/10 px-4 py-2 rounded-lg border border-primary-fixed-dim/20">
+                            <span class="material-symbols-outlined">shield_with_heart</span>
+                            <span class="text-sm font-bold">SOC2 Compliant</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:w-1/2">
+                    <img alt="Server Architecture"
+                        class="rounded-xl border border-outline-variant/30 grayscale hover:grayscale-0 transition-all duration-500"
+                        data-alt="A highly sophisticated server room with glowing cyan and deep blue status indicators on sleek server racks. The lighting is cinematic, highlighting the clean, cable-managed technical environment. The aesthetic is futuristic, high-performance, and secure, perfectly matching the ven brand's technical mastery and reliability."
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_KSbOgFMkLRgZIzlMp-1E4lWwyoK7_pZJFs02HAi7jbHucw8OzXMFU6mD-xI7ULg7R_2v9fWoOxQrgu31DeR8G1iMxdd02YGK7N_i58gTCYdeE0q63_djgpXu_0gdymh19bvPrzzw8VodzzAsRO6EW0ZKcZ0adUEI15MZKox5m3PDk3F99Q_fQnIDOxKmwYQH-ILQ9QbOBmBGKOWMzhOCwotgQqBBGd54edZRLCoxXYHptIPHS-QQGTeFFzojJ6RHskfyIk5myVI" />
+                </div>
+            </div>
+        </section>
+        <!-- Section 10: Quick Start -->
+        <section class="py-24 bg-surface-container-high/20">
+            <div class="max-w-max-width mx-auto px-margin-desktop">
+                <h2 class="font-display-lg text-display-lg text-primary text-center mb-16">Three Steps to Mastery</h2>
+                <div class="grid md:grid-cols-3 gap-12">
+                    <!-- Step 1 -->
+                    <div class="flex flex-col">
+                        <div class="text-4xl font-bold text-primary-fixed-dim/30 mb-6">01</div>
+                        <h3 class="font-headline-md text-headline-md text-primary mb-4">Install</h3>
+                        <p class="font-body-base text-on-surface-variant mb-6">Run the bootstrap command to initialize
+                            the ven binary on your system path.</p>
+                        <div class="bg-black p-4 rounded border border-outline-variant/30 font-terminal-output text-xs">
+                            <span class="text-secondary-fixed-dim">curl</span> https://get.ven.sh | sh
+                        </div>
+                    </div>
+                    <!-- Step 2 -->
+                    <div class="flex flex-col">
+                        <div class="text-4xl font-bold text-primary-fixed-dim/30 mb-6">02</div>
+                        <h3 class="font-headline-md text-headline-md text-primary mb-4">Init</h3>
+                        <p class="font-body-base text-on-surface-variant mb-6">Initialize ven in your project directory
+                            to create a secure environment lock.</p>
+                        <div class="bg-black p-4 rounded border border-outline-variant/30 font-terminal-output text-xs">
+                            <span class="text-secondary-fixed-dim">ven</span> init --all
+                        </div>
+                    </div>
+                    <!-- Step 3 -->
+                    <div class="flex flex-col">
+                        <div class="text-4xl font-bold text-primary-fixed-dim/30 mb-6">03</div>
+                        <h3 class="font-headline-md text-headline-md text-primary mb-4">Code</h3>
+                        <p class="font-body-base text-on-surface-variant mb-6">Your versions are locked and ready. Start
+                            building without conflict worries.</p>
+                        <div class="bg-black p-4 rounded border border-outline-variant/30 font-terminal-output text-xs">
+                            <span class="text-secondary-fixed-dim">ven</span> start
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <!-- Footer -->
+    <footer class="bg-surface-container-lowest w-full py-12 border-t border-outline-variant/20">
+        <div
+            class="flex flex-col md:flex-row justify-between items-center max-w-max-width mx-auto px-margin-desktop gap-gutter">
+            <div class="font-headline-md text-headline-md text-on-surface font-bold tracking-tighter">ven</div>
+            <div class="flex gap-6">
+                <a class="font-terminal-output text-terminal-output text-on-surface-variant hover:text-primary transition-colors"
+                    href="#">Documentation</a>
+                <a class="font-terminal-output text-terminal-output text-on-surface-variant hover:text-primary transition-colors"
+                    href="#">GitHub</a>
+                <a class="font-terminal-output text-terminal-output text-on-surface-variant hover:text-primary transition-colors"
+                    href="#">Discord</a>
+                <a class="font-terminal-output text-terminal-output text-on-surface-variant hover:text-primary transition-colors"
+                    href="#">Terms</a>
+                <a class="font-terminal-output text-terminal-output text-on-surface-variant hover:text-primary transition-colors"
+                    href="#">Privacy</a>
+            </div>
+            <div class="font-terminal-output text-terminal-output text-on-surface-variant text-center md:text-right">
+                © 2024 ven core team. High-performance dependency management.
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
