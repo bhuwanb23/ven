@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>ven | Fast Lane Installation</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Geist:wght@400;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        body {
+            background-color: #050505;
+            /* Level 0 Floor from Style Guidance */
+            color: #e5e2e1;
+        }
+
+        .glass-surface {
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(58, 73, 75, 0.3);
+        }
+
+        .terminal-header {
+            background: rgba(28, 27, 27, 0.9);
+            border-bottom: 1px solid rgba(58, 73, 75, 0.5);
+        }
+
+        .glow-hover:hover {
+            box-shadow: 0px 0px 15px rgba(0, 219, 231, 0.3);
+        }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#131313",
+                        "surface-tint": "#00dbe7",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#00f2ff",
+                        "surface-variant": "#353534",
+                        "outline": "#849495",
+                        "on-tertiary-container": "#c3000a",
+                        "outline-variant": "#3a494b",
+                        "on-tertiary": "#690003",
+                        "on-secondary-container": "#007117",
+                        "surface-bright": "#3a3939",
+                        "tertiary-container": "#ffd0ca",
+                        "surface-container-low": "#1c1b1b",
+                        "surface-container-highest": "#353534",
+                        "on-tertiary-fixed-variant": "#930005",
+                        "inverse-on-surface": "#313030",
+                        "on-surface": "#e5e2e1",
+                        "on-primary-container": "#006a71",
+                        "on-primary-fixed-variant": "#004f54",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed": "#410001",
+                        "inverse-surface": "#e5e2e1",
+                        "surface": "#131313",
+                        "primary-fixed-dim": "#00dbe7",
+                        "tertiary-fixed": "#ffdad5",
+                        "inverse-primary": "#00696f",
+                        "on-primary": "#00363a",
+                        "tertiary": "#fff5f4",
+                        "secondary-fixed-dim": "#00e639",
+                        "primary": "#e1fdff",
+                        "secondary": "#ecffe3",
+                        "primary-fixed": "#74f5ff",
+                        "on-secondary-fixed": "#002203",
+                        "secondary-container": "#13ff43",
+                        "on-secondary": "#003907",
+                        "secondary-fixed": "#72ff70",
+                        "surface-container-high": "#2a2a2a",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#002022",
+                        "surface-container": "#201f1f",
+                        "on-background": "#e5e2e1",
+                        "surface-dim": "#131313",
+                        "on-surface-variant": "#b9cacb",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#ffb4aa",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-secondary-fixed-variant": "#00530e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "max-width": "1280px",
+                        "margin-desktop": "32px"
+                    },
+                    "fontFamily": {
+                        "terminal-output": ["JetBrains Mono"],
+                        "headline-md": ["Geist"],
+                        "body-base": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "terminal-output": ["13px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700" }],
+                        "code-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+
+<body
+    class="bg-background text-on-surface font-body-base antialiased selection:bg-primary-container selection:text-on-primary-container">
+    <!-- Top Navigation Bar -->
+    <nav
+        class="fixed top-0 w-full z-50 bg-surface/70 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_0_15px_rgba(0,219,231,0.1)]">
+        <div class="flex justify-between items-center max-w-max-width mx-auto px-margin-desktop h-16">
+            <div class="font-headline-md text-headline-md font-bold text-primary-fixed-dim tracking-tighter">ven</div>
+            <div class="hidden md:flex gap-8 items-center">
+                <a class="text-on-surface-variant font-body-base text-body-base hover:text-primary-fixed-dim transition-colors duration-200"
+                    href="#">Docs</a>
+                <a class="text-on-surface-variant font-body-base text-body-base hover:text-primary-fixed-dim transition-colors duration-200"
+                    href="#">Benchmarks</a>
+                <a class="text-on-surface-variant font-body-base text-body-base hover:text-primary-fixed-dim transition-colors duration-200"
+                    href="#">Changelog</a>
+                <div class="flex gap-4 ml-4">
+                    <button
+                        class="px-4 py-2 bg-transparent text-primary-fixed-dim border border-primary-fixed-dim font-body-base text-sm hover:bg-primary-fixed-dim/10 transition-all active:scale-95">GitHub</button>
+                    <button
+                        class="px-4 py-2 bg-primary-fixed-dim text-on-primary font-bold font-body-base text-sm shadow-[0_0_10px_rgba(0,219,231,0.4)] active:scale-95 transition-all">Get
+                        Started</button>
+                </div>
+            </div>
+            <button class="md:hidden text-primary-fixed-dim">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+        </div>
+    </nav>
+    <main class="pt-32 pb-24 max-w-[800px] mx-auto px-margin-mobile md:px-0">
+        <!-- Header Section -->
+        <header class="text-center mb-16">
+            <h1 class="font-display-lg text-display-lg mb-4 text-primary">Install Ven</h1>
+            <p class="text-on-surface-variant text-body-base max-w-md mx-auto">
+                The high-performance version manager. Zero dependencies. Native binary. One command to rule them all.
+            </p>
+        </header>
+        <!-- Platform Selector -->
+        <div class="flex flex-wrap justify-center gap-2 mb-12">
+            <button
+                class="px-6 py-2 glass-surface border-primary-fixed-dim text-primary-fixed-dim font-bold transition-all border-b-2">macOS</button>
+            <button
+                class="px-6 py-2 glass-surface border-transparent text-on-surface-variant hover:text-primary-fixed-dim transition-all">Linux</button>
+            <button
+                class="px-6 py-2 glass-surface border-transparent text-on-surface-variant hover:text-primary-fixed-dim transition-all">Windows</button>
+            <button
+                class="px-6 py-2 glass-surface border-transparent text-on-surface-variant hover:text-primary-fixed-dim transition-all">Source</button>
+        </div>
+        <!-- Primary Install Command (Massive Hero Terminal) -->
+        <section class="mb-20">
+            <div class="glass-surface overflow-hidden border border-outline-variant/50 rounded-lg shadow-2xl">
+                <div class="terminal-header px-4 py-2 flex items-center gap-2">
+                    <div class="flex gap-1.5">
+                        <div class="w-3 h-3 rounded-full bg-error-container"></div>
+                        <div class="w-3 h-3 rounded-full bg-secondary-container"></div>
+                        <div class="w-3 h-3 rounded-full bg-primary-container"></div>
+                    </div>
+                    <span
+                        class="ml-4 text-on-surface-variant font-terminal-output text-[11px] opacity-50 uppercase tracking-widest">Install
+                        Command</span>
+                </div>
+                <div class="p-8 bg-surface-container-lowest relative group">
+                    <code class="font-terminal-output text-lg md:text-2xl text-primary-fixed-dim block">
+                        curl -fsSL https://ven.sh/install.sh | sh
+                    </code>
+                    <button
+                        class="absolute top-8 right-8 text-on-surface-variant hover:text-primary-fixed-dim transition-colors">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </button>
+                </div>
+            </div>
+            <p class="mt-4 text-center text-on-surface-variant font-terminal-output text-xs opacity-60">
+                Installs to <span class="text-on-surface">~/.ven/bin/ven</span> and adds to PATH automatically.
+            </p>
+        </section>
+        <!-- Visual Directory Tree -->
+        <section class="mb-24">
+            <h2 class="font-headline-md text-headline-md mb-8 flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary-fixed-dim">account_tree</span>
+                What Gets Installed
+            </h2>
+            <div class="glass-surface p-6 font-terminal-output text-on-surface-variant leading-relaxed">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-primary-fixed-dim">~/.ven/</span>
+                    <span class="text-[10px] bg-outline-variant px-1 text-on-surface uppercase font-bold">Home</span>
+                </div>
+                <div class="pl-4 border-l border-outline-variant/30 py-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-outline">├──</span>
+                        <span class="text-on-surface">bin/</span>
+                        <span class="text-secondary-fixed-dim text-[11px] font-bold">← THE BINARY</span>
+                    </div>
+                    <div class="pl-6 border-l border-outline-variant/30 ml-4 py-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-outline">└──</span>
+                            <span class="text-on-surface">ven</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-outline">├──</span>
+                        <span class="text-on-surface">versions/</span>
+                        <span class="text-[11px] opacity-40 italic">Managed SDKs and tools</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-outline">├──</span>
+                        <span class="text-on-surface">cache/</span>
+                        <span class="text-[11px] opacity-40 italic">Download fragments</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-outline">└──</span>
+                        <span class="text-on-surface">config.toml</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Next Steps -->
+        <section class="mb-24 space-y-12">
+            <h2 class="font-headline-md text-headline-md mb-4">Next Steps</h2>
+            <div class="grid gap-8">
+                <!-- Step 1 -->
+                <div class="flex gap-6">
+                    <div
+                        class="flex-shrink-0 w-8 h-8 rounded-full border border-primary-fixed-dim flex items-center justify-center font-bold text-primary-fixed-dim">
+                        1</div>
+                    <div class="flex-grow">
+                        <h3 class="font-headline-md text-xl mb-3">Initialize Shell</h3>
+                        <p class="text-on-surface-variant mb-4">Refresh your environment to load the new PATH variables.
+                        </p>
+                        <div
+                            class="glass-surface bg-surface-container-lowest p-3 font-terminal-output text-sm border-l-4 border-primary-fixed-dim">
+                            source ~/.zshrc # or ~/.bashrc
+                        </div>
+                    </div>
+                </div>
+                <!-- Step 2 -->
+                <div class="flex gap-6">
+                    <div
+                        class="flex-shrink-0 w-8 h-8 rounded-full border border-primary-fixed-dim flex items-center justify-center font-bold text-primary-fixed-dim">
+                        2</div>
+                    <div class="flex-grow">
+                        <h3 class="font-headline-md text-xl mb-3">Install a Version</h3>
+                        <p class="text-on-surface-variant mb-4">Add your first managed tool using the high-speed engine.
+                        </p>
+                        <div
+                            class="glass-surface bg-surface-container-lowest p-3 font-terminal-output text-sm border-l-4 border-secondary-fixed-dim">
+                            ven install node@latest
+                        </div>
+                    </div>
+                </div>
+                <!-- Step 3 -->
+                <div class="flex gap-6">
+                    <div
+                        class="flex-shrink-0 w-8 h-8 rounded-full border border-primary-fixed-dim flex items-center justify-center font-bold text-primary-fixed-dim">
+                        3</div>
+                    <div class="flex-grow">
+                        <h3 class="font-headline-md text-xl mb-3">Switch Context</h3>
+                        <p class="text-on-surface-variant mb-4">Activate the version in your current terminal session.
+                        </p>
+                        <div
+                            class="glass-surface bg-surface-container-lowest p-3 font-terminal-output text-sm border-l-4 border-primary-fixed-dim">
+                            ven use node@20
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Corporate / Portable -->
+        <section class="mb-24 glass-surface p-8 border-l-4 border-secondary-fixed-dim">
+            <div class="flex flex-col md:flex-row gap-8 items-start">
+                <div class="flex-grow">
+                    <h2 class="font-headline-md text-headline-md mb-4 text-secondary-fixed-dim">Corporate &amp; Portable
+                    </h2>
+                    <p class="text-on-surface-variant text-body-base mb-6">
+                        Strict environment? Ven can run entirely from a local folder without root access or
+                        modifications to your global shell config. Perfect for air-gapped or restricted CI environments.
+                    </p>
+                    <div class="font-terminal-output bg-surface-container-low p-4 text-sm text-on-surface">
+                        VEN_HOME="./.ven" ./ven-portable install
+                    </div>
+                </div>
+                <div
+                    class="w-full md:w-48 aspect-square bg-surface-container-high rounded flex items-center justify-center border border-outline-variant/30">
+                    <span class="material-symbols-outlined text-[64px] text-secondary-fixed-dim">business_center</span>
+                </div>
+            </div>
+        </section>
+        <!-- Verify Section -->
+        <section class="mb-24">
+            <h2 class="font-headline-md text-headline-md mb-8">Verify Installation</h2>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="glass-surface p-4 border border-outline-variant/20">
+                    <p class="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
+                        Command</p>
+                    <code class="font-terminal-output text-primary-fixed-dim block">ven --version</code>
+                </div>
+                <div class="glass-surface p-4 border border-outline-variant/20">
+                    <p class="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
+                        Expected Output</p>
+                    <code
+                        class="font-terminal-output text-secondary-fixed-dim block">ven 1.4.2 (aarch64-apple-darwin)</code>
+                </div>
+            </div>
+        </section>
+        <!-- Troubleshooting (Accordion) -->
+        <section class="mb-24">
+            <h2 class="font-headline-md text-headline-md mb-8">Troubleshooting</h2>
+            <div class="space-y-2">
+                <div
+                    class="glass-surface p-4 flex justify-between items-center cursor-pointer hover:bg-surface-container-low transition-colors">
+                    <span class="font-bold">'ven' command not found</span>
+                    <span class="material-symbols-outlined">expand_more</span>
+                </div>
+                <div
+                    class="glass-surface p-4 flex justify-between items-center cursor-pointer hover:bg-surface-container-low transition-colors">
+                    <span class="font-bold">Permission denied (EACCES)</span>
+                    <span class="material-symbols-outlined">expand_more</span>
+                </div>
+                <div
+                    class="glass-surface p-4 flex justify-between items-center cursor-pointer hover:bg-surface-container-low transition-colors">
+                    <span class="font-bold">OpenSSL version mismatch</span>
+                    <span class="material-symbols-outlined">expand_more</span>
+                </div>
+            </div>
+        </section>
+        <!-- Uninstall Section -->
+        <section class="mb-24 border-t border-outline-variant/30 pt-16">
+            <div class="text-center max-w-lg mx-auto">
+                <h2 class="font-headline-md text-headline-md mb-4">Uninstall</h2>
+                <p class="text-on-surface-variant mb-8">Leaving us? Remove everything with a single sweep. We'll miss
+                    you.</p>
+                <div
+                    class="bg-surface-container-lowest p-4 font-terminal-output text-on-error border border-error/30 inline-block rounded">
+                    rm -rf ~/.ven &amp;&amp; sed -i '/\.ven\/bin/d' ~/.zshrc
+                </div>
+            </div>
+        </section>
+        <!-- FAQ Grid -->
+        <section class="mb-24">
+            <h2 class="font-headline-md text-headline-md mb-12 text-center">Frequently Asked</h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="font-bold text-primary-fixed-dim mb-2">Why is it so fast?</h3>
+                    <p class="text-on-surface-variant text-sm">Ven is written in pure Rust with a custom-built parallel
+                        downloader. We bypass overhead by symlinking directly to binary paths.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-primary-fixed-dim mb-2">Does it support Windows?</h3>
+                    <p class="text-on-surface-variant text-sm">Yes. We provide a native PowerShell installer and a
+                        portable EXE for corporate environments.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-primary-fixed-dim mb-2">What happens to NVM?</h3>
+                    <p class="text-on-surface-variant text-sm">Ven can coexist with NVM, but we recommend migrating to
+                        avoid PATH conflicts and improve shell startup time.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-primary-fixed-dim mb-2">Is there a GUI?</h3>
+                    <p class="text-on-surface-variant text-sm">Ven is strictly CLI-first. We believe in terminal mastery
+                        and scriptability for all developers.</p>
+                </div>
+            </div>
+        </section>
+        <!-- Release Info Table -->
+        <section class="mb-24 overflow-x-auto">
+            <h2 class="font-headline-md text-headline-md mb-8">Direct Downloads (v1.4.2)</h2>
+            <table class="w-full text-left border-collapse font-terminal-output text-sm">
+                <thead>
+                    <tr
+                        class="border-b border-outline-variant/30 text-on-surface-variant uppercase text-[10px] tracking-widest">
+                        <th class="py-4 px-2">Platform</th>
+                        <th class="py-4 px-2">Artifact</th>
+                        <th class="py-4 px-2">SHA256 Checksum</th>
+                        <th class="py-4 px-2 text-right">Size</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/10">
+                    <tr class="hover:bg-surface-container-low transition-colors">
+                        <td class="py-4 px-2 font-bold text-primary-fixed-dim">macOS (ARM)</td>
+                        <td class="py-4 px-2">ven-darwin-arm64.tar.gz</td>
+                        <td class="py-4 px-2 opacity-50 truncate max-w-[120px]">e3b0c442...</td>
+                        <td class="py-4 px-2 text-right">4.2 MB</td>
+                    </tr>
+                    <tr class="hover:bg-surface-container-low transition-colors">
+                        <td class="py-4 px-2 font-bold text-primary-fixed-dim">macOS (x86)</td>
+                        <td class="py-4 px-2">ven-darwin-x64.tar.gz</td>
+                        <td class="py-4 px-2 opacity-50 truncate max-w-[120px]">8f92a11b...</td>
+                        <td class="py-4 px-2 text-right">4.8 MB</td>
+                    </tr>
+                    <tr class="hover:bg-surface-container-low transition-colors">
+                        <td class="py-4 px-2 font-bold text-primary-fixed-dim">Linux (x86)</td>
+                        <td class="py-4 px-2">ven-linux-x64.tar.gz</td>
+                        <td class="py-4 px-2 opacity-50 truncate max-w-[120px]">33a109fc...</td>
+                        <td class="py-4 px-2 text-right">5.1 MB</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+    <!-- Footer -->
+    <footer class="w-full py-12 bg-surface-container-lowest border-t border-outline-variant/20">
+        <div
+            class="flex flex-col md:flex-row justify-between items-center max-w-max-width mx-auto px-margin-desktop gap-gutter">
+            <div class="font-headline-md text-headline-md text-on-surface mb-4 md:mb-0">ven</div>
+            <p class="font-terminal-output text-terminal-output text-on-surface-variant text-center md:text-left">
+                © 2024 ven core team. High-performance dependency management.
+            </p>
+            <div class="flex gap-6 mt-4 md:mt-0">
+                <a class="text-on-surface-variant font-terminal-output text-terminal-output hover:text-primary transition-colors"
+                    href="#">Documentation</a>
+                <a class="text-on-surface-variant font-terminal-output text-terminal-output hover:text-primary transition-colors"
+                    href="#">GitHub</a>
+                <a class="text-on-surface-variant font-terminal-output text-terminal-output hover:text-primary transition-colors"
+                    href="#">Discord</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
