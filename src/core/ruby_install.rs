@@ -6,7 +6,6 @@ use anyhow::{anyhow, Context, Result};
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde_json::Value;
-use std::collections::HashMap;
 #[cfg(not(target_os = "windows"))]
 use std::collections::HashSet;
 use std::fs;
@@ -374,7 +373,7 @@ fn ruby_builder_pick_asset_url(semver: &str) -> Result<String> {
 #[cfg(not(target_os = "windows"))]
 fn pick_builder_asset_browser_url(release_json: &Value, semver: &str) -> Result<String> {
     let prefix = format!("ruby-{semver}-");
-    let mut candidates: Vec<String> = release_json
+    let candidates: Vec<String> = release_json
         .get("assets")
         .and_then(Value::as_array)
         .map(|arr| {

@@ -33,10 +33,8 @@ pub fn print_conflict_report(result: &SimulationResult) {
 }
 
 pub fn merge_suggestions(result: &mut SimulationResult) {
-    let mut id = 1u32;
-    for opt in &mut result.suggestions {
+    for (id, opt) in (1u32..).zip(result.suggestions.iter_mut()) {
         opt.id = id;
-        id += 1;
     }
 }
 

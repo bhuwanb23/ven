@@ -330,7 +330,7 @@ fn spawn_for_shell(
         ShellKind::PowerShell => {
             let cmdline = powershell_inline_command(parts, cwd);
 
-            let mut run = |program: &str| -> Result<()> {
+            let run = |program: &str| -> Result<()> {
                 let mut cmd = Command::new(program);
                 cmd.args(["-NoExit", "-NoLogo", "-Command", &cmdline])
                     .current_dir(cwd);

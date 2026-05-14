@@ -1,7 +1,6 @@
 //! Shell detection for spawning terminals (launcher).
 
 use std::path::Path;
-use std::process::Command;
 
 /// Kind of interactive shell chosen for spawning.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +68,7 @@ fn powershell_exe_paths() -> &'static [&'static str] {
 
 #[cfg(windows)]
 fn powershell_on_path() -> bool {
+    use std::process::Command;
     let out = Command::new("where").args(["powershell"]).output();
     matches!(out, Ok(o) if o.status.success())
 }

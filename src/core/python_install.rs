@@ -12,10 +12,12 @@ use zip::ZipArchive;
 
 use crate::core::integrity;
 
+#[allow(dead_code)]
 const GET_PIP_URL: &str = "https://bootstrap.pypa.io/get-pip.py";
 
 pub struct PythonDownloader {
     storage_root: PathBuf,
+    #[allow(dead_code)]
     cache_dir: PathBuf,
 }
 
@@ -127,6 +129,7 @@ impl PythonDownloader {
         Ok(versions)
     }
 
+    #[allow(dead_code)]
     fn download_zip(&self, url: &str, dest: &Path) -> Result<()> {
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
@@ -140,6 +143,7 @@ impl PythonDownloader {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
         fs::create_dir_all(dest)?;
         let file = File::open(zip_path)?;
@@ -217,6 +221,7 @@ impl PythonDownloader {
 /// page. python.org doesn't ship per-archive sidecars, so this scrapes the HTML
 /// table; if anything fails we degrade to a warning (Node's UX) so air-gapped
 /// or HTML-changed environments still install.
+#[allow(dead_code)]
 fn verify_python_archive(archive: &Path, filename: &str, version: &str) {
     match fetch_python_release_sha256(filename, version) {
         Ok(hex) => match integrity::verify_sha256(archive, &hex) {
@@ -236,6 +241,7 @@ fn verify_python_archive(archive: &Path, filename: &str, version: &str) {
 
 /// Scrape `https://www.python.org/downloads/release/python-<ver_nodots>/` for
 /// the SHA256 hash that follows the archive filename in the download table.
+#[allow(dead_code)]
 fn fetch_python_release_sha256(filename: &str, version: &str) -> Result<String> {
     let nodots: String = version.chars().filter(|c| c.is_ascii_digit()).collect();
     if nodots.is_empty() {
@@ -289,6 +295,7 @@ pub fn normalize_python_version(version: &str) -> Result<String> {
     ))
 }
 
+#[allow(dead_code)]
 fn find_pth_file(install_dir: &Path) -> Result<PathBuf> {
     for entry in fs::read_dir(install_dir)? {
         let path = entry?.path();
@@ -303,6 +310,7 @@ fn find_pth_file(install_dir: &Path) -> Result<PathBuf> {
 }
 
 /// Uncomment `# import site` so pip / site-packages work.
+#[allow(dead_code)]
 fn enable_embed_import_site(install_dir: &Path) -> Result<()> {
     let pth = find_pth_file(install_dir)?;
     let mut content =
@@ -324,6 +332,7 @@ fn enable_embed_import_site(install_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn bootstrap_pip(install_dir: &Path) -> Result<()> {
     let python_exe = install_dir.join("python.exe");
     println!("{} Bootstrapping pip (ensurepip)...", "[PIP]".cyan());
@@ -359,6 +368,7 @@ fn bootstrap_pip(install_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn validate_python_pip(install_dir: &Path, version: &str) -> Result<()> {
     let python_exe = install_dir.join("python.exe");
     let py_out = Command::new(&python_exe)

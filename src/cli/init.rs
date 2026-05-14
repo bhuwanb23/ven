@@ -258,11 +258,9 @@ pub fn cmd_init(
     }
 
     if selected_language == "python" {
-        use crate::core::config::resolve_python_version;
         use crate::core::project_venv::{
             create_local_venv, ensure_gitignore_venv, PROJECT_VENV_DIR,
         };
-        use crate::plugins::{LanguagePlugin, PythonPlugin};
         println!(
             "\n{} Creating local virtual environment ({}/)...",
             "[PY]".cyan().bold(),
@@ -270,6 +268,8 @@ pub fn cmd_init(
         );
         #[cfg(target_os = "windows")]
         {
+            use crate::core::config::resolve_python_version;
+            use crate::plugins::PythonPlugin;
             let plugin = PythonPlugin;
             let installed = plugin.list_installed().unwrap_or_default();
             match resolve_python_version(&selected_version, &installed) {
