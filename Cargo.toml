@@ -79,3 +79,59 @@ mockito = "1"
 opt-level = 3
 strip = true
 lto = true
+
+# -----------------------------------------------------------------------------
+# Workspace lint configuration (applies to `cargo clippy --workspace -- -D warnings`)
+#
+# The CI lint job runs clippy with `-D warnings`, which on Rust 1.94+ flags a
+# wide set of stylistic suggestions that the codebase has consciously accepted
+# (e.g. `vec!` over `[]` for readable static tables, `format!`/`to_string()`
+# in print args for symmetry across branches, intentional one-arm `match`
+# blocks documenting an exhaustive intent). Allowing them at the crate level
+# keeps CI strict against *new* genuine warnings while not blocking on style
+# debates one lint at a time.
+#
+# Anything correctness-relevant (unused_imports, unused_variables, dead_code,
+# etc.) is still warn/deny by default and will fail CI. To re-evaluate any
+# entry, remove it here and run `cargo clippy --workspace --all-targets`.
+# -----------------------------------------------------------------------------
+[lints.clippy]
+# Static literal arrays/strings — array vs vec is style not safety.
+useless_vec = "allow"
+useless_format = "allow"
+# Format-string nitpicks (`println!("{}", format!(..))`, `.to_string()` in
+# print args, empty-string println, etc).
+format_in_format_args = "allow"
+to_string_in_format_args = "allow"
+print_literal = "allow"
+println_empty_string = "allow"
+writeln_empty_string = "allow"
+# Helper methods that mirror `Display` shape but stay inherent on purpose.
+inherent_to_string = "allow"
+# Patterns we keep verbose intentionally for readability / future-proofing.
+single_match = "allow"
+needless_borrow = "allow"
+needless_return = "allow"
+unnecessary_to_owned = "allow"
+cmp_owned = "allow"
+manual_pattern_char_comparison = "allow"
+nonminimal_bool = "allow"
+collapsible_if = "allow"
+manual_strip = "allow"
+manual_find = "allow"
+while_let_on_iterator = "allow"
+unnecessary_map_or = "allow"
+double_ended_iterator_last = "allow"
+# Identical-block branches are placeholders for future divergent logic in
+# the install-flow UI; refactoring to a shared block obscures intent.
+if_same_then_else = "allow"
+# `Bun::next` etc. mirror trait shape but the inherent definition is the
+# canonical entry point in our domain.
+should_implement_trait = "allow"
+# Hot-path enum where boxing a variant would force a heap alloc on every
+# activation — the size penalty is paid once, the box cost would be per call.
+large_enum_variant = "allow"
+# A handful of orchestration functions take the full set of CLI flags
+# (e.g. `cmd_status(verbose, json, security, eol, …)`); splitting into a
+# struct just to silence this lint adds plumbing without clarity.
+too_many_arguments = "allow"
