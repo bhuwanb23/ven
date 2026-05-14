@@ -6,6 +6,8 @@ use anyhow::{anyhow, Context, Result};
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde_json::Value;
+#[cfg(target_os = "windows")]
+use std::collections::HashMap;
 #[cfg(not(target_os = "windows"))]
 use std::collections::HashSet;
 use std::fs;
