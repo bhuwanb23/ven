@@ -269,6 +269,7 @@ pub fn cmd_init(
         #[cfg(target_os = "windows")]
         {
             use crate::core::config::resolve_python_version;
+            use crate::plugins::LanguagePlugin;
             use crate::plugins::PythonPlugin;
             let plugin = PythonPlugin;
             let installed = plugin.list_installed().unwrap_or_default();
