@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/ven-logo.png" alt="Ven Logo" width="120" />
+<img src="assets/Ven_logo.png" alt="Ven Logo" width="120" />
 
 # ven
 
