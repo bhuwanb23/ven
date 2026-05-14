@@ -1,0 +1,78 @@
+# Builds ven_website (Vite + React) and deploys it to GitHub Pages.
+#
+# Site is hosted at https://bhuwanb23.github.io/ven/ — see vite.config.js
+# (`base: '/ven/'`) and src/main.jsx (BrowserRouter `basename`) for the
+# matching client-side configuration.
+#
+# To enable: GitHub repo → Settings → Pages → Build and deployment → Source:
+# "GitHub Actions". Then merge this workflow to the default branch and either
+# push a website change or run "Deploy ven_website to GitHub Pages" manually.
+
+name: Deploy ven_website to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ven_website/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+# Pages requires these permissions on the deploying job/workflow.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one in-flight deployment at a time; cancel superseded queued runs but
+# never interrupt a deploy that's already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ven_website
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ven_website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ven_website/dist
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

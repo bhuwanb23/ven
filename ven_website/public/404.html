@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ven — redirecting…</title>
+    <!--
+      GitHub Pages SPA fallback. When a user hits a deep link like
+      https://bhuwanb23.github.io/ven/docs/python directly, GitHub Pages
+      doesn't know about the React Router route and serves this 404 page.
+      The script below rewrites the URL into a query-string format that
+      `index.html` decodes back into a real route on the client.
+      Source: https://github.com/rafgraph/spa-github-pages (MIT)
+    -->
+    <script type="text/javascript">
+      // For project pages (https://<user>.github.io/<repo>/) keep 1 segment
+      // ("ven"). For user/organization pages set this to 0.
+      var pathSegmentsToKeep = 1
+      var l = window.location
+      l.replace(
+        l.protocol +
+          '//' +
+          l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname
+            .split('/')
+            .slice(0, 1 + pathSegmentsToKeep)
+            .join('/') +
+          '/?/' +
+          l.pathname
+            .slice(1)
+            .split('/')
+            .slice(pathSegmentsToKeep)
+            .join('/')
+            .replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+      )
+    </script>
+  </head>
+  <body></body>
+</html>

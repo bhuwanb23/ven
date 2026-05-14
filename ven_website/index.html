@@ -12,12 +12,13 @@
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://bhuwanb23.github.io/ven/" />
     <meta property="og:title" content="ven — The Intelligent Version &amp; Dependency Manager" />
     <meta
       property="og:description"
       content="One tool. Every language. Zero conflicts. Built for engineers who demand absolute control over their stack."
     />
-    <meta property="og:image" content="/favicon.svg" />
+    <meta property="og:image" content="https://bhuwanb23.github.io/ven/favicon.svg" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -26,10 +27,36 @@
       name="twitter:description"
       content="One tool. Every language. Zero conflicts."
     />
+    <meta name="twitter:image" content="https://bhuwanb23.github.io/ven/favicon.svg" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://fonts.cdnfonts.com" />
+
+    <!--
+      Companion to public/404.html (GitHub Pages SPA fallback). If we arrive
+      with `?/foo/bar` in the query string, decode it back into the real
+      pathname before React Router boots so deep links round-trip cleanly.
+      Must run synchronously before the module script below.
+    -->
+    <script type="text/javascript">
+      ;(function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) {
+              return s.replace(/~and~/g, '&')
+            })
+            .join('?')
+          window.history.replaceState(
+            null,
+            null,
+            l.pathname.slice(0, -1) + decoded + l.hash
+          )
+        }
+      })(window.location)
+    </script>
 
     <title>ven — The Intelligent Version &amp; Dependency Manager</title>
   </head>
