@@ -26,17 +26,14 @@ fn ends_with_components(path: &Path, expected_tail: &[&str]) -> bool {
         return false;
     }
     let tail = &comps[comps.len() - expected_tail.len()..];
-    tail.iter()
-        .zip(expected_tail.iter())
-        .all(|(a, b)| a == b)
+    tail.iter().zip(expected_tail.iter()).all(|(a, b)| a == b)
 }
 
 #[test]
 fn test_example_directory_config() {
     let d = fixture_root();
 
-    let toml_path =
-        find_ven_toml(&d).expect("Should find ven.toml in tests/fixtures/config");
+    let toml_path = find_ven_toml(&d).expect("Should find ven.toml in tests/fixtures/config");
     assert!(
         ends_with_components(&toml_path, &["config", "ven.toml"]),
         "expected ../config/ven.toml, got {}",

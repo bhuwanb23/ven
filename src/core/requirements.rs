@@ -36,8 +36,7 @@ impl Requirements {
                 lines: Vec::new(),
             });
         }
-        let body =
-            fs::read_to_string(&path).with_context(|| format!("Read {}", path.display()))?;
+        let body = fs::read_to_string(&path).with_context(|| format!("Read {}", path.display()))?;
         let mut lines = Vec::new();
         for raw in body.lines() {
             lines.push(parse_line(raw));
@@ -92,8 +91,7 @@ impl Requirements {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        fs::write(&self.path, out)
-            .with_context(|| format!("Write {}", self.path.display()))?;
+        fs::write(&self.path, out).with_context(|| format!("Write {}", self.path.display()))?;
         Ok(())
     }
 
@@ -200,7 +198,10 @@ mod tests {
             }],
         };
         r.upsert("requests", "requests==2.32.0");
-        assert_eq!(r.pinned(), vec![("requests".into(), "requests==2.32.0".into())]);
+        assert_eq!(
+            r.pinned(),
+            vec![("requests".into(), "requests==2.32.0".into())]
+        );
     }
 
     #[test]

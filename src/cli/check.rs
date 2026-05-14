@@ -1,13 +1,9 @@
 //! `ven check` — combined security (OSV) + EOL health report.
 
 use crate::core::config::VenConfig;
-use crate::core::endoflife::{
-    endoflife_slug_for_runtime_name, EndOfLifeClient, EolReport,
-};
+use crate::core::endoflife::{endoflife_slug_for_runtime_name, EndOfLifeClient, EolReport};
 use crate::core::load_config;
-use crate::core::osv::{
-    osv_ecosystem_for, OsvClient, OsvPackageReport, OsvQuery, SeverityRank,
-};
+use crate::core::osv::{osv_ecosystem_for, OsvClient, OsvPackageReport, OsvQuery, SeverityRank};
 use crate::intelligence::graph::RuntimeKind;
 use crate::intelligence::ven_lock::VenLockFile;
 use anyhow::Result;
@@ -17,8 +13,8 @@ use std::path::Path;
 
 pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let cfg = load_config(&cwd)?
-        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let cfg =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
 
     let want_security = security_only || (!security_only && !eol_only);
     let want_eol = eol_only || (!security_only && !eol_only);
@@ -240,8 +236,8 @@ pub(crate) fn collect_pinned_packages(
     for (name, spec) in &cfg.packages {
         let version = if spec.is_empty() || spec == "*" || spec == "latest" {
             String::from("0.0.0") // OSV will report nothing for non-existent
-                                   // versions; better to skip but we keep
-                                   // the entry so the user sees the intent.
+                                  // versions; better to skip but we keep
+                                  // the entry so the user sees the intent.
         } else {
             spec.trim_start_matches(['^', '~', '=']).to_string()
         };
@@ -330,8 +326,16 @@ fn print_eol_report(reports: &[EolReport]) {
     }
     for r in reports {
         let cycle = r.matched_cycle.as_deref().unwrap_or("?");
-        let cache_tag = if r.from_cache { " (cached)".dimmed().to_string() } else { String::new() };
-        let header = format!("{} {}", r.product.bold(), format!("{} (cycle {})", r.configured_version, cycle).dimmed());
+        let cache_tag = if r.from_cache {
+            " (cached)".dimmed().to_string()
+        } else {
+            String::new()
+        };
+        let header = format!(
+            "{} {}",
+            r.product.bold(),
+            format!("{} (cycle {})", r.configured_version, cycle).dimmed()
+        );
         if r.eol_passed {
             println!("  {} {}{}", "[EOL]".red(), header, cache_tag);
         } else if r.support_passed {

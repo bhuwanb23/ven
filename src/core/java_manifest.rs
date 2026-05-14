@@ -47,9 +47,12 @@ impl JavaCoord {
             }
             (spec, None)
         };
-        let (group, artifact) = left
-            .split_once(':')
-            .ok_or_else(|| anyhow!("Java coordinate must be `group:artifact[@version]`: {}", spec))?;
+        let (group, artifact) = left.split_once(':').ok_or_else(|| {
+            anyhow!(
+                "Java coordinate must be `group:artifact[@version]`: {}",
+                spec
+            )
+        })?;
         if group.trim().is_empty() || artifact.trim().is_empty() {
             return Err(anyhow!(
                 "Java coordinate must be `group:artifact[@version]`: {}",
@@ -182,7 +185,10 @@ fn maven_dep_block(coord: &JavaCoord) -> String {
     let mut s = String::new();
     s.push_str("<dependency>\n");
     s.push_str(&format!("      <groupId>{}</groupId>\n", coord.group));
-    s.push_str(&format!("      <artifactId>{}</artifactId>\n", coord.artifact));
+    s.push_str(&format!(
+        "      <artifactId>{}</artifactId>\n",
+        coord.artifact
+    ));
     if let Some(v) = &coord.version {
         s.push_str(&format!("      <version>{}</version>\n", v));
     }
@@ -193,7 +199,10 @@ fn maven_dep_block(coord: &JavaCoord) -> String {
 fn find_existing_maven_dep(body: &str, coord: &JavaCoord) -> Option<(usize, usize)> {
     let lower = body.to_ascii_lowercase();
     let needle_g = format!("<groupid>{}</groupid>", coord.group.to_ascii_lowercase());
-    let needle_a = format!("<artifactid>{}</artifactid>", coord.artifact.to_ascii_lowercase());
+    let needle_a = format!(
+        "<artifactid>{}</artifactid>",
+        coord.artifact.to_ascii_lowercase()
+    );
     let mut search_from = 0;
     while let Some(start) = lower[search_from..].find("<dependency>") {
         let abs_start = search_from + start;
@@ -210,8 +219,8 @@ fn find_existing_maven_dep(body: &str, coord: &JavaCoord) -> Option<(usize, usiz
 }
 
 fn gradle_add(manifest: &Path, coord: &JavaCoord, kotlin: bool) -> Result<()> {
-    let body = fs::read_to_string(manifest)
-        .with_context(|| format!("Read {}", manifest.display()))?;
+    let body =
+        fs::read_to_string(manifest).with_context(|| format!("Read {}", manifest.display()))?;
     let new_line = gradle_line(coord, kotlin);
     let key = format!("{}:{}", coord.group, coord.artifact);
 
@@ -220,21 +229,19 @@ fn gradle_add(manifest: &Path, coord: &JavaCoord, kotlin: bool) -> Result<()> {
 
     // Insert inside `dependencies { ... }`.
     let updated = insert_into_gradle_dependencies(&pruned, &new_line)?;
-    fs::write(manifest, updated)
-        .with_context(|| format!("Write {}", manifest.display()))?;
+    fs::write(manifest, updated).with_context(|| format!("Write {}", manifest.display()))?;
     Ok(())
 }
 
 fn gradle_remove(manifest: &Path, coord: &JavaCoord, _kotlin: bool) -> Result<bool> {
-    let body = fs::read_to_string(manifest)
-        .with_context(|| format!("Read {}", manifest.display()))?;
+    let body =
+        fs::read_to_string(manifest).with_context(|| format!("Read {}", manifest.display()))?;
     let key = format!("{}:{}", coord.group, coord.artifact);
     let pruned = strip_gradle_line_for(&body, &key);
     if pruned == body {
         return Ok(false);
     }
-    fs::write(manifest, pruned)
-        .with_context(|| format!("Write {}", manifest.display()))?;
+    fs::write(manifest, pruned).with_context(|| format!("Write {}", manifest.display()))?;
     Ok(true)
 }
 

@@ -42,10 +42,7 @@ impl IntelligenceStore {
             );",
         )?;
         // Best-effort migration for graph hash column
-        let _ = conn.execute(
-            "ALTER TABLE snapshots ADD COLUMN graph_hash TEXT",
-            [],
-        );
+        let _ = conn.execute("ALTER TABLE snapshots ADD COLUMN graph_hash TEXT", []);
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS package_cache (
                 package_name TEXT NOT NULL,

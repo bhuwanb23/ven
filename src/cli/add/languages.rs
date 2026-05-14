@@ -78,7 +78,6 @@ fn sync_requirements_after_add(specs: &[String]) -> Result<()> {
     Ok(())
 }
 
-
 pub(super) fn cmd_add_go(package_specs: &[String], dry_run: bool) -> Result<()> {
     println!("\n{}", "ven add (go)".bold().cyan());
     println!("  {} {} module(s)", "[PLAN]".cyan(), package_specs.len());
@@ -333,7 +332,9 @@ fn run_bundle_add(name: &str, version: Option<&str>) -> Result<()> {
     if let Some(v) = version {
         cmd.args(["--version", v]);
     }
-    let status = cmd.status().map_err(|e| anyhow::anyhow!("bundle add failed to start ({:?}): {e}", bundle))?;
+    let status = cmd
+        .status()
+        .map_err(|e| anyhow::anyhow!("bundle add failed to start ({:?}): {e}", bundle))?;
     if !status.success() {
         anyhow::bail!("bundle add exit code {:?}", status.code());
     }
@@ -400,11 +401,7 @@ pub(super) fn cmd_add_deno(package_specs: &[String], dry_run: bool) -> Result<()
             }
         }
         manifest.write()?;
-        println!(
-            "  {} Updated {}",
-            "[OK]".green(),
-            manifest.path().display()
-        );
+        println!("  {} Updated {}", "[OK]".green(), manifest.path().display());
     } else {
         // Reflect the new entries in ven.toml as well.
         for spec in package_specs {

@@ -430,7 +430,11 @@ pub(super) fn cmd_remove_deno(packages: &[String], dry_run: bool, json: bool) ->
         } else {
             println!("\n  {}", "ven remove (deno)".bold().cyan());
             for pkg in packages {
-                println!("  {} Would remove import {}", "[PREVIEW]".cyan(), pkg.bold());
+                println!(
+                    "  {} Would remove import {}",
+                    "[PREVIEW]".cyan(),
+                    pkg.bold()
+                );
             }
             println!();
         }
@@ -456,8 +460,8 @@ pub(super) fn cmd_remove_deno(packages: &[String], dry_run: bool, json: bool) ->
     } else {
         let mut manifest = DenoManifest::load_or_create(&cwd)?;
         for spec in packages {
-            let (key, _) = deno_imports::parse_spec(spec)
-                .unwrap_or_else(|_| (spec.clone(), spec.clone()));
+            let (key, _) =
+                deno_imports::parse_spec(spec).unwrap_or_else(|_| (spec.clone(), spec.clone()));
             if manifest.remove_import(&key) {
                 removed.push(key.clone());
                 let _ = remove_from_ven_toml(&key);
@@ -465,11 +469,7 @@ pub(super) fn cmd_remove_deno(packages: &[String], dry_run: bool, json: bool) ->
                     println!("  {} Removed import {}", "[OK]".green(), key.bold());
                 }
             } else if !json {
-                println!(
-                    "  {} {} not in deno.json imports",
-                    "[WARN]".yellow(),
-                    key
-                );
+                println!("  {} {} not in deno.json imports", "[WARN]".yellow(), key);
             }
         }
         manifest.write()?;

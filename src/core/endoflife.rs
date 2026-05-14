@@ -150,19 +150,20 @@ impl EndOfLifeClient {
         match resp {
             Ok(r) if r.status().is_success() => match r.json::<Vec<EolCycle>>().await {
                 Ok(list) => {
-                    let payload = CyclesPayload { list, from_cache: false };
+                    let payload = CyclesPayload {
+                        list,
+                        from_cache: false,
+                    };
                     let _ = self.cache.put(product, &payload.list);
                     Ok(payload)
                 }
-                Err(_) => self
-                    .cache
-                    .get_stale(product)?
-                    .ok_or_else(|| anyhow::anyhow!("Failed to parse endoflife response for {}", product)),
+                Err(_) => self.cache.get_stale(product)?.ok_or_else(|| {
+                    anyhow::anyhow!("Failed to parse endoflife response for {}", product)
+                }),
             },
-            _ => self
-                .cache
-                .get_stale(product)?
-                .ok_or_else(|| anyhow::anyhow!("endoflife.date offline and no cache for {}", product)),
+            _ => self.cache.get_stale(product)?.ok_or_else(|| {
+                anyhow::anyhow!("endoflife.date offline and no cache for {}", product)
+            }),
         }
     }
 }
@@ -302,7 +303,10 @@ impl EolCache {
         match row {
             Some((payload, ts)) if now_secs().saturating_sub(ts) <= EOL_CACHE_TTL_SECS => {
                 let list: Vec<EolCycle> = serde_json::from_str(&payload)?;
-                Ok(Some(CyclesPayload { list, from_cache: true }))
+                Ok(Some(CyclesPayload {
+                    list,
+                    from_cache: true,
+                }))
             }
             _ => Ok(None),
         }
@@ -312,13 +316,14 @@ impl EolCache {
         let mut stmt = self
             .conn
             .prepare("SELECT payload FROM eol_cache WHERE product=?1")?;
-        let row: Option<String> = stmt
-            .query_row(params![product], |r| r.get(0))
-            .optional()?;
+        let row: Option<String> = stmt.query_row(params![product], |r| r.get(0)).optional()?;
         match row {
             Some(payload) => {
                 let list: Vec<EolCycle> = serde_json::from_str(&payload)?;
-                Ok(Some(CyclesPayload { list, from_cache: true }))
+                Ok(Some(CyclesPayload {
+                    list,
+                    from_cache: true,
+                }))
             }
             None => Ok(None),
         }

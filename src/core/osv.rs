@@ -199,8 +199,11 @@ impl OsvClient {
                         // Serve stale on parse failure.
                         for &i in chunk {
                             let q = &queries[i];
-                            reports[i] = Some(self.cache.get_stale(&q.ecosystem, &q.package, &q.version)?
-                                .unwrap_or_else(|| OsvPackageReport::empty(q)));
+                            reports[i] = Some(
+                                self.cache
+                                    .get_stale(&q.ecosystem, &q.package, &q.version)?
+                                    .unwrap_or_else(|| OsvPackageReport::empty(q)),
+                            );
                         }
                         continue;
                     }
@@ -208,8 +211,11 @@ impl OsvClient {
                 _ => {
                     for &i in chunk {
                         let q = &queries[i];
-                        reports[i] = Some(self.cache.get_stale(&q.ecosystem, &q.package, &q.version)?
-                            .unwrap_or_else(|| OsvPackageReport::empty(q)));
+                        reports[i] = Some(
+                            self.cache
+                                .get_stale(&q.ecosystem, &q.package, &q.version)?
+                                .unwrap_or_else(|| OsvPackageReport::empty(q)),
+                        );
                     }
                     continue;
                 }
@@ -274,7 +280,10 @@ impl OsvClient {
                 continue;
             };
 
-            v.summary = raw.get("summary").and_then(|s| s.as_str()).map(String::from);
+            v.summary = raw
+                .get("summary")
+                .and_then(|s| s.as_str())
+                .map(String::from);
             if let Some(arr) = raw.get("aliases").and_then(|a| a.as_array()) {
                 for a in arr {
                     if let Some(s) = a.as_str() {
@@ -353,7 +362,11 @@ pub struct OsvQuery {
 }
 
 impl OsvQuery {
-    pub fn new(ecosystem: impl Into<String>, package: impl Into<String>, version: impl Into<String>) -> Self {
+    pub fn new(
+        ecosystem: impl Into<String>,
+        package: impl Into<String>,
+        version: impl Into<String>,
+    ) -> Self {
         Self {
             ecosystem: ecosystem.into(),
             package: package.into(),
@@ -431,7 +444,12 @@ impl OsvCache {
         Ok(Self { conn })
     }
 
-    fn get(&self, ecosystem: &str, package: &str, version: &str) -> Result<Option<OsvPackageReport>> {
+    fn get(
+        &self,
+        ecosystem: &str,
+        package: &str,
+        version: &str,
+    ) -> Result<Option<OsvPackageReport>> {
         let mut stmt = self
             .conn
             .prepare("SELECT payload, fetched_at FROM osv_cache WHERE ecosystem=?1 AND package=?2 AND version=?3")?;
@@ -451,10 +469,15 @@ impl OsvCache {
     }
 
     /// Used only as a fallback when network fails — TTL is ignored.
-    fn get_stale(&self, ecosystem: &str, package: &str, version: &str) -> Result<Option<OsvPackageReport>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT payload FROM osv_cache WHERE ecosystem=?1 AND package=?2 AND version=?3")?;
+    fn get_stale(
+        &self,
+        ecosystem: &str,
+        package: &str,
+        version: &str,
+    ) -> Result<Option<OsvPackageReport>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT payload FROM osv_cache WHERE ecosystem=?1 AND package=?2 AND version=?3",
+        )?;
         let row: Option<String> = stmt
             .query_row(params![ecosystem, package, version], |r| r.get(0))
             .optional()?;
@@ -469,8 +492,8 @@ impl OsvCache {
     }
 
     fn put(&self, report: &OsvPackageReport) -> Result<()> {
-        let payload = serde_json::to_string(report)
-            .map_err(|e| anyhow!("serialize osv report: {e}"))?;
+        let payload =
+            serde_json::to_string(report).map_err(|e| anyhow!("serialize osv report: {e}"))?;
         self.conn.execute(
             "INSERT INTO osv_cache(ecosystem, package, version, fetched_at, payload)
              VALUES (?1, ?2, ?3, ?4, ?5)

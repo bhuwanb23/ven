@@ -403,18 +403,24 @@ fn cmd_init_headless(
 ) -> Result<()> {
     use crate::plugins::PluginRegistry;
 
-    let lang = lang_flag.map(|s| s.to_ascii_lowercase()).unwrap_or_else(|| {
-        // Fallback: pick the first language with an installed runtime.
-        let registry = PluginRegistry::new();
-        for candidate in registry.list_languages() {
-            if let Ok(plug) = registry.require(candidate) {
-                if plug.list_installed().map(|v| !v.is_empty()).unwrap_or(false) {
-                    return candidate.to_string();
+    let lang = lang_flag
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_else(|| {
+            // Fallback: pick the first language with an installed runtime.
+            let registry = PluginRegistry::new();
+            for candidate in registry.list_languages() {
+                if let Ok(plug) = registry.require(candidate) {
+                    if plug
+                        .list_installed()
+                        .map(|v| !v.is_empty())
+                        .unwrap_or(false)
+                    {
+                        return candidate.to_string();
+                    }
                 }
             }
-        }
-        "node".to_string()
-    });
+            "node".to_string()
+        });
 
     let registry = PluginRegistry::new();
     let plugin = registry.require(&lang).map_err(|_| {
@@ -435,7 +441,10 @@ fn cmd_init_headless(
             // can install missing toolchains later).
             v.trim().to_string()
         }
-        _ => installed.last().cloned().unwrap_or_else(|| "latest".to_string()),
+        _ => installed
+            .last()
+            .cloned()
+            .unwrap_or_else(|| "latest".to_string()),
     };
 
     let mut content = String::from("[runtime]\n");

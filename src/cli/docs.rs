@@ -2,23 +2,18 @@
 //! full implementation; this module currently delegates to
 //! [`crate::core::doc_fetcher`].
 
+use crate::cli::check::primary_runtime_kind;
 use crate::core::doc_fetcher::{
     diff_versions, render_doc, resolve_pinned_version, DocOutcome, DocRequest,
 };
 use crate::core::load_config;
-use crate::cli::check::primary_runtime_kind;
 use anyhow::Result;
 use colored::Colorize;
 
-pub fn cmd_docs(
-    package: &str,
-    browser: bool,
-    diff: Option<&[String]>,
-    json: bool,
-) -> Result<()> {
+pub fn cmd_docs(package: &str, browser: bool, diff: Option<&[String]>, json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let cfg = load_config(&cwd)?
-        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let cfg =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
     let kind = primary_runtime_kind(&cfg);
 
     if let Some(versions) = diff {
@@ -31,13 +26,12 @@ pub fn cmd_docs(
         return Ok(());
     }
 
-    let version = resolve_pinned_version(&cwd, &cfg, &kind, package)?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Package `{}` not found in ven.lock or ven.toml [packages].",
-                package
-            )
-        })?;
+    let version = resolve_pinned_version(&cwd, &cfg, &kind, package)?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Package `{}` not found in ven.lock or ven.toml [packages].",
+            package
+        )
+    })?;
 
     let req = DocRequest {
         kind: kind.clone(),

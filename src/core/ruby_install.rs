@@ -246,7 +246,10 @@ fn verify_ruby_archive(archive: &Path, filename: &str, url: &str) {
             return apply_ruby_checksum(archive, filename, &hex);
         }
     }
-    integrity::print_checksum_unavailable(filename, "no SHA256 sidecar/manifest available upstream");
+    integrity::print_checksum_unavailable(
+        filename,
+        "no SHA256 sidecar/manifest available upstream",
+    );
 }
 
 fn apply_ruby_checksum(archive: &Path, filename: &str, hex: &str) {

@@ -13,7 +13,8 @@ use std::io::{self, BufRead, Write};
 
 pub fn cmd_resolve() -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let cfg = load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let cfg =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
 
     println!("\n  {} {}", "ven resolve".bold().cyan(), "[AUTO]".yellow());
     println!("  {} Scanning dependency graph...\n", "[INFO]".cyan());
@@ -22,16 +23,24 @@ pub fn cmd_resolve() -> Result<()> {
     let (conflict_chains, suggestions) = analyze_npm_graph(&graph, &cfg.packages);
     let engine_incompat = engine_checks(&graph);
 
-    let conflict_entries = build_conflict_entries(&graph, &conflict_chains, &suggestions, &engine_incompat)?;
+    let conflict_entries =
+        build_conflict_entries(&graph, &conflict_chains, &suggestions, &engine_incompat)?;
     let involved = collect_conflict_packages(&graph, &engine_incompat);
     let resolution_map = build_resolution_map(&graph, &cfg, &suggestions, &engine_incompat)?;
 
     if conflict_entries.is_empty() {
-        println!("  {} No conflicts found. Your graph is already consistent.", "✓".green());
+        println!(
+            "  {} No conflicts found. Your graph is already consistent.",
+            "✓".green()
+        );
         return Ok(());
     }
 
-    println!("  {} Found {} conflict(s):\n", "[INFO]".cyan(), conflict_entries.len());
+    println!(
+        "  {} Found {} conflict(s):\n",
+        "[INFO]".cyan(),
+        conflict_entries.len()
+    );
     for (i, entry) in conflict_entries.iter().enumerate() {
         println!("    [{}] {}", i + 1, entry.summary);
         println!("      Fix: {}\n", entry.fix);
@@ -117,7 +126,10 @@ fn build_conflict_entries(
         };
 
         entries.push(ConflictEntry {
-            summary: format!("{}@{} ↔ Node {}", inc.package, inc.version, inc.required_node),
+            summary: format!(
+                "{}@{} ↔ Node {}",
+                inc.package, inc.version, inc.required_node
+            ),
             fix,
         });
     }
@@ -132,12 +144,14 @@ fn suggestion_hint_for_package(
     let labels: Vec<String> = suggestions
         .iter()
         .filter_map(|opt| match &opt.action {
-            ResolutionAction::Downgrade { package: pkg, version } if pkg == package => {
-                Some(format!("{} → {}", package, version))
-            }
-            ResolutionAction::InstallVersion { package: pkg, version } if pkg == package => {
-                Some(format!("{} → {}", package, version))
-            }
+            ResolutionAction::Downgrade {
+                package: pkg,
+                version,
+            } if pkg == package => Some(format!("{} → {}", package, version)),
+            ResolutionAction::InstallVersion {
+                package: pkg,
+                version,
+            } if pkg == package => Some(format!("{} → {}", package, version)),
             _ => None,
         })
         .collect();
@@ -158,8 +172,16 @@ fn collect_conflict_packages(
         if edge.kind != crate::intelligence::graph::EdgeKind::Peer {
             continue;
         }
-        let from_pkg = edge.from.rsplit_once('@').map(|(p, _)| p).unwrap_or(edge.from.as_str());
-        let to_pkg = edge.to.rsplit_once('@').map(|(p, _)| p).unwrap_or(edge.to.as_str());
+        let from_pkg = edge
+            .from
+            .rsplit_once('@')
+            .map(|(p, _)| p)
+            .unwrap_or(edge.from.as_str());
+        let to_pkg = edge
+            .to
+            .rsplit_once('@')
+            .map(|(p, _)| p)
+            .unwrap_or(edge.to.as_str());
         packages.insert(from_pkg.to_string());
         packages.insert(to_pkg.to_string());
     }
@@ -282,6 +304,9 @@ fn apply_resolution(changes: &HashMap<String, ResolutionChange>) -> Result<()> {
     }
 
     update_ven_toml_packages(&updated_packages)?;
-    println!("  {} Updated ven.toml with resolved package versions.", "[OK]".green());
+    println!(
+        "  {} Updated ven.toml with resolved package versions.",
+        "[OK]".green()
+    );
     Ok(())
 }

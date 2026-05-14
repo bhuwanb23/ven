@@ -241,7 +241,10 @@ fn fetch_python_release_sha256(filename: &str, version: &str) -> Result<String> 
     if nodots.is_empty() {
         return Err(anyhow!("invalid version for release page: {}", version));
     }
-    let url = format!("https://www.python.org/downloads/release/python-{}/", nodots);
+    let url = format!(
+        "https://www.python.org/downloads/release/python-{}/",
+        nodots
+    );
     let html = Client::new()
         .get(&url)
         .send()

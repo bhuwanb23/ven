@@ -91,7 +91,9 @@ fn embed_setup_manifest() {
 
 fn embed_or_stub(src: &Path, dst: &Path, label: &str) {
     if src.is_file() {
-        fs::copy(src, dst).unwrap_or_else(|e| panic!("Failed to copy {} -> {}: {e}", src.display(), dst.display()));
+        fs::copy(src, dst).unwrap_or_else(|e| {
+            panic!("Failed to copy {} -> {}: {e}", src.display(), dst.display())
+        });
     } else {
         fs::write(dst, b"")
             .unwrap_or_else(|e| panic!("Failed to write stub {}: {e}", dst.display()));

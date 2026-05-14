@@ -71,10 +71,9 @@ pub struct VenLockFile {
 impl VenLockFile {
     /// Read and verify `content_hash` when present.
     pub fn read_path(path: &Path) -> Result<Self> {
-        let raw =
-            fs::read_to_string(path).with_context(|| format!("Failed to read {:?}", path))?;
-        let lock: VenLockFile =
-            serde_json::from_str(&raw).with_context(|| format!("Invalid ven.lock at {:?}", path))?;
+        let raw = fs::read_to_string(path).with_context(|| format!("Failed to read {:?}", path))?;
+        let lock: VenLockFile = serde_json::from_str(&raw)
+            .with_context(|| format!("Invalid ven.lock at {:?}", path))?;
         let recomputed = {
             let mut tmp = lock.clone();
             tmp.content_hash = None;
@@ -293,11 +292,17 @@ pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
 
     for (i, edge) in lock.edges.iter().enumerate() {
         let Some((from_pkg, from_ver)) = edge.from.rsplit_once('@') else {
-            errors.push(format!("edge[{}]: invalid `from` (expected name@version): {}", i, edge.from));
+            errors.push(format!(
+                "edge[{}]: invalid `from` (expected name@version): {}",
+                i, edge.from
+            ));
             continue;
         };
         let Some((to_pkg, to_ver)) = edge.to.rsplit_once('@') else {
-            errors.push(format!("edge[{}]: invalid `to` (expected name@version): {}", i, edge.to));
+            errors.push(format!(
+                "edge[{}]: invalid `to` (expected name@version): {}",
+                i, edge.to
+            ));
             continue;
         };
 
@@ -350,7 +355,10 @@ pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(anyhow!("ven.lock validation failed:\n{}", errors.join("\n")))
+        Err(anyhow!(
+            "ven.lock validation failed:\n{}",
+            errors.join("\n")
+        ))
     }
 }
 

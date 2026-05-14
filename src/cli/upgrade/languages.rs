@@ -534,10 +534,7 @@ pub(super) fn cmd_upgrade_java(
                     "  {} {} -> {}",
                     "[PREVIEW]".cyan(),
                     coord.ven_toml_key().bold(),
-                    coord
-                        .version
-                        .as_deref()
-                        .unwrap_or("(unchanged spec)")
+                    coord.version.as_deref().unwrap_or("(unchanged spec)")
                 );
             }
             continue;
@@ -654,11 +651,7 @@ pub(super) fn cmd_upgrade_deno(
             }))?
         );
     } else {
-        println!(
-            "  {} {} import(s) refreshed",
-            "[OK]".green(),
-            updated.len()
-        );
+        println!("  {} {} import(s) refreshed", "[OK]".green(), updated.len());
     }
     println!();
     Ok(())

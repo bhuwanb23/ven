@@ -6,12 +6,12 @@ use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
-use std::collections::HashSet;
-use std::io::{self, BufRead, Write};
 use languages::{
     cmd_upgrade_bun, cmd_upgrade_deno, cmd_upgrade_go, cmd_upgrade_java, cmd_upgrade_python,
     cmd_upgrade_ruby, cmd_upgrade_rust,
 };
+use std::collections::HashSet;
+use std::io::{self, BufRead, Write};
 use std::path::Path;
 /// Semantic upgrade type classification
 #[derive(Debug)]
@@ -735,8 +735,16 @@ fn display_upgrade_safety(
     let latest = DependencyIntelligenceService::npm_latest_compatible(package, &node_version)?
         .ok_or_else(|| anyhow::anyhow!("No compatible version found"))?;
 
-    println!("\n  {} {}", "ven upgrade".bold().cyan(), "[SAFETY]".yellow());
-    println!("  {} Simulating {} upgrade...\n", "→".cyan(), package.bold());
+    println!(
+        "\n  {} {}",
+        "ven upgrade".bold().cyan(),
+        "[SAFETY]".yellow()
+    );
+    println!(
+        "  {} Simulating {} upgrade...\n",
+        "→".cyan(),
+        package.bold()
+    );
 
     if current_ver == latest {
         println!(
@@ -756,13 +764,18 @@ fn display_upgrade_safety(
         latest.green()
     );
 
-    let sim = DependencyIntelligenceService::simulate_upgrade(&cfg, package, "latest", &cfg.packages)?;
+    let sim =
+        DependencyIntelligenceService::simulate_upgrade(&cfg, package, "latest", &cfg.packages)?;
     let conflict_packages = build_conflict_set(&sim.conflict_chains, &sim.engine_incompatibilities);
     let impact = build_upgrade_impact(&sim.graph, package, &conflict_packages);
 
     println!("\n  {}", "Graph impact:".dimmed());
     if impact.is_empty() {
-        println!("    {} {}", "✓".green(), "No direct dependents found".dimmed());
+        println!(
+            "    {} {}",
+            "✓".green(),
+            "No direct dependents found".dimmed()
+        );
     } else {
         for item in impact {
             if item.breaks {
@@ -790,7 +803,10 @@ fn display_upgrade_safety(
         let broken = conflict_packages.into_iter().collect::<Vec<_>>().join(", ");
         println!("\n  {} {}", "Upgrade will break:".bold(), broken.red());
     } else {
-        println!("\n  {}", "Upgrade appears safe for direct dependents.".green());
+        println!(
+            "\n  {}",
+            "Upgrade appears safe for direct dependents.".green()
+        );
     }
 
     println!("\n  {}", "Options:".bold());
@@ -811,7 +827,10 @@ fn display_upgrade_safety(
     match choice.trim() {
         "1" => {
             if sim.suggestions.is_empty() {
-                println!("\n  {} No automatic resolution suggestions available.", "[INFO]".cyan());
+                println!(
+                    "\n  {} No automatic resolution suggestions available.",
+                    "[INFO]".cyan()
+                );
             } else {
                 println!("\n  {}", "Suggested resolutions:".bold().cyan());
                 for opt in &sim.suggestions {
@@ -821,7 +840,11 @@ fn display_upgrade_safety(
         }
         "3" => {
             print_conflict_report(&sim);
-            println!("\n  {} {}", "Dependency tree (simulated):".dimmed(), package.bold());
+            println!(
+                "\n  {} {}",
+                "Dependency tree (simulated):".dimmed(),
+                package.bold()
+            );
             crate::intelligence::display::print_intel_tree(&sim.graph, package);
         }
         _ => {
@@ -837,7 +860,10 @@ fn display_upgrade_safety(
     }
 
     if dry_run {
-        println!("\n  {} Dry run mode - no changes will be made.", "[INFO]".yellow());
+        println!(
+            "\n  {} Dry run mode - no changes will be made.",
+            "[INFO]".yellow()
+        );
     }
 
     println!();

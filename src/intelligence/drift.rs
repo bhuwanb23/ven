@@ -89,7 +89,9 @@ pub fn compute_npm_drift(cwd: &Path, lock: &VenLockFile, cfg: &VenConfig) -> Res
         }
     }
     report.missing_from_lock.sort();
-    report.config_mismatches.sort_by(|a, b| a.package.cmp(&b.package));
+    report
+        .config_mismatches
+        .sort_by(|a, b| a.package.cmp(&b.package));
 
     // -- node_modules vs lock --------------------------------------------
     let node_modules = cwd.join("node_modules");
@@ -232,7 +234,9 @@ pub fn compute_python_drift(
         declared.insert(name.to_ascii_lowercase(), spec.clone());
     }
     for (name, raw) in declared_requirements {
-        declared.entry(name.to_ascii_lowercase()).or_insert_with(|| raw.clone());
+        declared
+            .entry(name.to_ascii_lowercase())
+            .or_insert_with(|| raw.clone());
     }
 
     for (name, spec) in &declared {
@@ -259,7 +263,13 @@ pub fn compute_python_drift(
 fn pip_list_json(cwd: &Path) -> Result<Vec<PythonInstalled>> {
     let python = resolve_python_cmd(cwd);
     let output = Command::new(&python)
-        .args(["-m", "pip", "list", "--format=json", "--disable-pip-version-check"])
+        .args([
+            "-m",
+            "pip",
+            "list",
+            "--format=json",
+            "--disable-pip-version-check",
+        ])
         .current_dir(cwd)
         .output();
     match output {
@@ -304,7 +314,11 @@ fn resolve_python_cmd(cwd: &Path) -> PathBuf {
             #[cfg(target_os = "windows")]
             let candidate = storage.join("python").join(&ver).join("python.exe");
             #[cfg(not(target_os = "windows"))]
-            let candidate = storage.join("python").join(&ver).join("bin").join("python3");
+            let candidate = storage
+                .join("python")
+                .join(&ver)
+                .join("bin")
+                .join("python3");
             if candidate.is_file() {
                 return candidate;
             }
@@ -388,7 +402,11 @@ fn parse_loose_version(s: &str) -> Option<semver::Version> {
     let candidate = if parts.is_empty() {
         padded
     } else {
-        let sep = if core.contains('-') && !s[core.len()..].starts_with('+') { "-" } else { "+" };
+        let sep = if core.contains('-') && !s[core.len()..].starts_with('+') {
+            "-"
+        } else {
+            "+"
+        };
         format!("{}{}{}", padded, sep, parts[0])
     };
     semver::Version::parse(&candidate).ok()

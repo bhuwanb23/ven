@@ -30,7 +30,11 @@ fn node_fixture_finds_axios_zlib_lodash() {
     let n = names(&report);
 
     // Declared via package.json — should NOT show up.
-    assert!(!n.contains(&"express".to_string()), "express should be declared, got {:?}", n);
+    assert!(
+        !n.contains(&"express".to_string()),
+        "express should be declared, got {:?}",
+        n
+    );
     // Stdlib — should NOT show up.
     assert!(!n.contains(&"fs".to_string()));
     // Real ghosts.
@@ -40,7 +44,11 @@ fn node_fixture_finds_axios_zlib_lodash() {
         "scoped ghost missing in {:?}",
         n
     );
-    assert!(n.contains(&"lodash".to_string()), "lodash dynamic import missing in {:?}", n);
+    assert!(
+        n.contains(&"lodash".to_string()),
+        "lodash dynamic import missing in {:?}",
+        n
+    );
 }
 
 #[test]
@@ -50,12 +58,28 @@ fn python_fixture_finds_flask_pyyaml_sklearn() {
     let report = scan_project(&root, &cfg, RuntimeKind::Python).unwrap();
     let n = names(&report);
 
-    assert!(!n.contains(&"requests".to_string()), "requests declared, got {:?}", n);
-    assert!(!n.iter().any(|s| s == "os" || s == "sys"), "stdlib leaked: {:?}", n);
+    assert!(
+        !n.contains(&"requests".to_string()),
+        "requests declared, got {:?}",
+        n
+    );
+    assert!(
+        !n.iter().any(|s| s == "os" || s == "sys"),
+        "stdlib leaked: {:?}",
+        n
+    );
     assert!(n.contains(&"flask".to_string()), "flask missing in {:?}", n);
     // Rename table: yaml → PyYAML (canonicalised lowercase).
-    assert!(n.contains(&"pyyaml".to_string()), "pyyaml (rename) missing in {:?}", n);
-    assert!(n.contains(&"scikit-learn".to_string()), "scikit-learn (rename) missing in {:?}", n);
+    assert!(
+        n.contains(&"pyyaml".to_string()),
+        "pyyaml (rename) missing in {:?}",
+        n
+    );
+    assert!(
+        n.contains(&"scikit-learn".to_string()),
+        "scikit-learn (rename) missing in {:?}",
+        n
+    );
 }
 
 #[test]
@@ -67,7 +91,11 @@ fn rust_fixture_finds_anyhow_and_tokio() {
 
     assert!(!n.contains(&"serde".to_string()));
     assert!(!n.iter().any(|s| s == "std" || s == "core" || s == "alloc"));
-    assert!(n.contains(&"anyhow".to_string()), "anyhow missing in {:?}", n);
+    assert!(
+        n.contains(&"anyhow".to_string()),
+        "anyhow missing in {:?}",
+        n
+    );
     assert!(n.contains(&"tokio".to_string()), "tokio missing in {:?}", n);
 }
 

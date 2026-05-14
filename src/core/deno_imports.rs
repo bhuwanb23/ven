@@ -31,8 +31,8 @@ impl DenoManifest {
     pub fn load_or_create(project_dir: &Path) -> Result<Self> {
         let path = Self::detect(project_dir).unwrap_or_else(|| project_dir.join("deno.json"));
         let doc = if path.is_file() {
-            let body = fs::read_to_string(&path)
-                .with_context(|| format!("Read {}", path.display()))?;
+            let body =
+                fs::read_to_string(&path).with_context(|| format!("Read {}", path.display()))?;
             // Strip UTF-8 BOM if present (PowerShell / Notepad / VS Code can add one).
             let body = body.strip_prefix('\u{feff}').unwrap_or(&body);
             // deno.jsonc may have // comments — strip a best-effort.
@@ -78,10 +78,9 @@ impl DenoManifest {
     }
 
     pub fn write(&self) -> Result<()> {
-        let body = serde_json::to_string_pretty(&self.doc)
-            .with_context(|| "serialize deno.json")?;
-        fs::write(&self.path, body)
-            .with_context(|| format!("Write {}", self.path.display()))?;
+        let body =
+            serde_json::to_string_pretty(&self.doc).with_context(|| "serialize deno.json")?;
+        fs::write(&self.path, body).with_context(|| format!("Write {}", self.path.display()))?;
         Ok(())
     }
 }
@@ -151,7 +150,11 @@ pub fn parse_spec(spec: &str) -> Result<(String, String)> {
     }
     // Bare package name → assume jsr if it starts with `@`, else npm.
     if spec.starts_with('@') {
-        let key = spec.split('@').nth(1).map(|s| format!("@{s}")).unwrap_or_else(|| spec.to_string());
+        let key = spec
+            .split('@')
+            .nth(1)
+            .map(|s| format!("@{s}"))
+            .unwrap_or_else(|| spec.to_string());
         return Ok((key, format!("jsr:{spec}")));
     }
     Ok((spec.to_string(), format!("npm:{spec}")))

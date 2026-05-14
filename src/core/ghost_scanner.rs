@@ -74,7 +74,12 @@ fn collect_declared(cwd: &Path, cfg: &VenConfig, ecosystem: &str) -> HashSet<Str
     match ecosystem {
         "npm" => {
             if let Some(pj) = read_json(cwd.join("package.json")) {
-                for key in ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] {
+                for key in [
+                    "dependencies",
+                    "devDependencies",
+                    "peerDependencies",
+                    "optionalDependencies",
+                ] {
                     if let Some(obj) = pj.get(key).and_then(|x| x.as_object()) {
                         for k in obj.keys() {
                             set.insert(k.to_ascii_lowercase());
@@ -98,7 +103,8 @@ fn collect_declared(cwd: &Path, cfg: &VenConfig, ecosystem: &str) -> HashSet<Str
             if let Ok(text) = fs::read_to_string(cwd.join("pyproject.toml")) {
                 if let Ok(doc) = text.parse::<toml::Value>() {
                     // PEP-621 `[project] dependencies = ["x>=1", ...]`
-                    if let Some(arr) = doc.get("project")
+                    if let Some(arr) = doc
+                        .get("project")
                         .and_then(|p| p.get("dependencies"))
                         .and_then(|d| d.as_array())
                     {
@@ -183,8 +189,8 @@ fn collect_declared(cwd: &Path, cfg: &VenConfig, ecosystem: &str) -> HashSet<Str
             }
         }
         "deno" => {
-            if let Some(deno_json) = read_json(cwd.join("deno.json"))
-                .or_else(|| read_json(cwd.join("deno.jsonc")))
+            if let Some(deno_json) =
+                read_json(cwd.join("deno.json")).or_else(|| read_json(cwd.join("deno.jsonc")))
             {
                 if let Some(imports) = deno_json.get("imports").and_then(|x| x.as_object()) {
                     for k in imports.keys() {
@@ -277,7 +283,9 @@ fn project_walker(cwd: &Path) -> WalkBuilder {
 fn scan_node(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
     let declared = collect_declared(cwd, cfg, "npm");
     let stdlib = node_stdlib();
-    let exts: HashSet<&str> = ["js", "mjs", "cjs", "jsx", "ts", "tsx"].into_iter().collect();
+    let exts: HashSet<&str> = ["js", "mjs", "cjs", "jsx", "ts", "tsx"]
+        .into_iter()
+        .collect();
     let import_re = node_import_regex();
 
     let mut occurrences: HashMap<String, (usize, String)> = HashMap::new();
@@ -289,7 +297,11 @@ fn scan_node(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
         if !path.is_file() {
             continue;
         }
-        if !path.extension().and_then(|e| e.to_str()).map_or(false, |e| exts.contains(e)) {
+        if !path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map_or(false, |e| exts.contains(e))
+        {
             continue;
         }
         files_scanned += 1;
@@ -297,10 +309,7 @@ fn scan_node(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
             continue;
         };
         for cap in import_re.captures_iter(&body) {
-            let spec = cap
-                .get(1)
-                .or_else(|| cap.get(2))
-                .or_else(|| cap.get(3));
+            let spec = cap.get(1).or_else(|| cap.get(2)).or_else(|| cap.get(3));
             let Some(spec) = spec else { continue };
             let name = node_extract_name(spec.as_str());
             if name.is_empty() {
@@ -322,9 +331,7 @@ fn scan_node(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
                 .strip_prefix(cwd)
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_else(|_| path.to_string_lossy().into_owned());
-            let (count, first) = occurrences
-                .entry(name)
-                .or_insert_with(|| (0, rel.clone()));
+            let (count, first) = occurrences.entry(name).or_insert_with(|| (0, rel.clone()));
             *count += 1;
             if first.is_empty() {
                 *first = rel;
@@ -456,7 +463,12 @@ fn scan_python(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
         };
         for cap in import_re.captures_iter(&body) {
             let Some(m) = cap.get(1) else { continue };
-            let top = m.as_str().split('.').next().unwrap_or(m.as_str()).to_string();
+            let top = m
+                .as_str()
+                .split('.')
+                .next()
+                .unwrap_or(m.as_str())
+                .to_string();
             if stdlib.contains(top.as_str()) {
                 continue;
             }
@@ -525,28 +537,176 @@ fn python_rename_table() -> HashMap<&'static str, &'static str> {
 fn python_stdlib() -> HashSet<&'static str> {
     // Trimmed but covers the bulk. Add as needed.
     [
-        "abc", "argparse", "array", "ast", "asyncio", "atexit", "base64", "binascii", "bisect",
-        "builtins", "calendar", "cgi", "cmath", "cmd", "code", "codecs", "collections", "colorsys",
-        "concurrent", "configparser", "contextlib", "contextvars", "copy", "copyreg", "csv",
-        "ctypes", "curses", "dataclasses", "datetime", "decimal", "difflib", "dis", "doctest",
-        "email", "encodings", "enum", "errno", "fcntl", "filecmp", "fileinput", "fnmatch",
-        "fractions", "ftplib", "functools", "gc", "getopt", "getpass", "gettext", "glob", "grp",
-        "gzip", "hashlib", "heapq", "hmac", "html", "http", "imaplib", "imghdr", "importlib",
-        "inspect", "io", "ipaddress", "itertools", "json", "keyword", "linecache", "locale",
-        "logging", "lzma", "mailbox", "math", "mimetypes", "mmap", "multiprocessing", "netrc",
-        "nntplib", "numbers", "operator", "optparse", "os", "pathlib", "pdb", "pickle",
-        "platform", "plistlib", "poplib", "posix", "pprint", "profile", "pstats", "pwd",
-        "py_compile", "pydoc", "queue", "quopri", "random", "re", "readline", "reprlib",
-        "resource", "rlcompleter", "runpy", "sched", "secrets", "select", "selectors", "shelve",
-        "shlex", "shutil", "signal", "site", "smtplib", "sndhdr", "socket", "socketserver",
-        "sqlite3", "ssl", "stat", "statistics", "string", "stringprep", "struct", "subprocess",
-        "sunau", "symtable", "sys", "sysconfig", "syslog", "tabnanny", "tarfile", "telnetlib",
-        "tempfile", "termios", "test", "textwrap", "threading", "time", "timeit", "tkinter",
-        "token", "tokenize", "trace", "traceback", "tracemalloc", "tty", "turtle", "types",
-        "typing", "unicodedata", "unittest", "urllib", "uu", "uuid", "venv", "warnings", "wave",
-        "weakref", "webbrowser", "winreg", "winsound", "wsgiref", "xml", "xmlrpc", "zipapp",
-        "zipfile", "zipimport", "zlib", "zoneinfo",
-        "__future__", "__main__",
+        "abc",
+        "argparse",
+        "array",
+        "ast",
+        "asyncio",
+        "atexit",
+        "base64",
+        "binascii",
+        "bisect",
+        "builtins",
+        "calendar",
+        "cgi",
+        "cmath",
+        "cmd",
+        "code",
+        "codecs",
+        "collections",
+        "colorsys",
+        "concurrent",
+        "configparser",
+        "contextlib",
+        "contextvars",
+        "copy",
+        "copyreg",
+        "csv",
+        "ctypes",
+        "curses",
+        "dataclasses",
+        "datetime",
+        "decimal",
+        "difflib",
+        "dis",
+        "doctest",
+        "email",
+        "encodings",
+        "enum",
+        "errno",
+        "fcntl",
+        "filecmp",
+        "fileinput",
+        "fnmatch",
+        "fractions",
+        "ftplib",
+        "functools",
+        "gc",
+        "getopt",
+        "getpass",
+        "gettext",
+        "glob",
+        "grp",
+        "gzip",
+        "hashlib",
+        "heapq",
+        "hmac",
+        "html",
+        "http",
+        "imaplib",
+        "imghdr",
+        "importlib",
+        "inspect",
+        "io",
+        "ipaddress",
+        "itertools",
+        "json",
+        "keyword",
+        "linecache",
+        "locale",
+        "logging",
+        "lzma",
+        "mailbox",
+        "math",
+        "mimetypes",
+        "mmap",
+        "multiprocessing",
+        "netrc",
+        "nntplib",
+        "numbers",
+        "operator",
+        "optparse",
+        "os",
+        "pathlib",
+        "pdb",
+        "pickle",
+        "platform",
+        "plistlib",
+        "poplib",
+        "posix",
+        "pprint",
+        "profile",
+        "pstats",
+        "pwd",
+        "py_compile",
+        "pydoc",
+        "queue",
+        "quopri",
+        "random",
+        "re",
+        "readline",
+        "reprlib",
+        "resource",
+        "rlcompleter",
+        "runpy",
+        "sched",
+        "secrets",
+        "select",
+        "selectors",
+        "shelve",
+        "shlex",
+        "shutil",
+        "signal",
+        "site",
+        "smtplib",
+        "sndhdr",
+        "socket",
+        "socketserver",
+        "sqlite3",
+        "ssl",
+        "stat",
+        "statistics",
+        "string",
+        "stringprep",
+        "struct",
+        "subprocess",
+        "sunau",
+        "symtable",
+        "sys",
+        "sysconfig",
+        "syslog",
+        "tabnanny",
+        "tarfile",
+        "telnetlib",
+        "tempfile",
+        "termios",
+        "test",
+        "textwrap",
+        "threading",
+        "time",
+        "timeit",
+        "tkinter",
+        "token",
+        "tokenize",
+        "trace",
+        "traceback",
+        "tracemalloc",
+        "tty",
+        "turtle",
+        "types",
+        "typing",
+        "unicodedata",
+        "unittest",
+        "urllib",
+        "uu",
+        "uuid",
+        "venv",
+        "warnings",
+        "wave",
+        "weakref",
+        "webbrowser",
+        "winreg",
+        "winsound",
+        "wsgiref",
+        "xml",
+        "xmlrpc",
+        "zipapp",
+        "zipfile",
+        "zipimport",
+        "zlib",
+        "zoneinfo",
+        "__future__",
+        "__main__",
     ]
     .into_iter()
     .collect()
@@ -585,12 +745,10 @@ fn scan_go(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
                         continue;
                     }
                     // strip optional alias: `_ "fmt"` or `f "fmt"`
-                    let after_alias = t
-                        .find('"')
-                        .and_then(|start| {
-                            let rest = &t[start + 1..];
-                            rest.find('"').map(|end| rest[..end].to_string())
-                        });
+                    let after_alias = t.find('"').and_then(|start| {
+                        let rest = &t[start + 1..];
+                        rest.find('"').map(|end| rest[..end].to_string())
+                    });
                     if let Some(p) = after_alias {
                         paths.push(p);
                     }
@@ -787,7 +945,8 @@ fn scan_java(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
             }
             // Show last meaningful segment (artifactId-ish) to match Maven pom
             // listings: `org.apache.commons.lang3.StringUtils` → `lang3`.
-            let candidate = parts.get(parts.len().saturating_sub(2))
+            let candidate = parts
+                .get(parts.len().saturating_sub(2))
                 .copied()
                 .unwrap_or(&parts[parts.len() - 1])
                 .to_ascii_lowercase();
@@ -863,9 +1022,7 @@ fn scan_ruby(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
                 .strip_prefix(cwd)
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_else(|_| path.to_string_lossy().into_owned());
-            let (count, first) = occurrences
-                .entry(name)
-                .or_insert_with(|| (0, rel.clone()));
+            let (count, first) = occurrences.entry(name).or_insert_with(|| (0, rel.clone()));
             *count += 1;
             if first.is_empty() {
                 *first = rel;
@@ -896,9 +1053,28 @@ fn ruby_require_regex() -> &'static Regex {
 }
 fn ruby_stdlib() -> HashSet<&'static str> {
     [
-        "set", "json", "yaml", "csv", "uri", "net", "fileutils", "pathname", "tempfile", "time",
-        "date", "digest", "openssl", "base64", "stringio", "logger", "optparse", "ostruct",
-        "securerandom", "socket", "thread", "weakref",
+        "set",
+        "json",
+        "yaml",
+        "csv",
+        "uri",
+        "net",
+        "fileutils",
+        "pathname",
+        "tempfile",
+        "time",
+        "date",
+        "digest",
+        "openssl",
+        "base64",
+        "stringio",
+        "logger",
+        "optparse",
+        "ostruct",
+        "securerandom",
+        "socket",
+        "thread",
+        "weakref",
     ]
     .into_iter()
     .collect()
@@ -981,10 +1157,7 @@ fn scan_deno(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
 fn deno_import_regex() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| {
-        Regex::new(
-            r#"(?m)(?:from\s+['"]([^'"]+)['"]|import\s*\(?\s*['"]([^'"]+)['"])"#,
-        )
-        .unwrap()
+        Regex::new(r#"(?m)(?:from\s+['"]([^'"]+)['"]|import\s*\(?\s*['"]([^'"]+)['"])"#).unwrap()
     })
 }
 
@@ -1020,7 +1193,10 @@ mod tests {
 
     #[test]
     fn go_module_root_takes_first_three_segments() {
-        assert_eq!(go_module_root("github.com/foo/bar/sub"), "github.com/foo/bar");
+        assert_eq!(
+            go_module_root("github.com/foo/bar/sub"),
+            "github.com/foo/bar"
+        );
         assert_eq!(go_module_root("example.com/foo"), "example.com/foo");
     }
 

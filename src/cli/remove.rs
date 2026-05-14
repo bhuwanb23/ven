@@ -199,7 +199,11 @@ fn execute_batch_removal(packages: &[String], force: bool, yes: bool) -> Result<
                 if auto_yes {
                     println!(
                         "  Proceeding anyway{} since --yes/non-TTY mode is active.",
-                        if yes { " (--yes)" } else { " (non-interactive)" }
+                        if yes {
+                            " (--yes)"
+                        } else {
+                            " (non-interactive)"
+                        }
                     );
                 } else {
                     print!("  Remove anyway? [y/N]: ");
@@ -758,7 +762,11 @@ fn display_cleanup_results(
             if auto_yes {
                 println!(
                     "  Proceeding with cleanup{}.",
-                    if yes { " (--yes)" } else { " (non-interactive)" }
+                    if yes {
+                        " (--yes)"
+                    } else {
+                        " (non-interactive)"
+                    }
                 );
             } else {
                 print!("  Remove all orphaned packages? [y/N]: ");

@@ -52,18 +52,17 @@ pub fn cmd_lock() -> Result<()> {
         (RuntimeKind::NpmFamily, cfg.runtime.bun.clone())
     };
 
-    let lock = VenLockFile::from_merged_simulations(
-        runtime_kind,
-        runtime_version,
-        &keys,
-        &graphs,
-    )?;
+    let lock = VenLockFile::from_merged_simulations(runtime_kind, runtime_version, &keys, &graphs)?;
     validate_lock_graph(&lock)?;
 
     let path = cwd.join("ven.lock");
     lock.write_path(&path)?;
 
-    let with_integrity = lock.packages.values().filter(|p| p.integrity.is_some()).count();
+    let with_integrity = lock
+        .packages
+        .values()
+        .filter(|p| p.integrity.is_some())
+        .count();
     let total = lock.packages.len();
 
     println!(

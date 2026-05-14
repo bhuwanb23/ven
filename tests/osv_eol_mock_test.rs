@@ -28,9 +28,7 @@ static ENV_LOCK: Mutex<()> = Mutex::new(());
 /// Acquire the shared env lock. Recovers from poison so a panicking sibling
 /// test doesn't permanently disable the remaining ones.
 fn lock_env() -> MutexGuard<'static, ()> {
-    ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner())
+    ENV_LOCK.lock().unwrap_or_else(|poison| poison.into_inner())
 }
 
 fn isolate_storage(label: &str) -> tempfile::TempDir {

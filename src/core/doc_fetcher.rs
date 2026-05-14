@@ -74,10 +74,7 @@ pub fn resolve_pinned_version(
 
     // Installed-manifest probe (npm only — others vary too much).
     if matches!(kind, RuntimeKind::NpmFamily) {
-        let pkg_json = cwd
-            .join("node_modules")
-            .join(package)
-            .join("package.json");
+        let pkg_json = cwd.join("node_modules").join(package).join("package.json");
         if let Ok(body) = fs::read_to_string(&pkg_json) {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&body) {
                 if let Some(s) = v.get("version").and_then(|x| x.as_str()) {
@@ -123,7 +120,13 @@ pub fn render_doc(req: &DocRequest) -> Result<DocOutcome> {
 
     match fetch_doc_body(&req.kind, &req.package, &req.version) {
         Ok((body, source_url)) => {
-            let _ = cache.put(&outcome.ecosystem, &req.package, &req.version, &body, &source_url);
+            let _ = cache.put(
+                &outcome.ecosystem,
+                &req.package,
+                &req.version,
+                &body,
+                &source_url,
+            );
             outcome.url = outcome.url.or(Some(source_url));
             outcome.rendered = Some(render_for_terminal(&body));
         }
@@ -137,12 +140,7 @@ pub fn render_doc(req: &DocRequest) -> Result<DocOutcome> {
     Ok(outcome)
 }
 
-pub fn diff_versions(
-    kind: &RuntimeKind,
-    package: &str,
-    v1: &str,
-    v2: &str,
-) -> Result<DocOutcome> {
+pub fn diff_versions(kind: &RuntimeKind, package: &str, v1: &str, v2: &str) -> Result<DocOutcome> {
     let cache = DocCache::open()?;
     let eco = ecosystem_name(kind).to_string();
 
@@ -170,7 +168,10 @@ pub fn diff_versions(
         url: canonical_url(kind, package, v2),
         rendered: None,
         diff: Some(out),
-        note: Some(format!("Showing line diff of READMEs between {} and {}", v1, v2)),
+        note: Some(format!(
+            "Showing line diff of READMEs between {} and {}",
+            v1, v2
+        )),
         from_cache: false,
         opened_in_browser: false,
     })
@@ -292,7 +293,9 @@ fn fetch_doc_body(kind: &RuntimeKind, package: &str, version: &str) -> Result<(S
                 .get("documentation_uri")
                 .and_then(|s| s.as_str())
                 .map(String::from)
-                .unwrap_or_else(|| format!("https://rubygems.org/gems/{}/versions/{}", package, version));
+                .unwrap_or_else(|| {
+                    format!("https://rubygems.org/gems/{}/versions/{}", package, version)
+                });
             Ok((body, canonical))
         }
         RuntimeKind::Deno => {
@@ -321,7 +324,9 @@ fn fetch_doc_body(kind: &RuntimeKind, package: &str, version: &str) -> Result<(S
 
 fn canonical_url(kind: &RuntimeKind, package: &str, version: &str) -> Option<String> {
     Some(match kind {
-        RuntimeKind::NpmFamily => format!("https://www.npmjs.com/package/{}/v/{}", package, version),
+        RuntimeKind::NpmFamily => {
+            format!("https://www.npmjs.com/package/{}/v/{}", package, version)
+        }
         RuntimeKind::Python => format!("https://pypi.org/project/{}/{}/", package, version),
         RuntimeKind::Rust => format!("https://docs.rs/{}/{}/{}/", package, version, package),
         RuntimeKind::Go => format!("https://pkg.go.dev/{}@{}", package, version),
@@ -486,8 +491,13 @@ mod tests {
     }
 
     #[test]
-    fn canonical_url_java_handles_groupId() {
-        let url = canonical_url(&RuntimeKind::Java, "org.springframework:spring-core", "6.0.0").unwrap();
+    fn canonical_url_java_handles_group_id() {
+        let url = canonical_url(
+            &RuntimeKind::Java,
+            "org.springframework:spring-core",
+            "6.0.0",
+        )
+        .unwrap();
         assert!(url.contains("/org.springframework/spring-core/"));
     }
 

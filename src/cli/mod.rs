@@ -16,8 +16,8 @@ pub mod resolve;
 pub mod scan;
 pub mod setup;
 pub mod shell;
-pub mod sync;
 pub mod status;
+pub mod sync;
 pub mod upgrade;
 pub mod why;
 
@@ -591,7 +591,11 @@ pub fn run(cli: Cli) -> Result<()> {
             skip_validate,
         } => sync::cmd_sync(dry_run, check, json, skip_validate),
         Commands::Resolve => resolve::cmd_resolve(),
-        Commands::Check { security, eol, json } => check::cmd_check(security, eol, json),
+        Commands::Check {
+            security,
+            eol,
+            json,
+        } => check::cmd_check(security, eol, json),
         Commands::Scan { ghosts, fix, json } => scan::cmd_scan(ghosts, fix, json),
         Commands::Docs {
             package,

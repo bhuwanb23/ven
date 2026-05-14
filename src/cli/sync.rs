@@ -375,7 +375,10 @@ fn print_drift_report_npm(cwd: &Path, report: &DriftReport) {
             report.count_actionable()
         );
     } else {
-        println!("  {} No drift — lock and node_modules agree.", "[OK]".green());
+        println!(
+            "  {} No drift — lock and node_modules agree.",
+            "[OK]".green()
+        );
     }
 }
 

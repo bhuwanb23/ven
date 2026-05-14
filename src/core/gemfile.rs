@@ -26,14 +26,10 @@ impl Gemfile {
         if !path.is_file() {
             return Ok(Self {
                 path,
-                lines: vec![
-                    "source 'https://rubygems.org'".to_string(),
-                    String::new(),
-                ],
+                lines: vec!["source 'https://rubygems.org'".to_string(), String::new()],
             });
         }
-        let body = fs::read_to_string(&path)
-            .with_context(|| format!("Read {}", path.display()))?;
+        let body = fs::read_to_string(&path).with_context(|| format!("Read {}", path.display()))?;
         let lines = body.lines().map(|s| s.to_string()).collect();
         Ok(Self { path, lines })
     }
@@ -83,8 +79,7 @@ impl Gemfile {
         if !body.ends_with('\n') {
             body.push('\n');
         }
-        fs::write(&self.path, body)
-            .with_context(|| format!("Write {}", self.path.display()))?;
+        fs::write(&self.path, body).with_context(|| format!("Write {}", self.path.display()))?;
         Ok(())
     }
 

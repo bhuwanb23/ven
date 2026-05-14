@@ -13,8 +13,8 @@ pub fn cmd_scan(ghosts: bool, fix: bool, json: bool) -> Result<()> {
     let _ = ghosts;
 
     let cwd = std::env::current_dir()?;
-    let cfg = load_config(&cwd)?
-        .ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
+    let cfg =
+        load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
     let kind = primary_runtime_kind(&cfg);
     let report = scan_project(&cwd, &cfg, kind)?;
 

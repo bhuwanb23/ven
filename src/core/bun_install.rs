@@ -145,11 +145,7 @@ pub fn install_bun(downloader: &BunDownloader, version: &str) -> Result<()> {
     let version = version.trim().trim_start_matches('v');
     let url = build_download_url(version)?;
     fs::create_dir_all(&downloader.cache_dir)?;
-    let archive_filename = url
-        .split('/')
-        .next_back()
-        .unwrap_or("bun.zip")
-        .to_string();
+    let archive_filename = url.split('/').next_back().unwrap_or("bun.zip").to_string();
     let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
         let resp = Client::new()

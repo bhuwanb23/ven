@@ -1,3 +1,11 @@
+# Test fixture for `tests/ghost_scanner_test.rs`. The empty `[workspace]`
+# makes this a standalone Cargo manifest so it isn't auto-discovered by the
+# parent workspace at `D:/projects/software/ven/Cargo.toml` — the parent is
+# a single-crate package, but Cargo will still walk the tree and warn about
+# "found a virtual manifest" / "package not in workspace" without this.
+
+[workspace]
+
 [package]
 name = "rust-fixture"
 version = "0.0.0"

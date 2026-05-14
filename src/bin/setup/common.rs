@@ -18,8 +18,7 @@ use std::path::{Path, PathBuf};
 // build pass will pick them up and embed them properly.
 
 pub const VEN_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven.bin"));
-pub const LAUNCHER_EMBEDDED: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin"));
+pub const LAUNCHER_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin"));
 
 // ---------------------------------------------------------------------------
 // CLI
