@@ -28,7 +28,17 @@ clap = { version = "4", features = ["derive"] }
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "blocking"], default-features = true }
+#
+# Use rustls (pure-Rust TLS) instead of the default native-tls backend so:
+#   1. Linux arm64 cross-compiles in the release matrix don't need a sysroot
+#      with libssl-dev — see .github/workflows/release.yml. native-tls links
+#      system OpenSSL, which can't be found when host=x86_64 / target=arm64
+#      on the GitHub-hosted Ubuntu runner.
+#   2. Every platform (Win, macOS, Linux) ships the same TLS stack for
+#      reproducible behaviour.
+# `rustls-tls` pulls in `rustls-tls-webpki-roots`, so trust roots ship inside
+# the binary — no dependency on the host's certificate store either.
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "http2", "charset"] }
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
