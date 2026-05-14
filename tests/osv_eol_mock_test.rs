@@ -41,6 +41,7 @@ fn isolate_storage(label: &str) -> tempfile::TempDir {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::await_holding_lock)]
 async fn osv_returns_vulns_from_mocked_server() {
     let _env = lock_env();
     let _tmp = isolate_storage("osv");
@@ -98,6 +99,7 @@ async fn osv_returns_vulns_from_mocked_server() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::await_holding_lock)]
 async fn osv_serves_stale_on_network_failure_after_warm_cache() {
     let _env = lock_env();
     let _tmp = isolate_storage("osv-stale");
@@ -141,6 +143,7 @@ async fn osv_serves_stale_on_network_failure_after_warm_cache() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::await_holding_lock)]
 async fn eol_picks_matching_cycle_from_mocked_endpoint() {
     let _env = lock_env();
     let _tmp = isolate_storage("eol");
