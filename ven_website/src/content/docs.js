@@ -19,11 +19,13 @@ const CMD_DOCS = {
     title: 'ven init',
     category: 'Getting started',
     summary:
-      'Interactive project bootstrap. Picks a runtime, optionally adds packages, writes ven.toml, and (optionally) validates the result.',
+      'Interactive project bootstrap. Picks one runtime, optionally adds packages, writes ven.toml, and (optionally) validates the result. Multi-runtime projects are supported via direct ven.toml edits — multi-select wizard ships in the next release.',
     sections: [
       { kind: 'p', text: 'ven init is the project initialization wizard. It writes a ven.toml in the current directory with a runtime, optional packages, and optional [env] variables.' },
+      { kind: 'h2', text: 'Scope in v0.1.x' },
+      { kind: 'p', text: 'The wizard pins one language at a time. The ven.toml schema and every other ven command (add, status, the activation hook, lock, sync, check) already support multiple runtimes per project — declare them by editing ven.toml directly after ven init. A multi-select wizard (SPACE to toggle several languages, then a version prompt for each) ships in the next release.' },
       { kind: 'h2', text: 'Usage' },
-      { kind: 'code', lang: 'bash', code: 'ven init                  # interactive\nven init --template       # pick a template\nven init --with-packages  # multi-select popular packages\nven init --validate       # validate after writing' },
+      { kind: 'code', lang: 'bash', code: 'ven init                  # interactive (single language)\nven init --template       # pick a template\nven init --with-packages  # multi-select popular packages\nven init --validate       # validate after writing\nven init --lang python --ver 3.12   # headless (CI-friendly)' },
       { kind: 'h2', text: 'Templates' },
       {
         kind: 'ul', items: [
@@ -33,8 +35,12 @@ const CMD_DOCS = {
           'Empty Project — pick language + version, no packages',
         ]
       },
-      { kind: 'h2', text: 'Generated ven.toml' },
+      { kind: 'h2', text: 'Generated ven.toml (single runtime)' },
       { kind: 'code', lang: 'toml', code: '[runtime]\nnode = "20"\n\n[packages]\nexpress = "^4.18.2"\ncors    = "^2.8.5"\ndotenv  = "^16.3.1"\n\n[env]\nNODE_ENV = "development"\nPORT     = "3000"' },
+      { kind: 'h2', text: 'Multi-runtime projects (hand-edited today)' },
+      { kind: 'p', text: 'For projects spanning more than one language — say a Python service with a Node-built frontend, or a Go API with Python data scripts — run ven init for the primary language, then add additional runtimes by hand. Each line is independent; the activation hook will set up PATH for every declared runtime simultaneously.' },
+      { kind: 'code', lang: 'toml', code: '[runtime]\npython = "3.12"      # written by ven init\nnode   = "20"        # added by hand\ngo     = "1.22"      # added by hand\n\n[packages]\nflask   = "^3.0.0"   # routes to pip\nexpress = "^4.18.2"  # routes to npm' },
+      { kind: 'p', text: 'After editing, run ven install for each new runtime, then cd in or out of the directory to re-trigger the activation hook. ven status will list every active runtime side-by-side.' },
       { kind: 'h2', text: 'Validation' },
       { kind: 'p', text: '--validate runs four checks: ven.toml structure, runtime resolution (will the version install?), declared packages, and optional env vars. Output uses ✓ / ⚠ / ✗ icons.' },
       { kind: 'h2', text: 'Next steps' },

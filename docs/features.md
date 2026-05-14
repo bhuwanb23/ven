@@ -165,6 +165,8 @@ See: [`shell-integration.md`](shell-integration.md) · [`cmds/setup.md`](cmds/se
 | **With packages**             | `--with-packages`             | After language/version, multi-select from a curated popular-packages list. |
 | **Validate after init**       | `--validate`                  | Run health checks (runtime present? venv present? packages declared?) right after writing the file. |
 
+> **Single-language wizard, multi-language schema.** In `v0.1.x` the wizard pins **one** runtime per run. The `ven.toml` schema and every downstream command (`add`, `status`, the shell hook, `lock`, `sync`, `check`, `scan`) already support multiple `[runtime]` entries — just edit `ven.toml` after `ven init` to add more. A multi-select wizard ships in the next release. See [`cmds/init.md`](cmds/init.md#multi-runtime-projects) for the exact pattern.
+
 ### Python-specific behavior
 
 When you pick Python during `ven init`:
@@ -176,10 +178,11 @@ When you pick Python during `ven init`:
 ### Commands
 
 ```bash
-ven init                         # plain
+ven init                         # plain (one language)
 ven init --template              # interactive template selection
 ven init --with-packages         # interactive package picker
 ven init --validate              # run health checks after init
+ven init --lang python --ver 3.12  # headless (CI-friendly)
 ven init --node 20               # legacy back-compat: pre-fill node = "20"
 ```
 

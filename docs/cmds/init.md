@@ -14,6 +14,11 @@ Unlike manually writing `ven.toml`, `ven init`:
 - ✅ Post-creation validation
 - ✅ Best practice recommendations
 
+> **Scope in this release (v0.1.x):**
+> The wizard pins **one language at a time**. The `ven.toml` *schema* and every other ven command (`add`, `status`, the activation hook, `lock`, `sync`, `check`, …) already support **multiple runtimes per project** — you just declare them by editing `ven.toml` directly after `ven init`. See [Multi-runtime projects](#multi-runtime-projects) below for the exact pattern.
+>
+> A multi-select wizard (`SPACE` to toggle several languages, then a version prompt for each) is on the roadmap for the next release.
+
 ## Usage
 
 ### Basic Initialization
@@ -284,17 +289,24 @@ node = "20"
 - **Current**: Latest features, good compatibility
 - **Aliases**: `lts`, `latest`, major versions
 
-### Python (Future)
+### Python
 
 ```
 ? Select Python version:
-  ▸ 3.12.2
+  ▸ 3.13.12  ⭐ Stable
+    3.12.7
     3.11.8
     3.10.14
     latest
 ```
 
-**Note:** Python support planned for Phase 2.
+When Python is the picked language, `ven init` additionally:
+
+1. Writes a `[venv]` block with `auto_path = true` so the activation hook prepends `./venv/bin` (or `./.venv/bin`) to `PATH`.
+2. Creates `./venv` via `python -m venv --copies`. If the embeddable build lacks the stdlib `venv` module (common on Windows), it `pip install`s `virtualenv` and uses that instead.
+3. Adds `venv/` and `.venv/` to `.gitignore` if a git repo is detected.
+
+The remaining six runtimes (`go`, `rust`, `java`, `deno`, `bun`, `ruby`) work the same way — interactive picker, version prompt, single line written to `[runtime]`. Pick the rest by adding them to `ven.toml` directly today, or wait for the multi-select wizard in the next release.
 
 ---
 
@@ -393,18 +405,34 @@ dotenv = "^16.3.1"
 
 #### [runtime]
 
-**Purpose:** Specify language versions
+**Purpose:** Pin one or more language versions for this project. Every field is independent — populate as many as you want; the activation hook and every other ven command will see them all.
 
-**Fields:**
-- `node`: Node.js version (required)
-- Future: `python`, `go`, `rust`
+**Fields:** all eight are accepted by the schema today.
+- `node` — Node.js
+- `python` — CPython
+- `go` — Go toolchain
+- `rust` — Rust toolchain (via rustup)
+- `java` — JDK
+- `deno` — Deno
+- `bun` — Bun
+- `ruby` — MRI Ruby
 
-**Example:**
+> The `ven init` wizard currently writes **one** of these per run (whichever you pick at the language prompt). Add the rest by editing `ven.toml` directly — see [Multi-runtime projects](#multi-runtime-projects).
+
+**Single-runtime example:**
 ```toml
 [runtime]
 node = "20.11.0"  # Exact version
 node = "20"       # Major version
 node = "lts"      # Alias
+```
+
+**Multi-runtime example** (hand-written today, wizard-supported in the next release):
+```toml
+[runtime]
+node = "20"
+python = "3.12"
+go = "1.22"
 ```
 
 #### [packages]
@@ -439,9 +467,55 @@ API_URL = "http://localhost:8080"
 
 ---
 
+## Multi-runtime projects
+
+`ven` is designed for projects that span more than one language — a Python service with a Node-built frontend, a Go API with Python data scripts, a Rust crate with a docs site on Bun. The `ven.toml` schema treats every runtime field as independent, so you can pin two or eight in the same project and the activation hook will set up `PATH`, `JAVA_HOME`, `GEM_HOME`, `CARGO_HOME`, etc. **all at once** when you `cd` in.
+
+### How to do it today
+
+1. Run `ven init` (or `ven init --template`) and pick whichever language is the *primary* one for the project. The wizard writes a single-runtime `ven.toml`.
+2. Open the file in your editor.
+3. Add additional runtime lines directly under `[runtime]`. Each one accepts the same version-spec format as the wizard (exact, major, alias):
+
+   ```toml
+   [runtime]
+   node = "20"        # written by `ven init`
+   python = "3.12"    # added by hand
+   go = "1.22"        # added by hand
+   ```
+
+4. Install the new runtimes:
+
+   ```bash
+   ven install python 3.12
+   ven install go 1.22
+   ```
+
+5. `cd` out and back in (or run `ven status`) — the hook now activates all three.
+
+### What works for multi-runtime projects today
+
+| Command | Behavior with multiple `[runtime]` entries |
+|---------|---------------------------------------------|
+| `ven status`         | Reports every populated runtime, side-by-side |
+| `ven add <pkg>`      | Routes to the right package manager based on the package's ecosystem hints (npm, pip, cargo, go, gem, …) |
+| `ven remove <pkg>`   | Same |
+| `ven check`          | Scans **every** declared runtime against OSV / EOL |
+| `ven scan --ghosts`  | Walks every source file, attributes ghosts to the right runtime |
+| `ven lock` / `ven sync` | One `ven.lock` covers every runtime's package set |
+| Shell hook           | Sets PATH + per-language env vars for **all** declared runtimes simultaneously |
+
+### What's coming in the next release
+
+- `ven init` multi-select prompt — pick `[ ] node`, `[ ] python`, … with `SPACE`, then a per-language version prompt.
+- A `--lang node,python,go` headless syntax for CI scaffolding.
+- Multi-language templates (e.g. "Django + Vite frontend").
+
+---
+
 ## Use Cases
 
-### 1. New Project
+### 1. New Project (single language)
 
 ```bash
 mkdir myproject && cd myproject
@@ -449,6 +523,21 @@ ven init --template
 ven setup
 ven install node 20
 ven add express
+```
+
+### 1b. New Project (multi-runtime, hand-edit step)
+
+```bash
+mkdir polyglot-app && cd polyglot-app
+ven init --lang python --ver 3.12
+
+# Open ven.toml and add a second runtime by hand:
+#   [runtime]
+#   python = "3.12"
+#   node   = "20"          ← add this line
+
+ven install node 20
+cd . && ven status      # both runtimes active
 ```
 
 ### 2. Monorepo Setup
