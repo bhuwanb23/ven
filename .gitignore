@@ -40,6 +40,9 @@ __pycache__/
 /example/
 *.zip
 ven.toml
+# Keep test fixtures tracked even though `ven.toml` is globally ignored —
+# `tests/config_test.rs` parses this file and CI can't see ignored paths.
+!tests/fixtures/**/ven.toml
 .agents
 .cursor
 graphify-out

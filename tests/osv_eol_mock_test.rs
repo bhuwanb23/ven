@@ -53,9 +53,7 @@ async fn osv_returns_vulns_from_mocked_server() {
         .mock("POST", "/querybatch")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(
-            r#"{"results":[{"vulns":[{"id":"GHSA-test-1234"}]}]}"#,
-        )
+        .with_body(r#"{"results":[{"vulns":[{"id":"GHSA-test-1234"}]}]}"#)
         .create_async()
         .await;
 
@@ -80,7 +78,10 @@ async fn osv_returns_vulns_from_mocked_server() {
 
     let client = OsvClient::new().expect("OsvClient::new");
     let queries = vec![OsvQuery::new("npm", "express", "4.18.2")];
-    let reports = client.query_packages(&queries).await.expect("query_packages");
+    let reports = client
+        .query_packages(&queries)
+        .await
+        .expect("query_packages");
 
     assert_eq!(reports.len(), 1);
     let r = &reports[0];

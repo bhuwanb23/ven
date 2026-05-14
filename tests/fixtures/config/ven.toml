@@ -1,0 +1,9 @@
+# Test fixture for `tests/config_test.rs`. Lives under `tests/fixtures/`
+# (not `example/`) so it's tracked in git — `/example/` is gitignored as a
+# user scratchpad. Do not "improve" this file without updating the
+# assertions in tests/config_test.rs that read it back.
+
+[runtime]
+node = "25.9.0"
+
+[packages]
