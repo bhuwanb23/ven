@@ -1,43 +1,51 @@
 {
-  "_comment_": "Direct-download manifest consumed by /install. Regenerate this file from your GitHub Release assets when cutting a new version — the install page reads it as static JSON at request time so a release never requires a code change. Fields: version, date (ISO-8601), notesUrl, assets[].{ platform, file, sha256, size, url }.",
-  "version": "1.0.0",
-  "date": "2026-05-13",
-  "notesUrl": "https://github.com/yourorg/ven/releases/tag/v1.0.0",
+  "_comment_": "Direct-download manifest consumed by /install. The DownloadsTable in src/pages/Install.jsx fetches this file at runtime, so a new release does NOT require a website rebuild — just update this file and push. Fields per asset: platform (display label), file (exact filename matching .github/workflows/release.yml), sha256 (full hex from SHA256SUMS), size (human string), url (download link).",
+  "_comment_update_": "After the GitHub Release is published: 1) download SHA256SUMS from the release; 2) replace each asset's sha256 with its full hex digest from that file; 3) replace size with the actual MB string from the release UI; 4) bump version + date + notesUrl. Until then 'pending' renders as-is in the table.",
+  "version": "0.1.0",
+  "date": "2026-05-14",
+  "notesUrl": "https://github.com/bhuwanb23/ven/releases/tag/v0.1.0",
   "assets": [
     {
       "platform": "macOS (Apple Silicon)",
       "file": "ven-macos-arm64.tar.gz",
-      "sha256": "7b2f4e91…",
-      "size": "4.4 MB",
-      "url": "https://github.com/yourorg/ven/releases/download/v1.0.0/ven-macos-arm64.tar.gz"
+      "sha256": "pending",
+      "size": "pending",
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.0/ven-macos-arm64.tar.gz"
     },
     {
       "platform": "macOS (Intel)",
       "file": "ven-macos-x64.tar.gz",
-      "sha256": "8f92a11b…",
-      "size": "4.8 MB",
-      "url": "https://github.com/yourorg/ven/releases/download/v1.0.0/ven-macos-x64.tar.gz"
+      "sha256": "pending",
+      "size": "pending",
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.0/ven-macos-x64.tar.gz"
     },
     {
       "platform": "Linux (x64)",
       "file": "ven-linux-x64.tar.gz",
-      "sha256": "33a109fc…",
-      "size": "5.1 MB",
-      "url": "https://github.com/yourorg/ven/releases/download/v1.0.0/ven-linux-x64.tar.gz"
+      "sha256": "pending",
+      "size": "pending",
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.0/ven-linux-x64.tar.gz"
     },
     {
       "platform": "Linux (arm64)",
       "file": "ven-linux-arm64.tar.gz",
-      "sha256": "c4e5f8d2…",
-      "size": "5.0 MB",
-      "url": "https://github.com/yourorg/ven/releases/download/v1.0.0/ven-linux-arm64.tar.gz"
+      "sha256": "pending",
+      "size": "pending",
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.0/ven-linux-arm64.tar.gz"
     },
     {
       "platform": "Windows (x64)",
       "file": "ven-windows-x64.zip",
-      "sha256": "a1c84e02…",
-      "size": "5.4 MB",
-      "url": "https://github.com/yourorg/ven/releases/download/v1.0.0/ven-windows-x64.zip"
+      "sha256": "pending",
+      "size": "pending",
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.0/ven-windows-x64.zip"
+    },
+    {
+      "platform": "Windows (arm64)",
+      "file": "ven-windows-arm64.zip",
+      "sha256": "pending",
+      "size": "pending",
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.0/ven-windows-arm64.zip"
     }
   ]
 }

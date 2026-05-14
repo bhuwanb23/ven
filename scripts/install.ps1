@@ -8,11 +8,11 @@
   the install steps in PowerShell when only a raw-binary zip is available.
 
   Usage (piped, env-var config):
-    irm https://get.ven.sh/install.ps1 | iex
-    $env:VEN_INSTALL_MODE='system'; irm https://get.ven.sh/install.ps1 | iex
+    irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+    $env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
 
   Usage (param-style):
-    & ([scriptblock]::Create((irm https://get.ven.sh/install.ps1))) -Mode system -Version v0.1.0
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1))) -Mode system -Version v0.1.0
 
   Local invocation:
     pwsh -NoProfile -File scripts\install.ps1 -Mode user -DryRun
@@ -52,11 +52,11 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 # Resolve config: -Param wins, then env var, then default.
 $mode            = if ($Mode)            { $Mode }            elseif ($env:VEN_INSTALL_MODE)    { $env:VEN_INSTALL_MODE }    else { '' }
 $version         = if ($Version)         { $Version }         elseif ($env:VEN_VERSION)         { $env:VEN_VERSION }         else { 'latest' }
-$repo            = if ($Repo)            { $Repo }            elseif ($env:VEN_REPO)            { $env:VEN_REPO }            else { 'yourorg/ven' }
+$repo            = if ($Repo)            { $Repo }            elseif ($env:VEN_REPO)            { $env:VEN_REPO }            else { 'bhuwanb23/ven' }
 $noVerify        = if ($NoVerify)        { $true }            elseif ($env:VEN_NO_VERIFY)       { [bool]::Parse($env:VEN_NO_VERIFY) }       else { $false }
 $dryRun          = if ($DryRun)          { $true }            elseif ($env:VEN_DRY_RUN)         { [bool]::Parse($env:VEN_DRY_RUN) }         else { $false }
 $forceReplicate  = if ($ForceReplicate)  { $true }            elseif ($env:VEN_FORCE_REPLICATE) { [bool]::Parse($env:VEN_FORCE_REPLICATE) } else { $false }
-$docsUrl         = if ($env:VEN_DOCS_URL) { $env:VEN_DOCS_URL } else { 'https://docs.ven.sh' }
+$docsUrl         = if ($env:VEN_DOCS_URL) { $env:VEN_DOCS_URL } else { 'https://bhuwanb23.github.io/ven/docs' }
 
 $Line = ('{0}' -f ([string]::new([char]0x2501, 56)))
 
