@@ -181,7 +181,8 @@ ven sync
 ### 🏢 Corporate Friendly — No Admin Required
 
 ven works in restricted enterprise environments where system PATH
-modification and admin privileges are unavailable.
+modification and admin privileges are unavailable. 
+Important - If your corporate system have any internet service or protector like Zscaler or anything else, then ven might not able to work for downloading the language, it might shows error for sending request
 
 ```bash
 # Portable. No admin. No setup.
