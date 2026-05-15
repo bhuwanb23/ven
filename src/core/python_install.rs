@@ -23,13 +23,7 @@ pub struct PythonDownloader {
 
 impl PythonDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = std::env::var("VEN_STORAGE_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .expect("Cannot find home directory")
-                    .join(".ven")
-            });
+        let storage_root = crate::core::ven_home::ven_home();
         let cache_dir = storage_root.join(".cache");
         Ok(Self {
             storage_root,

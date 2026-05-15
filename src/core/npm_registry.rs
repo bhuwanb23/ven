@@ -202,11 +202,7 @@ pub struct CacheStats {
 
 impl RegistryCache {
     fn new() -> Result<Self> {
-        // Create cache directory
-        let cache_dir = dirs::home_dir()
-            .ok_or_else(|| anyhow!("Cannot find home directory"))?
-            .join(".ven")
-            .join("cache");
+        let cache_dir = crate::core::ven_home::ven_home().join("cache");
 
         std::fs::create_dir_all(&cache_dir)?;
 

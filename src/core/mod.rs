@@ -23,6 +23,7 @@ pub mod ruby_install;
 pub mod runtime_bin;
 pub mod rust_install;
 pub mod security;
+pub mod ven_home;
 
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use bun_install::{install_bun as install_bun_native, BunDownloader};
@@ -49,6 +50,7 @@ pub use ruby_install::{
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use rust_install::{install_rust as install_rust_native, RustDownloader};
 pub use security::SecurityScanner;
+pub use ven_home::ven_home;
 
 // Note: All implementation functions have been moved to config.rs and packages.rs
 // This file now only serves as a module export hub

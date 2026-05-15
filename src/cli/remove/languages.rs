@@ -229,15 +229,12 @@ fn resolve_python_cmd() -> PathBuf {
             return resolved;
         }
         if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
-            if let Some(home) = dirs::home_dir() {
-                let p = home
-                    .join(".ven")
-                    .join("python")
-                    .join(ver)
-                    .join("python.exe");
-                if p.is_file() {
-                    return p;
-                }
+            let p = crate::core::ven_home::ven_home()
+                .join("python")
+                .join(ver)
+                .join("python.exe");
+            if p.is_file() {
+                return p;
             }
         }
         PathBuf::from("python")

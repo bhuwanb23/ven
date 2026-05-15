@@ -383,10 +383,7 @@ pub fn render_for_terminal(markdown: &str) -> String {
 // ── SQLite cache ────────────────────────────────────────────────────────────
 
 fn db_path() -> PathBuf {
-    std::env::var("VEN_STORAGE_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| dirs::home_dir().expect("home").join(".ven"))
-        .join("intelligence.db")
+    crate::core::ven_home::ven_home().join("intelligence.db")
 }
 
 fn now_secs() -> i64 {

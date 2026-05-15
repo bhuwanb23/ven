@@ -6,14 +6,12 @@ use serde_json;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::core::ven_home::ven_home;
 use crate::intelligence::graph::SimulationResult;
 use crate::intelligence::ven_lock::VenLockFile;
 
 fn db_path() -> PathBuf {
-    std::env::var("VEN_STORAGE_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| dirs::home_dir().expect("home").join(".ven"))
-        .join("intelligence.db")
+    ven_home().join("intelligence.db")
 }
 
 fn now_secs() -> i64 {
