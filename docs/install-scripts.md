@@ -116,6 +116,19 @@ Each `ven-setup-*` binary is the **self-contained installer** with `ven` and `ve
 | macOS x64              | `ven-macos-x64.tar.gz`           | `ven`, `ven-launcher`                     |
 | macOS arm64            | `ven-macos-arm64.tar.gz`         | `ven`, `ven-launcher`                     |
 
+### Portable launcher bundle
+
+Discoverable, no-PATH-modification archive shipped alongside the combined release artifacts. Identical binaries to the Replicate-path archive plus a top-level `README.txt` explaining sibling-`.ven/` portable mode (see [docs/ven-launcher.md](ven-launcher.md#portable-mode)). The install scripts continue to fetch the combined `ven-{os}-{arch}` archive — the launcher bundle is for users who want to download and run `ven` without touching `$PATH` at all.
+
+| Platform               | Asset name                                  | Contents                                                |
+|------------------------|---------------------------------------------|---------------------------------------------------------|
+| Windows x64            | `ven-launcher-windows-x64.zip`              | `ven.exe`, `ven-launcher.exe`, `README.txt`             |
+| Windows arm64          | `ven-launcher-windows-arm64.zip`            | `ven.exe`, `ven-launcher.exe`, `README.txt`             |
+| Linux x64              | `ven-launcher-linux-x64.tar.gz`             | `ven`, `ven-launcher` (mode 0755), `README.txt`         |
+| Linux arm64            | `ven-launcher-linux-arm64.tar.gz`           | `ven`, `ven-launcher`, `README.txt`                     |
+| macOS x64              | `ven-launcher-macos-x64.tar.gz`             | `ven`, `ven-launcher`, `README.txt`                     |
+| macOS arm64            | `ven-launcher-macos-arm64.tar.gz`           | `ven`, `ven-launcher`, `README.txt`                     |
+
 ### Integrity (preferred: per-asset sidecar; fallback: manifest)
 
 For each asset above, publish either a per-asset `.sha256` sidecar **or** include the asset in a top-level `SHA256SUMS` manifest. Both forms are accepted; sidecars take precedence.

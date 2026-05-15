@@ -223,6 +223,17 @@ $ ven graph
 
 ### Install ven
 
+#### Which binary should I use?
+
+| Use case                                                                 | Binary                                            | Asset to download                                         |
+|--------------------------------------------------------------------------|---------------------------------------------------|-----------------------------------------------------------|
+| **Default — laptop / dev workstation.** Uniform `ven` on `$PATH`.        | `ven`                                             | `ven-{os}-{arch}.{zip\|tar.gz}` via the install one-liner |
+| **Windows install with shell-hooks installer.** Skips PATH detection.    | `ven-setup.exe`                                   | `ven-setup-windows-{arch}.exe`                            |
+| **Linux / macOS install with shell-hooks installer.**                    | `ven-setup`                                       | `ven-setup-{os}-{arch}` (no extension)                    |
+| **No admin / locked-down corp / USB-stick portable.** Sibling `.ven/`.   | `ven-launcher` (+ bundled `ven`)                  | `ven-launcher-{os}-{arch}.{zip\|tar.gz}`                  |
+
+The portable launcher bundle is the new addition: download the asset, extract anywhere, and run `./ven-launcher` (or `ven-launcher.exe`). It opens a new shell with `ven` and the nearest `ven.toml` already activated — no `$PATH` edits, no rc-file changes, no admin. Drop a `.ven/` folder next to the launcher to make every runtime, cache entry, and lockfile state stay inside the bundle (USB-stick mode). See [docs/ven-launcher.md](docs/ven-launcher.md#portable-mode).
+
 **Windows (PowerShell 5.1+)**
 ```powershell
 # user install (interactive prompt if TTY; defaults to "user" when piped)
