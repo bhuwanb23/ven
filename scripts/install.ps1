@@ -24,7 +24,16 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('user', 'system')]
+    # NOTE: deliberately no [ValidateSet] here. `irm <url> | iex` evaluates the
+    # whole script in the *caller's* scope (there is no fresh function scope),
+    # so `[ValidateSet('user','system')] [string] $Mode` would be interpreted
+    # as "attach a validator to the existing $Mode variable" rather than as a
+    # function-parameter declaration. With $Mode unset (default `[string]` is
+    # `""`), the validator immediately rejects the empty string with:
+    #   "The attribute cannot be added because variable Mode with value would
+    #    no longer be valid."
+    # We validate the resolved value manually a few lines below; that gives
+    # an identical error message without breaking the canonical one-liner.
     [string] $Mode,
     [string] $Version,
     [string] $Repo,
