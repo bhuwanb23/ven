@@ -417,7 +417,7 @@ function FeatureGrid() {
           </div>
           <div className="hidden md:flex items-center gap-2 text-xs font-mono text-on-surface-variant">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim animate-pulse" />
-            v1.0.0 · all green
+            v0.1.1 · all green
           </div>
         </div>
 

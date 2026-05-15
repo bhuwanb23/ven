@@ -16,11 +16,11 @@ import {
 const FAQ = [
   {
     q: 'How fast is the auto-switching hook?',
-    a: 'Sub-50ms on a warm cache. The shell hook is a single Rust binary call that reads `ven.toml`, resolves the runtime against `~/.ven`, and exports the new PATH — no shim, no fork-per-command tax.',
+    a: 'Sub-50ms on a warm cache. The shell hook is a single Rust binary call that reads `ven.toml`, resolves the runtime against `$VEN_HOME` (default `~/.ven`), and exports the new PATH — no shim, no fork-per-command tax.',
   },
   {
     q: 'Does it support Windows?',
-    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines, and a UAC-aware `ven-setup.exe` for system installs.',
+    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines (also shipped as a discoverable `ven-launcher-windows-{arch}.zip` bundle in v0.1.1), and a UAC-aware `ven-setup.exe` for system installs.',
   },
   {
     q: 'Can it coexist with nvm / pyenv?',
@@ -36,9 +36,35 @@ const FAQ = [
   },
   {
     q: 'Where does ven store data?',
-    a: 'Everything under `~/.ven/`. Binaries in `~/.ven/bin`, downloaded runtimes in `~/.ven/<lang>/<version>/`, and a SQLite cache at `~/.ven/cache/` for OSV / EOL / docs lookups.',
+    a: 'Resolved on every run via `VEN_HOME` (4-tier precedence: `$VEN_HOME` → `$VEN_STORAGE_PATH` → `<launcher-dir>/.ven` → `~/.ven`). Binaries live in `<root>/bin`, runtimes in `<root>/<lang>/<version>/`, and a SQLite cache at `<root>/cache/` for OSV / EOL / docs lookups. Drop a `.ven/` folder next to `ven-launcher` for fully portable USB-stick installs — no `~/.ven` writes, no PATH edits.',
   },
 ]
+
+// Display labels + tone for the per-kind groups of the downloads table.
+// Using a fixed map keeps the order stable: combined first (the default
+// install path), then the discoverable portable bundle, then the standalone
+// installer.
+const KIND_META = {
+  combined: {
+    label: 'Combined archive',
+    tagline: 'Used by the install one-liners. Contains ven + ven-launcher.',
+    accent: 'text-primary-fixed-dim',
+  },
+  launcher: {
+    label: 'Portable launcher bundle',
+    tagline:
+      'No-PATH-modification, no-admin. Extract anywhere; drop a sibling .ven/ for fully portable USB-stick mode.',
+    accent: 'text-secondary-fixed-dim',
+  },
+  setup: {
+    label: 'Standalone installer',
+    tagline:
+      'Self-contained ven-setup binary that embeds ven + ven-launcher and installs hooks. UAC on Windows, sudo on Unix system installs.',
+    accent: 'text-tertiary-fixed-dim',
+  },
+}
+
+const KIND_ORDER = ['combined', 'launcher', 'setup']
 
 function PlatformTabs({ active, onChange }) {
   return (
@@ -103,6 +129,14 @@ function DownloadsTable() {
     return <p className="text-on-surface-variant text-sm opacity-70">Loading release assets…</p>
   }
 
+  // Group assets by `kind`. Older manifests without the `kind` field fall
+  // back to the `combined` bucket so the page still renders for stale data.
+  const grouped = data.assets.reduce((acc, d) => {
+    const k = d.kind ?? 'combined'
+    ;(acc[k] ??= []).push(d)
+    return acc
+  }, {})
+
   return (
     <>
       <h2 className="font-headline-md text-headline-md mb-8 flex items-center gap-3 flex-wrap">
@@ -118,37 +152,56 @@ function DownloadsTable() {
           release notes →
         </a>
       </h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse font-mono text-sm">
-          <thead>
-            <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase text-[10px] tracking-widest">
-              <th className="py-4 px-2">Platform</th>
-              <th className="py-4 px-2">Artifact</th>
-              <th className="py-4 px-2">SHA-256</th>
-              <th className="py-4 px-2 text-right">Size</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/10">
-            {data.assets.map((d) => (
-              <tr key={d.file} className="hover:bg-surface-container-low transition-colors">
-                <td className="py-4 px-2 font-bold text-primary-fixed-dim">{d.platform}</td>
-                <td className="py-4 px-2">
-                  <a
-                    href={d.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-primary-fixed-dim underline-offset-4 hover:underline"
-                  >
-                    {d.file}
-                  </a>
-                </td>
-                <td className="py-4 px-2 opacity-60">{d.sha256}</td>
-                <td className="py-4 px-2 text-right">{d.size}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="space-y-12">
+        {KIND_ORDER.filter((k) => (grouped[k]?.length ?? 0) > 0).map((k) => {
+          const meta = KIND_META[k]
+          return (
+            <section key={k}>
+              <header className="mb-3 flex items-baseline gap-3 flex-wrap">
+                <h3 className={clsx('font-headline-md text-lg font-bold', meta.accent)}>
+                  {meta.label}
+                </h3>
+                <span className="text-xs text-on-surface-variant opacity-70">
+                  {meta.tagline}
+                </span>
+              </header>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse font-mono text-sm">
+                  <thead>
+                    <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase text-[10px] tracking-widest">
+                      <th className="py-3 px-2">Platform</th>
+                      <th className="py-3 px-2">Artifact</th>
+                      <th className="py-3 px-2">SHA-256</th>
+                      <th className="py-3 px-2 text-right">Size</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10">
+                    {grouped[k].map((d) => (
+                      <tr key={d.file} className="hover:bg-surface-container-low transition-colors">
+                        <td className="py-3 px-2 font-bold text-primary-fixed-dim">{d.platform}</td>
+                        <td className="py-3 px-2">
+                          <a
+                            href={d.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:text-primary-fixed-dim underline-offset-4 hover:underline"
+                          >
+                            {d.file}
+                          </a>
+                        </td>
+                        <td className="py-3 px-2 opacity-60 break-all">{d.sha256}</td>
+                        <td className="py-3 px-2 text-right">{d.size}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )
+        })}
       </div>
+
       <p className="mt-6 text-xs text-on-surface-variant opacity-70">
         Every asset ships with a `.sha256` sidecar and an aggregate `SHA256SUMS` manifest. The install
         scripts verify hashes automatically before extraction.
@@ -193,9 +246,12 @@ export default function Install() {
         </h2>
         <GlassCard tone="neutral" className="p-6 font-mono text-on-surface-variant leading-relaxed">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-primary-fixed-dim">~/.ven/</span>
+            <span className="text-primary-fixed-dim">$VEN_HOME/</span>
             <span className="text-[10px] bg-outline-variant px-1 text-on-surface uppercase font-bold">
-              HOME
+              ROOT
+            </span>
+            <span className="text-[10px] text-on-surface-variant opacity-70 ml-1">
+              defaults to ~/.ven · resolves to a sibling .ven/ for portable bundles
             </span>
           </div>
           <div className="pl-4 border-l border-outline-variant/30 py-1">
@@ -209,6 +265,14 @@ export default function Install() {
             <Row arrow="├──" name="cache/" tag="OSV / EOL / docs (SQLite)" />
             <Row arrow="└──" name="storage/" tag="lockfile simulations + drift state" />
           </div>
+          <p className="mt-4 text-[11px] text-on-surface-variant opacity-70 leading-relaxed">
+            Resolution order on every run:{' '}
+            <code className="text-on-surface">$VEN_HOME</code> →{' '}
+            <code className="text-on-surface">$VEN_STORAGE_PATH</code> →{' '}
+            <code className="text-on-surface">&lt;launcher-dir&gt;/.ven</code> →{' '}
+            <code className="text-on-surface">~/.ven</code>. The launcher exports the resolved value to
+            every spawned shell so portable bundles stay self-contained.
+          </p>
         </GlassCard>
       </Reveal>
 
@@ -262,15 +326,32 @@ export default function Install() {
       <Reveal as="section" className="mb-24 glass-surface p-8 border-l-4 border-secondary-fixed-dim rounded-r-xl">
         <div className="flex flex-col md:flex-row gap-8 items-start">
           <div className="grow">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-secondary-fixed-dim bg-secondary-fixed-dim/10 px-2 py-0.5 rounded">
+                NEW IN v0.1.1
+              </span>
+            </div>
             <h2 className="font-headline-md text-headline-md mb-4 text-secondary-fixed-dim">
               Corporate &amp; portable
             </h2>
-            <p className="text-on-surface-variant text-body-base mb-6">
-              Restricted environment? Run <code className="text-on-surface">ven-launcher.exe</code> from
-              anywhere — a USB stick, Downloads, a network share. It spawns a shell with the project's
-              ven.toml applied, writes nothing to disk, and leaves the host machine untouched on exit.
+            <p className="text-on-surface-variant text-body-base mb-4">
+              Restricted environment? Download the discoverable{' '}
+              <code className="text-on-surface">ven-launcher-{'{'}os{'}'}-{'{'}arch{'}'}.{'{'}zip|tar.gz{'}'}</code>{' '}
+              bundle (above), extract anywhere — USB stick, Downloads, a network share — and run the
+              launcher. It spawns a shell with the project's ven.toml applied, never edits the system
+              PATH or rc files, and never asks for admin.
             </p>
-            <CodeBlock code="./ven-launcher.exe" prompt="$" tone="success" copyable={false} />
+            <p className="text-on-surface-variant text-body-base mb-6">
+              Drop a sibling <code className="text-on-surface">.ven/</code> folder next to the launcher
+              and every runtime, cache entry, and lockfile state lives inside the bundle — fully
+              self-contained, fully movable.
+            </p>
+            <CodeBlock
+              code={'./ven-launcher          # opens shell with ven activated\nmkdir .ven              # promote bundle to USB-stick mode\n./ven-launcher --show-env'}
+              prompt="$"
+              tone="success"
+              copyable={false}
+            />
           </div>
           <div className="w-full md:w-48 aspect-square bg-surface-container-high rounded flex items-center justify-center border border-outline-variant/30">
             <Icon name="business_center" className="text-[64px] text-secondary-fixed-dim" />
@@ -291,7 +372,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 1.0.0 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.1 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>

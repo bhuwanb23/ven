@@ -47,7 +47,7 @@ function Sidebar({ onNavigate, progress }) {
 
       <div className="mb-6 px-2 flex items-center justify-between">
         <span className="text-xs font-bold uppercase tracking-widest text-outline">
-          v1.0.0
+          v0.1.1
         </span>
         <span className="text-[10px] font-mono uppercase tracking-widest text-secondary-fixed-dim flex items-center gap-1.5">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim animate-pulse" />
