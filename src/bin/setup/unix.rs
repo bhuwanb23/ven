@@ -44,8 +44,7 @@ pub fn run(cli: SetupCli, mode: InstallMode) -> Result<()> {
 
 fn install_user(dry_run: bool) -> Result<()> {
     println!("ven-setup: User Install (no sudo)");
-    let home = dirs::home_dir().ok_or_else(|| anyhow!("Cannot resolve user home directory"))?;
-    let install_dir = home.join(".ven").join("bin");
+    let install_dir = ven::core::ven_home::ven_home().join("bin");
 
     println!("\n[1/4] Extracting and writing binaries");
     let ven_bytes = resolve_binary_bytes("ven", VEN_EMBEDDED)?;

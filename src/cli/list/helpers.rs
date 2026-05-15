@@ -177,12 +177,7 @@ pub(super) fn get_installation_date(version_path: &std::path::Path) -> String {
 }
 
 pub(super) fn get_version_path(language: &str, version: &str) -> Result<std::path::PathBuf> {
-    let storage_root = std::env::var("VEN_STORAGE_PATH")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            dirs::home_dir()
-                .expect("Cannot find home directory")
-                .join(".ven")
-        });
-    Ok(storage_root.join(language).join(version))
+    Ok(crate::core::ven_home::ven_home()
+        .join(language)
+        .join(version))
 }

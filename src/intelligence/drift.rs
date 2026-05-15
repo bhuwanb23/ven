@@ -307,21 +307,17 @@ fn resolve_python_cmd(cwd: &Path) -> PathBuf {
     }
     // ven-managed Python.
     if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
-        if let Some(home) = dirs::home_dir() {
-            let storage = std::env::var("VEN_STORAGE_PATH")
-                .map(PathBuf::from)
-                .unwrap_or(home.join(".ven"));
-            #[cfg(target_os = "windows")]
-            let candidate = storage.join("python").join(&ver).join("python.exe");
-            #[cfg(not(target_os = "windows"))]
-            let candidate = storage
-                .join("python")
-                .join(&ver)
-                .join("bin")
-                .join("python3");
-            if candidate.is_file() {
-                return candidate;
-            }
+        let storage = crate::core::ven_home::ven_home();
+        #[cfg(target_os = "windows")]
+        let candidate = storage.join("python").join(&ver).join("python.exe");
+        #[cfg(not(target_os = "windows"))]
+        let candidate = storage
+            .join("python")
+            .join(&ver)
+            .join("bin")
+            .join("python3");
+        if candidate.is_file() {
+            return candidate;
         }
     }
     #[cfg(target_os = "windows")]
