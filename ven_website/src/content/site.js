@@ -12,27 +12,33 @@
 //   - CONTACT_EMAIL set to `null` to hide the Contact link in the Footer.
 //   - SOCIALS       optional row; any entry can be omitted.
 
-export const GITHUB_URL = 'https://github.com/yourorg/ven'
+export const GITHUB_URL = 'https://github.com/bhuwanb23/ven'
 export const RELEASES_URL = `${GITHUB_URL}/releases`
 export const ISSUES_URL = `${GITHUB_URL}/issues`
 export const DISCUSSIONS_URL = `${GITHUB_URL}/discussions`
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`
 export const REQUEST_LANGUAGE_URL = `${ISSUES_URL}/new?labels=runtime-request`
 
+// Until `get.ven.sh` is provisioned, the install one-liners hit
+// `raw.githubusercontent.com` directly so they resolve on day one of the
+// release. Swap to the short domain in this single place once it's live.
+const INSTALL_PS1_URL = `https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1`
+const INSTALL_SH_URL = `https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh`
+
 export const INSTALL = {
   windows: {
     label: 'Windows',
-    cmd: 'irm https://get.ven.sh/install.ps1 | iex',
+    cmd: `irm ${INSTALL_PS1_URL} | iex`,
     note: 'PowerShell 5.1 or 7+. Installs to %USERPROFILE%\\.ven\\bin.',
   },
   macos: {
     label: 'macOS',
-    cmd: 'curl -fsSL https://get.ven.sh/install.sh | sh',
+    cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note: 'Installs to ~/.ven/bin/ven and adds it to PATH automatically.',
   },
   linux: {
     label: 'Linux',
-    cmd: 'curl -fsSL https://get.ven.sh/install.sh | sh',
+    cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note: 'Bash / Zsh / Fish supported. Installs to ~/.ven/bin/ven.',
   },
   source: {
@@ -44,7 +50,8 @@ export const INSTALL = {
 
 export const PLATFORM_ORDER = ['windows', 'macos', 'linux', 'source']
 
-export const CONTACT_EMAIL = 'hello@ven.sh'
+// `null` hides the Contact link in the Footer until a real address exists.
+export const CONTACT_EMAIL = null
 
 export const SOCIALS = [
   { id: 'github', label: 'GitHub', href: GITHUB_URL },

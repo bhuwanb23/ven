@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/ven-logo.png" alt="Ven Logo" width="120" />
+<img src="assets/Ven_logo.png" alt="Ven Logo" width="120" />
 
 # ven
 
@@ -8,12 +8,12 @@
 
 *One tool. Every language. Zero configuration overhead.*
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/yourorg/ven/ci.yml?style=flat-square&logo=github)](https://github.com/yourorg/ven/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/bhuwanb23/ven/ci.yml?style=flat-square&logo=github)](https://github.com/bhuwanb23/ven/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Rust](https://img.shields.io/badge/built%20with-Rust-orange?style=flat-square&logo=rust)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/github/v/release/yourorg/ven?style=flat-square)](https://github.com/yourorg/ven/releases)
+[![Version](https://img.shields.io/github/v/release/bhuwanb23/ven?style=flat-square)](https://github.com/bhuwanb23/ven/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)]()
-[![Stars](https://img.shields.io/github/stars/yourorg/ven?style=flat-square)](https://github.com/yourorg/ven/stargazers)
+[![Stars](https://img.shields.io/github/stars/bhuwanb23/ven?style=flat-square)](https://github.com/bhuwanb23/ven/stargazers)
 
 ---
 
@@ -237,10 +237,10 @@ The portable launcher bundle is the new addition: download the asset, extract an
 **Windows (PowerShell 5.1+)**
 ```powershell
 # user install (interactive prompt if TTY; defaults to "user" when piped)
-irm https://get.ven.sh/install.ps1 | iex
+irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
 
 # explicit system install
-$env:VEN_INSTALL_MODE='system'; irm https://get.ven.sh/install.ps1 | iex
+$env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
 ```
 
 **Windows (offline / corporate — bundled installer)**
@@ -257,27 +257,17 @@ Download the release zip, extract, and run `ven-setup.exe`. Two modes are availa
 **macOS / Linux**
 ```bash
 # user install
-curl -fsSL https://get.ven.sh/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
 
 # system install (requires sudo on Unix; no UAC equivalent)
-sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://get.ven.sh/install.sh | sh -s -- --mode system"
+sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system"
 ```
 
-> **Interim hosting**: `get.ven.sh` is a placeholder until the domain is provisioned. Until then, point at `raw.githubusercontent.com`:
->
-> ```powershell
-> irm https://raw.githubusercontent.com/yourorg/ven/main/scripts/install.ps1 | iex
-> ```
->
-> ```bash
-> curl -fsSL https://raw.githubusercontent.com/yourorg/ven/main/scripts/install.sh | sh
-> ```
->
-> The full env-var / flag surface and the release asset naming contract live in [docs/install-scripts.md](docs/install-scripts.md).
+> The full env-var / flag surface and the release asset naming contract live in [docs/install-scripts.md](docs/install-scripts.md). A short `get.ven.sh` host will be wired up once the domain is provisioned; until then the `raw.githubusercontent.com` URLs above are the canonical entry points.
 
 **From source (Rust)**
 ```bash
-git clone https://github.com/yourorg/ven
+git clone https://github.com/bhuwanb23/ven
 cd ven
 cargo build --release
 ```
@@ -668,7 +658,7 @@ Contributions are welcome.
 
 ```bash
 # Clone
-git clone https://github.com/yourorg/ven
+git clone https://github.com/bhuwanb23/ven
 cd ven
 
 # Build
@@ -715,9 +705,8 @@ Built with ❤️ in **Rust**.
 
 **ven** — *Install once. Switch automatically. Never break.*
 
-[![GitHub Stars](https://img.shields.io/github/stars/yourorg/ven?style=social)](https://github.com/yourorg/ven)
-[![Follow](https://img.shields.io/twitter/follow/ven_sh?style=social)](https://twitter.com/ven_sh)
+[![GitHub Stars](https://img.shields.io/github/stars/bhuwanb23/ven?style=social)](https://github.com/bhuwanb23/ven)
 
-[Website](https://ven.sh) • [Documentation](https://docs.ven.sh) • [Discord](https://discord.gg/ven) • [Twitter](https://twitter.com/ven_sh)
+[Documentation](https://bhuwanb23.github.io/ven/docs) • [Releases](https://github.com/bhuwanb23/ven/releases) • [Issues](https://github.com/bhuwanb23/ven/issues) • [Discussions](https://github.com/bhuwanb23/ven/discussions)
 
 </div>

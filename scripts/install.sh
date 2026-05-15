@@ -4,9 +4,9 @@
 # One-liner installer for ven on Linux / macOS.
 #
 # Usage:
-#   curl -fsSL https://get.ven.sh/install.sh | sh
-#   curl -fsSL https://get.ven.sh/install.sh | sh -s -- --mode system
-#   VEN_INSTALL_MODE=system curl -fsSL https://get.ven.sh/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system
+#   VEN_INSTALL_MODE=system curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
 #
 # Mirrors src/bin/setup/unix.rs. Keep the rc-file / /etc/profile.d logic here
 # in sync with the Rust installer's ensure_user_rc_path / ensure_etc_profile_d_path.
@@ -19,11 +19,11 @@ set -eu
 
 ven_mode="${VEN_INSTALL_MODE:-}"
 ven_version="${VEN_VERSION:-latest}"
-ven_repo="${VEN_REPO:-yourorg/ven}"
+ven_repo="${VEN_REPO:-bhuwanb23/ven}"
 ven_no_verify="${VEN_NO_VERIFY:-false}"
 ven_dry_run="${VEN_DRY_RUN:-false}"
 ven_force_replicate="${VEN_FORCE_REPLICATE:-false}"
-ven_docs_url="${VEN_DOCS_URL:-https://docs.ven.sh}"
+ven_docs_url="${VEN_DOCS_URL:-https://bhuwanb23.github.io/ven/docs}"
 
 while [ $# -gt 0 ]; do
     case "$1" in

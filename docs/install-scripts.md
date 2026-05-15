@@ -10,41 +10,33 @@
 
 ```powershell
 # user install, interactive prompt if a TTY is attached
-irm https://get.ven.sh/install.ps1 | iex
+irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
 
 # explicit modes via env var
-$env:VEN_INSTALL_MODE='user';   irm https://get.ven.sh/install.ps1 | iex
-$env:VEN_INSTALL_MODE='system'; irm https://get.ven.sh/install.ps1 | iex
+$env:VEN_INSTALL_MODE='user';   irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+$env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
 
 # explicit modes via params (download-then-eval form)
-& ([scriptblock]::Create((irm https://get.ven.sh/install.ps1))) -Mode system -Version v0.1.0
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1))) -Mode system -Version v0.1.0
 ```
 
 ### Linux / macOS
 
 ```sh
 # user install
-curl -fsSL https://get.ven.sh/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
 
 # explicit modes via flag (note the `--` separator after `sh -s`)
-curl -fsSL https://get.ven.sh/install.sh | sh -s -- --mode user
-sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://get.ven.sh/install.sh | sh -s -- --mode system"
+curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode user
+sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system"
 
 # explicit modes via env var
-VEN_INSTALL_MODE=user curl -fsSL https://get.ven.sh/install.sh | sh
+VEN_INSTALL_MODE=user curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
 ```
 
-### Interim hosting
+### Future short host
 
-`get.ven.sh` is a placeholder until the domain is wired up. Use the raw GitHub URL in the meantime:
-
-```powershell
-irm https://raw.githubusercontent.com/yourorg/ven/main/scripts/install.ps1 | iex
-```
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/yourorg/ven/main/scripts/install.sh | sh
-```
+A short `get.ven.sh` host will be wired up once the domain is provisioned; until then the `raw.githubusercontent.com` URLs above are the canonical entry points.
 
 ## Config surface
 
@@ -54,11 +46,11 @@ Both scripts read the same logical settings via env vars; the PowerShell one add
 |-----------------------|--------------------|----------------------|---------------|---------|
 | `VEN_INSTALL_MODE`    | `-Mode`            | `--mode <user/system>` | `user`        | Install scope. `user` = no admin / sudo. `system` = UAC (Windows) or `sudo` (Unix). |
 | `VEN_VERSION`         | `-Version`         | `--version <tag>`    | `latest`      | GitHub release tag (e.g. `v0.1.0`) or `latest`. |
-| `VEN_REPO`            | `-Repo`            | `--repo owner/name`  | `yourorg/ven` | GitHub `owner/repo` slug. Override for forks. |
+| `VEN_REPO`            | `-Repo`            | `--repo owner/name`  | `bhuwanb23/ven` | GitHub `owner/repo` slug. Override for forks. |
 | `VEN_NO_VERIFY`       | `-NoVerify`        | `--no-verify`        | `false`       | Skip SHA256 verification. |
 | `VEN_DRY_RUN`         | `-DryRun`          | `--dry-run`          | `false`       | Print every step without touching the system. Download still happens during the dry-run preflight check; no writes. |
 | `VEN_FORCE_REPLICATE` | `-ForceReplicate`  | `--force-replicate`  | `false`       | Skip the `ven-setup-*` asset even when present; use the raw-zip / tarball path. Useful for debugging the Replicate code path. |
-| `VEN_DOCS_URL`        | -                  | -                    | `https://docs.ven.sh` | URL printed in the final completion banner. Override for forks. |
+| `VEN_DOCS_URL`        | -                  | -                    | `https://bhuwanb23.github.io/ven/docs` | URL printed in the final completion banner. Override for forks. |
 | `GITHUB_TOKEN`        | -                  | -                    | -             | Optional. Added to the API request as a Bearer token to avoid GitHub rate limits. |
 
 ### Mode selection precedence
@@ -167,7 +159,7 @@ Detecting system...
 Install mode: User (no admin)
 Install path: /Users/you/.ven/bin
 
-  Resolving release (yourorg/ven latest)...           [ok]
+  Resolving release (bhuwanb23/ven latest)...         [ok]
   Selecting asset...                                  [ok: Delegate]
   Downloading ven-setup-macos-arm64...                [ok]
     9.7 MB downloaded
@@ -182,7 +174,7 @@ Open a NEW terminal (or `exec $SHELL -l`) and run:
   ven --version
   ven init
 
-Documentation: https://docs.ven.sh
+Documentation: https://bhuwanb23.github.io/ven/docs
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
