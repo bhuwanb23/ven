@@ -32,11 +32,14 @@ jobs:
   # ---------------------------------------------------------------------------
   # build: one job per (os, arch). Two-pass cargo build (build.rs needs to
   # see the freshly-built ven + ven-launcher artifacts on its second pass
-  # before ven-setup can embed them). Produces three assets per matrix entry:
+  # before ven-setup can embed them). Produces four assets per matrix entry:
   #
-  #   - ven-{os}-{arch}.{zip|tar.gz}    (Replicate-path archive)
-  #   - ven-setup-{os}-{arch}[.exe]     (Delegate-path installer)
-  #   - <each-asset>.sha256             (per-asset sidecar)
+  #   - ven-{os}-{arch}.{zip|tar.gz}            (combined archive used by
+  #                                              install.ps1 / install.sh)
+  #   - ven-launcher-{os}-{arch}.{zip|tar.gz}   (discoverable portable bundle:
+  #                                              ven + ven-launcher + README.txt)
+  #   - ven-setup-{os}-{arch}[.exe]             (Delegate-path installer)
+  #   - <each-asset>.sha256                     (per-asset sidecar)
   # ---------------------------------------------------------------------------
   build:
     name: build ${{ matrix.os_label }}-${{ matrix.arch }}
