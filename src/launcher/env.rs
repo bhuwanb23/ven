@@ -57,6 +57,14 @@ pub fn merged_path_for_child(parts: &ActivationParts) -> String {
 /// Apply merged PATH and toolchain variables to a child process (mirrors `format_activation_shell_script`).
 pub fn apply_activation_env(cmd: &mut Command, parts: &ActivationParts) {
     cmd.env("PATH", merged_path_for_child(parts));
+    // Propagate the resolved VEN_HOME so every `ven` invocation in the
+    // spawned shell sees the same storage root the launcher itself used.
+    // Without this, a portable bundle (sibling `.ven/`) silently falls
+    // back to `~/.ven` once you're inside the new shell.
+    cmd.env(
+        "VEN_HOME",
+        path_for_env_value(&crate::core::ven_home::ven_home()),
+    );
 
     if let Some(ref bin) = parts.node_bin_for_path {
         cmd.env("NODE_PATH", path_for_env_value(bin));
@@ -121,6 +129,12 @@ pub fn apply_activation_env(cmd: &mut Command, parts: &ActivationParts) {
 pub fn apply_launcher_portable_env(cmd: &mut Command) {
     let base = std::env::var("PATH").unwrap_or_default();
     cmd.env("PATH", merged_path_with_launcher_bin(&base));
+    // Even without a ven.toml, child shells should see the launcher's
+    // resolved VEN_HOME so subsequent `ven` calls land in the right root.
+    cmd.env(
+        "VEN_HOME",
+        path_for_env_value(&crate::core::ven_home::ven_home()),
+    );
 }
 
 /// Print `"PATH should be:"` overlay and other env vars resolved from `project_dir`'s nearest `ven.toml`.
@@ -155,6 +169,10 @@ pub fn print_environment_preview(project_dir: &Path) -> Result<()> {
         ActivationResolve::Ready(parts) => {
             write_greeting_to_stdout(&parts);
             println!("PATH should be: {}", activation_path_overlay(&parts));
+            println!(
+                "VEN_HOME should be: {}",
+                path_for_env_value(&crate::core::ven_home::ven_home())
+            );
 
             if let Some(ref bin) = parts.node_bin_for_path {
                 println!("NODE_PATH should be: {}", path_for_env_value(bin));

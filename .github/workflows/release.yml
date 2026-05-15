@@ -135,9 +135,10 @@ jobs:
         if: matrix.os_label == 'windows'
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP "stage"
-          $dist  = Join-Path $env:RUNNER_TEMP "dist"
-          New-Item -ItemType Directory -Force -Path $stage, $dist | Out-Null
+          $stage    = Join-Path $env:RUNNER_TEMP "stage"
+          $launcher = Join-Path $env:RUNNER_TEMP "launcher"
+          $dist     = Join-Path $env:RUNNER_TEMP "dist"
+          New-Item -ItemType Directory -Force -Path $stage, $launcher, $dist | Out-Null
 
           $src = "target/${{ matrix.target }}/release"
           Copy-Item "$src/ven.exe"          (Join-Path $stage "ven.exe")
@@ -145,6 +146,34 @@ jobs:
 
           $archive = Join-Path $dist "ven-${{ matrix.os_label }}-${{ matrix.arch }}.zip"
           Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $archive -Force
+
+          # Discoverable portable launcher bundle: same two binaries plus a
+          # plain-text README explaining no-PATH-modification + sibling
+          # `.ven/` portable mode.
+          Copy-Item "$src/ven.exe"          (Join-Path $launcher "ven.exe")
+          Copy-Item "$src/ven-launcher.exe" (Join-Path $launcher "ven-launcher.exe")
+          $readme = @"
+          ven-launcher -- portable, no-PATH-modification ven
+
+          USAGE
+          1. Extract this archive anywhere (no admin / sudo needed).
+          2. Open a terminal in the extracted folder.
+          3. Run ./ven-launcher (or ven-launcher.exe on Windows).
+             It opens a new shell with `ven` available and the nearest
+             ven.toml applied.
+
+          PORTABLE MODE (optional, USB-stick style)
+          - By default, ven uses ~/.ven/ for runtimes (shared with installed ven).
+          - For a fully self-contained install, create a `.ven/` folder NEXT TO
+            ven-launcher. Every runtime, cache entry, and lockfile state will
+            live there. Equivalent to: VEN_HOME=<this folder>/.ven
+
+          DOCS
+            https://github.com/yourorg/ven#which-binary-should-i-use
+          "@
+          Set-Content -Path (Join-Path $launcher "README.txt") -Value $readme -Encoding ascii
+          $launcherArchive = Join-Path $dist "ven-launcher-${{ matrix.os_label }}-${{ matrix.arch }}.zip"
+          Compress-Archive -Path (Join-Path $launcher "*") -DestinationPath $launcherArchive -Force
 
           Copy-Item "$src/ven-setup.exe" `
             (Join-Path $dist "ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}.exe")
@@ -164,8 +193,9 @@ jobs:
         run: |
           set -euo pipefail
           stage="${RUNNER_TEMP}/stage"
+          launcher="${RUNNER_TEMP}/launcher"
           dist="${RUNNER_TEMP}/dist"
-          mkdir -p "$stage" "$dist"
+          mkdir -p "$stage" "$launcher" "$dist"
 
           src="target/${{ matrix.target }}/release"
           install -m 0755 "$src/ven"           "$stage/ven"
@@ -173,6 +203,33 @@ jobs:
 
           archive="$dist/ven-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
           tar -C "$stage" -czf "$archive" ven ven-launcher
+
+          # Discoverable portable launcher bundle: same two binaries plus a
+          # plain-text README explaining no-PATH-modification + sibling
+          # `.ven/` portable mode.
+          install -m 0755 "$src/ven"           "$launcher/ven"
+          install -m 0755 "$src/ven-launcher"  "$launcher/ven-launcher"
+          cat > "$launcher/README.txt" <<'EOF'
+          ven-launcher -- portable, no-PATH-modification ven
+
+          USAGE
+          1. Extract this archive anywhere (no admin / sudo needed).
+          2. Open a terminal in the extracted folder.
+          3. Run ./ven-launcher (or ven-launcher.exe on Windows).
+             It opens a new shell with `ven` available and the nearest
+             ven.toml applied.
+
+          PORTABLE MODE (optional, USB-stick style)
+          - By default, ven uses ~/.ven/ for runtimes (shared with installed ven).
+          - For a fully self-contained install, create a `.ven/` folder NEXT TO
+            ven-launcher. Every runtime, cache entry, and lockfile state will
+            live there. Equivalent to: VEN_HOME=<this folder>/.ven
+
+          DOCS
+            https://github.com/yourorg/ven#which-binary-should-i-use
+          EOF
+          launcher_archive="$dist/ven-launcher-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
+          tar -C "$launcher" -czf "$launcher_archive" ven ven-launcher README.txt
 
           install -m 0755 "$src/ven-setup" \
             "$dist/ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}"

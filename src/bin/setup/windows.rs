@@ -4,7 +4,7 @@
 //! - **System**: `%ProgramFiles%\ven\bin`, HKLM Machine `Path`, requires elevation;
 //!   the non-elevated parent relaunches itself via `Start-Process -Verb RunAs` and exits.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
