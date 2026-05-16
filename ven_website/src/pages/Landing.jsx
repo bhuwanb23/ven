@@ -326,9 +326,9 @@ const FEATURES = [
   {
     icon: 'workspaces',
     tone: 'secondary',
-    title: 'No-admin portable launcher',
-    cmd: './ven-launcher.exe',
-    body: 'Drop `ven-launcher.exe` on a locked-down corporate box. No installer, no registry writes, no PATH mutation — it spawns a shell with your project applied and disappears on exit.',
+    title: 'One-click corporate bundle',
+    cmd: 'Start ven.cmd',
+    body: 'Download the portable zip, extract anywhere, double-click `Start ven.cmd` (or `Start ven.command` on macOS). A terminal opens with ven activated — no installer, no registry writes, no PATH mutation, passes Zscaler.',
     extra: (
       <div className="font-mono text-[11px] text-on-surface-variant flex items-center gap-2">
         <span className="text-secondary-fixed-dim font-bold">✓</span>
@@ -720,11 +720,19 @@ function EnterpriseSection() {
           <h2 className="font-display-lg text-display-lg text-primary mb-6">
             Built for restricted environments
           </h2>
+          <p className="font-body-base text-body-base text-on-surface-variant mb-6">
+            Corporate laptop where <code className="text-on-surface">irm | iex</code> and{' '}
+            <code className="text-on-surface">curl | sh</code> are blocked by Zscaler? Download the
+            portable zip from the browser, extract anywhere, and{' '}
+            <strong className="text-on-surface">double-click the bundled terminal shim</strong> —{' '}
+            <code className="text-on-surface">Start ven.cmd</code> on Windows,{' '}
+            <code className="text-on-surface">Start ven.command</code> on macOS,{' '}
+            <code className="text-on-surface">start-ven.sh</code> on Linux. A shell opens with your
+            project's <code className="text-on-surface">ven.toml</code> already applied.
+          </p>
           <p className="font-body-base text-body-base text-on-surface-variant mb-8">
-            ven-launcher is a single portable executable. Drop it on a USB stick, a network share, or your
-            Downloads folder, double-click it, and a shell opens with your project's ven.toml already
-            applied. Nothing is written to <code className="text-on-surface">Program Files</code>, nothing
-            is added to PATH, and nothing remains on exit.
+            Nothing is written to <code className="text-on-surface">Program Files</code>, nothing is
+            added to PATH, and nothing remains on exit.
           </p>
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2 text-primary-fixed-dim bg-primary-fixed-dim/10 px-4 py-2 rounded-lg border border-primary-fixed-dim/20">
@@ -739,18 +747,24 @@ function EnterpriseSection() {
               <Icon name="shield_with_heart" />
               <span className="text-sm font-bold">Read-only host</span>
             </div>
+            <div className="flex items-center gap-2 text-secondary-fixed-dim bg-secondary-fixed-dim/10 px-4 py-2 rounded-lg border border-secondary-fixed-dim/20">
+              <Icon name="block" />
+              <span className="text-sm font-bold">Bypasses Zscaler</span>
+            </div>
           </div>
         </div>
         <div className="md:w-1/2 w-full">
           <Terminal title="locked-down corporate box" bodyClassName="space-y-1.5">
-            <div className="text-on-surface-variant"># Run from anywhere, no install:</div>
+            <div className="text-on-surface-variant"># 1. Download zip from the browser (HTTPS, passes proxy)</div>
+            <div className="text-on-surface-variant"># 2. Extract anywhere (Desktop, USB, network share)</div>
+            <div className="text-on-surface-variant"># 3. Double-click Start ven.cmd</div>
             <div>
-              <span className="text-secondary-fixed-dim">$</span>{' '}
-              <span className="text-on-surface">./ven-launcher.exe</span>
+              <span className="text-secondary-fixed-dim">PS&gt;</span>{' '}
+              <span className="text-on-surface">ven --version</span>
             </div>
-            <div className="text-on-surface-variant"># Spawns shell with this project's ven.toml applied</div>
+            <div className="text-on-surface">ven 0.1.1 (x86_64-pc-windows-msvc)</div>
             <div className="text-secondary-fixed-dim">✓ Environment ready: node 22 · python 3.13 · 34 packages</div>
-            <div className="text-on-surface-variant"># Exit and the host is untouched.</div>
+            <div className="text-on-surface-variant"># Close the window — the host is untouched.</div>
           </Terminal>
         </div>
       </GlassCard>

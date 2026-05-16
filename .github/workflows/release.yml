@@ -36,8 +36,12 @@ jobs:
   #
   #   - ven-{os}-{arch}.{zip|tar.gz}            (combined archive used by
   #                                              install.ps1 / install.sh)
-  #   - ven-launcher-{os}-{arch}.{zip|tar.gz}   (discoverable portable bundle:
-  #                                              ven + ven-launcher + README.txt)
+  #   - ven-launcher-{os}-{arch}.{zip|tar.gz}   (discoverable portable bundle
+  #                                              for corporate / Zscaler users:
+  #                                              ven + ven-launcher +
+  #                                              double-clickable terminal shim
+  #                                              [Start ven.cmd / Start ven.command
+  #                                              / start-ven.sh] + README.txt)
   #   - ven-setup-{os}-{arch}[.exe]             (Delegate-path installer)
   #   - <each-asset>.sha256                     (per-asset sidecar)
   # ---------------------------------------------------------------------------
@@ -150,29 +154,54 @@ jobs:
           $archive = Join-Path $dist "ven-${{ matrix.os_label }}-${{ matrix.arch }}.zip"
           Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $archive -Force
 
-          # Discoverable portable launcher bundle: same two binaries plus a
-          # plain-text README explaining no-PATH-modification + sibling
-          # `.ven/` portable mode.
+          # Discoverable portable launcher bundle for corporate / locked-down
+          # environments where command-line proxies (Zscaler, etc.) block
+          # `irm | iex` and `curl | sh`. Contents: ven + ven-launcher + a
+          # double-clickable terminal shim ("Start ven.cmd") + README.
           Copy-Item "$src/ven.exe"          (Join-Path $launcher "ven.exe")
           Copy-Item "$src/ven-launcher.exe" (Join-Path $launcher "ven-launcher.exe")
+
+          # Double-click shim. .cmd has no execution-policy or admin gate on
+          # any Windows version, so it works inside locked-down corp profiles.
+          $startShim = @"
+          @echo off
+          REM Double-click this file to open a terminal with ven activated.
+          REM No admin, no PATH edits, no PowerShell execution-policy hassle.
+          "%~dp0ven-launcher.exe" %*
+          "@
+          Set-Content -Path (Join-Path $launcher "Start ven.cmd") -Value $startShim -Encoding ascii
+
           $readme = @"
-          ven-launcher -- portable, no-PATH-modification ven
+          ven -- portable, no-install, no-admin
 
-          USAGE
-          1. Extract this archive anywhere (no admin / sudo needed).
-          2. Open a terminal in the extracted folder.
-          3. Run ./ven-launcher (or ven-launcher.exe on Windows).
-             It opens a new shell with `ven` available and the nearest
-             ven.toml applied.
+          QUICKEST START (no terminal knowledge needed)
+          1. Extract this folder anywhere -- Downloads, Desktop, USB stick, network share.
+             No admin / sudo. No installer.
+          2. Double-click "Start ven.cmd".
+          3. A terminal opens with `ven` already activated.
+             Try:   ven --version
+                    ven init
+                    ven install node 22
 
-          PORTABLE MODE (optional, USB-stick style)
-          - By default, ven uses ~/.ven/ for runtimes (shared with installed ven).
-          - For a fully self-contained install, create a `.ven/` folder NEXT TO
-            ven-launcher. Every runtime, cache entry, and lockfile state will
-            live there. Equivalent to: VEN_HOME=<this folder>/.ven
+          BEHIND ZSCALER / CORPORATE PROXY
+          - This zip is downloaded over plain HTTPS from GitHub Releases, so it
+            passes corporate firewalls that would block `irm | iex` /
+            `curl | sh` style installers.
+          - "Start ven.cmd" is a 3-line shim with no internet calls.
+          - Nothing here writes to system PATH or registry. Everything stays
+            inside this folder unless you opt in.
+
+          ADVANCED
+          - Power users can bypass the shim and call ven-launcher.exe directly.
+          - For fully self-contained "USB-stick" mode, create a `.ven/` folder
+            next to ven-launcher.exe. Every runtime, cache entry, and lockfile
+            state will live inside the bundle (VEN_HOME=<this folder>\.ven).
+          - Default behaviour without that folder: ven shares the host's
+            %USERPROFILE%\.ven directory with any installed ven on the same
+            machine.
 
           DOCS
-            https://github.com/yourorg/ven#which-binary-should-i-use
+            https://github.com/bhuwanb23/ven#which-binary-should-i-use
           "@
           Set-Content -Path (Join-Path $launcher "README.txt") -Value $readme -Encoding ascii
           $launcherArchive = Join-Path $dist "ven-launcher-${{ matrix.os_label }}-${{ matrix.arch }}.zip"
@@ -207,32 +236,67 @@ jobs:
           archive="$dist/ven-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
           tar -C "$stage" -czf "$archive" ven ven-launcher
 
-          # Discoverable portable launcher bundle: same two binaries plus a
-          # plain-text README explaining no-PATH-modification + sibling
-          # `.ven/` portable mode.
+          # Discoverable portable launcher bundle for corporate / locked-down
+          # environments where command-line proxies (Zscaler, etc.) block
+          # `irm | iex` and `curl | sh`. Contents: ven + ven-launcher + a
+          # double-clickable terminal shim (Start ven.command / start-ven.sh) + README.
           install -m 0755 "$src/ven"           "$launcher/ven"
           install -m 0755 "$src/ven-launcher"  "$launcher/ven-launcher"
-          cat > "$launcher/README.txt" <<'EOF'
-          ven-launcher -- portable, no-PATH-modification ven
 
-          USAGE
-          1. Extract this archive anywhere (no admin / sudo needed).
-          2. Open a terminal in the extracted folder.
-          3. Run ./ven-launcher (or ven-launcher.exe on Windows).
-             It opens a new shell with `ven` available and the nearest
-             ven.toml applied.
+          # Per-OS double-click shim. macOS bundle gets `Start ven.command`
+          # (Finder treats .command as double-clickable Terminal scripts).
+          # Linux bundle gets `start-ven.sh` (most file managers will still
+          # offer "Run in Terminal" when the +x bit is set).
+          if [ "${{ matrix.os_label }}" = "macos" ]; then
+            shim_name="Start ven.command"
+          else
+            shim_name="start-ven.sh"
+          fi
+          cat > "$launcher/$shim_name" <<'SHIM'
+          #!/usr/bin/env bash
+          # Double-click this file (or run it from a terminal) to open a
+          # shell with `ven` already activated.
+          # No admin, no sudo, no rc-file edits, no PATH modifications.
+          set -e
+          here="$(cd "$(dirname "$0")" && pwd)"
+          cd "$here"
+          exec "$here/ven-launcher" "$@"
+          SHIM
+          chmod +x "$launcher/$shim_name"
 
-          PORTABLE MODE (optional, USB-stick style)
-          - By default, ven uses ~/.ven/ for runtimes (shared with installed ven).
-          - For a fully self-contained install, create a `.ven/` folder NEXT TO
-            ven-launcher. Every runtime, cache entry, and lockfile state will
-            live there. Equivalent to: VEN_HOME=<this folder>/.ven
+          cat > "$launcher/README.txt" <<EOF
+          ven -- portable, no-install, no-admin
+
+          QUICKEST START (no terminal knowledge needed)
+          1. Extract this folder anywhere -- Downloads, Desktop, USB stick, network share.
+             No admin / sudo. No installer.
+          2. Double-click "$shim_name".
+          3. A terminal opens with \`ven\` already activated.
+             Try:   ven --version
+                    ven init
+                    ven install node 22
+
+          BEHIND ZSCALER / CORPORATE PROXY
+          - This archive is downloaded over plain HTTPS from GitHub Releases, so it
+            passes corporate firewalls that would block \`irm | iex\` /
+            \`curl | sh\` style installers.
+          - The shim is a 7-line bash script with no internet calls.
+          - Nothing here writes to system PATH, /etc, or your shell rc files.
+            Everything stays inside this folder unless you opt in.
+
+          ADVANCED
+          - Power users can bypass the shim and call ./ven-launcher directly.
+          - For fully self-contained "USB-stick" mode, create a \`.ven/\` folder
+            next to ven-launcher. Every runtime, cache entry, and lockfile
+            state will live inside the bundle (VEN_HOME=<this folder>/.ven).
+          - Default behaviour without that folder: ven shares the host's
+            ~/.ven directory with any installed ven on the same machine.
 
           DOCS
-            https://github.com/yourorg/ven#which-binary-should-i-use
+            https://github.com/bhuwanb23/ven#which-binary-should-i-use
           EOF
           launcher_archive="$dist/ven-launcher-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
-          tar -C "$launcher" -czf "$launcher_archive" ven ven-launcher README.txt
+          tar -C "$launcher" -czf "$launcher_archive" ven ven-launcher "$shim_name" README.txt
 
           install -m 0755 "$src/ven-setup" \
             "$dist/ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}"

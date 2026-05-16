@@ -20,8 +20,25 @@ ven-launcher [PROJECT]
 - IDE shortcuts / desktop shortcuts that should always open a shell "inside" a project.
 - Users who prefer not to `eval`/`ven-use` in an existing shell.
 - Corporate / locked-down environments where modifying the system `PATH` or rc files is not allowed.
+- Non-CLI users who want to double-click an icon and get a ven-ready terminal — see [Double-click shim](#double-click-shim) below.
 
 For in-shell activation without a new window, use **`ven use`** or hooks after **`ven setup`**.
+
+## Double-click shim
+
+The discoverable portable bundle (`ven-launcher-{os}-{arch}.{zip|tar.gz}`) ships a tiny per-OS shim file next to `ven-launcher` so a non-CLI user (think: corporate teammates behind Zscaler, designers, students) can extract the zip and double-click their way into a ven-ready terminal — **no command-line typing required**.
+
+| OS      | Shim filename          | What happens on double-click                                                                                                          |
+|---------|------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| Windows | `Start ven.cmd`        | Explorer runs the `.cmd` (no execution-policy or admin prompt), which calls `ven-launcher.exe`, which opens a fresh PowerShell with `ven` activated. |
+| macOS   | `Start ven.command`    | Finder treats `.command` as a Terminal script (first launch may show a Gatekeeper warning — right-click → Open once). Calls `./ven-launcher`. |
+| Linux   | `start-ven.sh`         | Most file managers offer "Run in Terminal" for executable scripts. Otherwise: `./start-ven.sh` in any terminal.                       |
+
+The shims themselves are 3–7 lines each — just a `cd "$(dirname "$0")"` followed by an `exec` of `ven-launcher`. They make no network calls and require no special permissions. Power users can keep calling `./ven-launcher` directly; the shim is purely a discoverability layer.
+
+### Behind Zscaler / corporate proxy
+
+Most corporate web proxies (Zscaler, Symantec, Forcepoint) block `irm | iex` and `curl | sh` style one-liners because they look like script injection, but they do **not** block downloading a regular `.zip` from `github.com` over HTTPS. The portable bundle is designed for that constraint: download the zip through the browser, extract via Explorer / Finder, double-click the shim, get a working `ven`. Nothing in the path requires elevated permissions, hits a non-GitHub host, or touches the system `PATH`.
 
 ## Portable mode
 
@@ -42,6 +59,7 @@ Use the discoverable `ven-launcher-{os}-{arch}.{zip|tar.gz}` release asset (see 
 my-bundle/
 ├── ven                    # or ven.exe on Windows
 ├── ven-launcher           # or ven-launcher.exe on Windows
+├── Start ven.command      # macOS shim (or Start ven.cmd / start-ven.sh)
 ├── README.txt
 └── .ven/                  # create this folder once; everything ven downloads
                            # (runtimes, lockfile state, doc cache) lives here
