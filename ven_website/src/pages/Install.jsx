@@ -20,7 +20,7 @@ const FAQ = [
   },
   {
     q: 'Does it support Windows?',
-    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines (also shipped as a discoverable `ven-launcher-windows-{arch}.zip` bundle in v0.1.1), and a UAC-aware `ven-setup.exe` for system installs.',
+    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines (shipped as a discoverable `ven-launcher-windows-{arch}.zip` bundle that includes a double-clickable `Start ven.cmd` shim since v0.1.2), and a UAC-aware `ven-setup.exe` for system installs.',
   },
   {
     q: 'Can it coexist with nvm / pyenv?',
@@ -275,7 +275,7 @@ function CorporateDownload({ data, err }) {
         <div className="grow w-full">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-[10px] uppercase tracking-widest font-bold text-secondary-fixed-dim bg-secondary-fixed-dim/10 px-2 py-0.5 rounded">
-              NEW IN v0.1.1
+              NEW IN v0.1.2
             </span>
             <span className="text-[10px] uppercase tracking-widest text-on-surface-variant opacity-70">
               works behind Zscaler · no admin · no PATH edits
@@ -614,7 +614,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.1 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.2 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>

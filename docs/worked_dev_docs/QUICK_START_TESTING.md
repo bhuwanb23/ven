@@ -56,7 +56,7 @@ cargo build --release
 
 **Expected:** 
 ```
-   Compiling ven v0.1.0
+   Compiling ven v0.1.2
     Finished release [optimized] target(s)
 ```
 
