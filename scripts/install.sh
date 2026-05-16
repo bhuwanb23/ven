@@ -8,6 +8,10 @@
 #   curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system
 #   VEN_INSTALL_MODE=system curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
 #
+# Reinstall over an existing copy:
+#   VEN_FORCE_INSTALL=true curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+#   ./install.sh --force            # local invocation, same effect
+#
 # Mirrors src/bin/setup/unix.rs. Keep the rc-file / /etc/profile.d logic here
 # in sync with the Rust installer's ensure_user_rc_path / ensure_etc_profile_d_path.
 
@@ -23,6 +27,7 @@ ven_repo="${VEN_REPO:-bhuwanb23/ven}"
 ven_no_verify="${VEN_NO_VERIFY:-false}"
 ven_dry_run="${VEN_DRY_RUN:-false}"
 ven_force_replicate="${VEN_FORCE_REPLICATE:-false}"
+ven_force_install="${VEN_FORCE_INSTALL:-false}"
 ven_docs_url="${VEN_DOCS_URL:-https://bhuwanb23.github.io/ven/docs}"
 
 while [ $# -gt 0 ]; do
@@ -36,6 +41,7 @@ while [ $# -gt 0 ]; do
         --no-verify)        ven_no_verify="true"; shift ;;
         --dry-run)          ven_dry_run="true"; shift ;;
         --force-replicate)  ven_force_replicate="true"; shift ;;
+        --force)            ven_force_install="true"; shift ;;
         -h|--help)
             sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
@@ -234,6 +240,98 @@ else
     step_fail
     cat "$ven_log" >&2 || :
     err "could not fetch release JSON from $api_url"
+fi
+
+# ---------------------------------------------------------------------------
+# Existing-install detection
+#
+# Both install modes leave a deterministic ven binary behind:
+#   user    ~/.ven/bin/ven        (PATH block in ~/.bashrc / ~/.zshrc / ~/.profile)
+#   system  /usr/local/bin/ven    (/etc/profile.d/ven.sh — system-wide)
+#
+# We don't trust PATH order — find every install on disk and report all of
+# them, then compare the *target* (mode + resolved tag) against what's there.
+# This is what catches the "I installed system v0.1.1, then ran the user
+# install and got two ven binaries shadowing each other" failure mode.
+# ---------------------------------------------------------------------------
+
+# Normalise resolved tag ('v0.1.5' or '0.1.5') to the bare semver that
+# `ven --version` prints, so equality comparisons line up.
+target_ver="${tag_name#v}"
+
+# Populate `existing_lines` with one "<mode> <ver> <path>" record per install
+# found. Awk-friendly, easy to iterate twice without re-running probe.
+existing_lines=''
+probe_install() {
+    probe_mode="$1"
+    probe_path="$2"
+    [ -x "$probe_path" ] || return 0
+    probe_ver="$("$probe_path" --version 2>/dev/null | sed -n 's/^ven \([^ ]*\).*/\1/p' | head -n1)"
+    [ -n "$probe_ver" ] || probe_ver='?'
+    existing_lines="${existing_lines}${probe_mode} ${probe_ver} ${probe_path}
+"
+}
+probe_install 'user'   "$HOME/.ven/bin/ven"
+probe_install 'system' '/usr/local/bin/ven'
+
+if [ -n "$existing_lines" ]; then
+    printf '\nExisting installation(s) detected:\n'
+    printf '%s' "$existing_lines" | while IFS=' ' read -r m v p; do
+        [ -n "$m" ] && printf '  - %-6s ven %s  (%s)\n' "$m" "$v" "$p"
+    done
+    printf '\n'
+
+    # Find the entry that competes with the target mode (the one we'd
+    # overwrite). Use grep on a leading "<mode> " anchor so 'user' doesn't
+    # match 'system' and vice versa.
+    conflict_line="$(printf '%s' "$existing_lines" | grep -E "^${ven_mode} " | head -n1 || true)"
+    other_line="$(printf '%s' "$existing_lines" | grep -Ev "^${ven_mode} " | head -n1 || true)"
+
+    if [ -n "$conflict_line" ]; then
+        conflict_ver="$(printf '%s' "$conflict_line" | awk '{print $2}')"
+        if [ "$conflict_ver" = "$target_ver" ] && [ "$ven_force_install" != 'true' ]; then
+            printf 'ven %s (%s) is already installed at this exact version. Nothing to do.\n' "$target_ver" "$ven_mode"
+            printf 'Set VEN_FORCE_INSTALL=true (or pass --force) to reinstall over the top.\n'
+            printf 'To remove it instead, see: https://bhuwanb23.github.io/ven/install#uninstall\n'
+            [ "$ven_dry_run" = 'true' ] || exit 0
+        fi
+    fi
+
+    if [ "$ven_force_install" != 'true' ]; then
+        if [ "$ven_tty" = 'true' ]; then
+            if [ -n "$conflict_line" ]; then
+                conflict_ver="$(printf '%s' "$conflict_line" | awk '{print $2}')"
+                printf 'Continue and replace ven %s -> %s (%s)? [Y/n] ' \
+                    "$conflict_ver" "$target_ver" "$ven_mode"
+            else
+                other_mode="$(printf '%s' "$other_line" | awk '{print $1}')"
+                printf 'Continue and install ven %s (%s) alongside the existing %s install? PATH precedence will pick whichever is listed first. [Y/n] ' \
+                    "$target_ver" "$ven_mode" "$other_mode"
+            fi
+            read -r reply
+            case "$reply" in
+                [Nn]*) printf 'Aborted.\n'; [ "$ven_dry_run" = 'true' ] || exit 0 ;;
+            esac
+        else
+            if [ -n "$conflict_line" ]; then
+                conflict_ver="$(printf '%s' "$conflict_line" | awk '{print $2}')"
+                printf 'Pipe-mode (no TTY): would replace ven %s -> %s (%s).\n' \
+                    "$conflict_ver" "$target_ver" "$ven_mode"
+            else
+                other_mode="$(printf '%s' "$other_line" | awk '{print $1}')"
+                printf 'Pipe-mode (no TTY): would install ven %s (%s) alongside the existing %s install.\n' \
+                    "$target_ver" "$ven_mode" "$other_mode"
+                printf '              PATH precedence will pick whichever is listed first.\n'
+            fi
+            printf 'Aborting to avoid surprises. Set VEN_FORCE_INSTALL=true to proceed,\n'
+            printf 'or run the uninstall snippet first:\n'
+            printf '  https://bhuwanb23.github.io/ven/install#uninstall\n'
+            [ "$ven_dry_run" = 'true' ] || exit 0
+        fi
+    else
+        say 'VEN_FORCE_INSTALL=true; proceeding anyway.'
+    fi
+    printf '\n'
 fi
 
 # GitHub returns minified single-line JSON. The asset filename is always the

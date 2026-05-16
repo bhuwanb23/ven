@@ -14,6 +14,10 @@
   Usage (param-style):
     & ([scriptblock]::Create((irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1))) -Mode system -Version v0.1.0
 
+  Reinstall over an existing copy (skip the prompt):
+    $env:VEN_FORCE_INSTALL='true'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+    pwsh -NoProfile -File scripts\install.ps1 -Force      # local
+
   Local invocation:
     pwsh -NoProfile -File scripts\install.ps1 -Mode user -DryRun
 
@@ -39,7 +43,10 @@ param(
     [string] $Repo,
     [switch] $NoVerify,
     [switch] $DryRun,
-    [switch] $ForceReplicate
+    [switch] $ForceReplicate,
+    # Skip the "an existing install was detected" prompt and reinstall anyway.
+    # Equivalent env-var: VEN_FORCE_INSTALL=true.
+    [switch] $Force
 )
 
 # ---------------------------------------------------------------------------
@@ -65,6 +72,7 @@ $repo            = if ($Repo)            { $Repo }            elseif ($env:VEN_R
 $noVerify        = if ($NoVerify)        { $true }            elseif ($env:VEN_NO_VERIFY)       { [bool]::Parse($env:VEN_NO_VERIFY) }       else { $false }
 $dryRun          = if ($DryRun)          { $true }            elseif ($env:VEN_DRY_RUN)         { [bool]::Parse($env:VEN_DRY_RUN) }         else { $false }
 $forceReplicate  = if ($ForceReplicate)  { $true }            elseif ($env:VEN_FORCE_REPLICATE) { [bool]::Parse($env:VEN_FORCE_REPLICATE) } else { $false }
+$forceInstall    = if ($Force)           { $true }            elseif ($env:VEN_FORCE_INSTALL)   { [bool]::Parse($env:VEN_FORCE_INSTALL) }   else { $false }
 $docsUrl         = if ($env:VEN_DOCS_URL) { $env:VEN_DOCS_URL } else { 'https://bhuwanb23.github.io/ven/docs' }
 
 $Line = ('{0}' -f ([string]::new([char]0x2501, 56)))
@@ -219,6 +227,91 @@ try {
     throw "Failed to fetch release JSON from $apiUrl : $($_.Exception.Message)"
 }
 $tagName = $release.tag_name
+
+# ---------------------------------------------------------------------------
+# Existing-install detection
+#
+# Both install modes leave a deterministic ven.exe behind:
+#   user    %USERPROFILE%\.ven\bin\ven.exe   (HKCU\Environment\Path)
+#   system  %ProgramFiles%\ven\bin\ven.exe   (HKLM\...\Path)
+#
+# We don't trust PATH order — find every install on disk and report all of
+# them, then compare the *target* (mode + resolved tag) against what's there.
+# This is what catches the "I installed system v0.1.1, then ran the user
+# install and got two ven.exe shadowing each other" failure mode.
+# ---------------------------------------------------------------------------
+
+function Get-VenInstalls {
+    $candidates = @(
+        @{ Mode = 'user';   Path = (Join-Path $env:USERPROFILE '.ven\bin\ven.exe') },
+        @{ Mode = 'system'; Path = (Join-Path $env:ProgramFiles 'ven\bin\ven.exe') }
+    )
+    $found = @()
+    foreach ($c in $candidates) {
+        if (Test-Path $c.Path) {
+            $ver = '?'
+            try {
+                $line = (& $c.Path --version 2>$null) -join ' '
+                if ($line -match 'ven\s+(\S+)') { $ver = $matches[1] }
+            } catch { }
+            $found += [pscustomobject]@{ Mode = $c.Mode; Version = $ver; Path = $c.Path }
+        }
+    }
+    $found
+}
+
+# Normalise the resolved tag ('v0.1.5' or '0.1.5') to the bare semver string
+# that `ven --version` prints, so equality comparisons line up.
+$targetVer = $tagName -replace '^v', ''
+$existing  = @(Get-VenInstalls)
+
+if ($existing.Count -gt 0) {
+    Write-Host ''
+    Write-Host 'Existing installation(s) detected:'
+    foreach ($e in $existing) {
+        Write-Host ('  - {0,-6}  ven {1}  ({2})' -f $e.Mode, $e.Version, $e.Path)
+    }
+    Write-Host ''
+
+    # Find the entry that's competing with the *target* mode (the one we'd
+    # overwrite). A second entry in the *other* mode is an orthogonal warning,
+    # not a "same-version skip" candidate.
+    $conflict = $existing | Where-Object { $_.Mode -eq $mode } | Select-Object -First 1
+    $other    = $existing | Where-Object { $_.Mode -ne $mode } | Select-Object -First 1
+
+    if ($conflict -and $conflict.Version -eq $targetVer -and -not $forceInstall) {
+        Write-Host ('ven {0} ({1}) is already installed at this exact version. Nothing to do.' -f $targetVer, $mode)
+        Write-Host 'Set VEN_FORCE_INSTALL=true (or pass -Force) to reinstall over the top.'
+        Write-Host 'To remove it instead, see: https://bhuwanb23.github.io/ven/install#uninstall'
+        if (-not $dryRun) { exit 0 }
+    }
+
+    if (-not $forceInstall) {
+        if ($isTty) {
+            if ($conflict) {
+                $verb = ('replace ven {0} -> {1} ({2})' -f $conflict.Version, $targetVer, $mode)
+            } else {
+                $verb = ('install ven {0} ({1}) alongside the existing {2} install -- PATH precedence will pick whichever is listed first' -f $targetVer, $mode, $other.Mode)
+            }
+            $reply = Read-Host ('Continue and {0}? [Y/n]' -f $verb)
+            if ($reply -match '^[Nn]') { Write-Host 'Aborted.'; if (-not $dryRun) { exit 0 } }
+        } else {
+            if ($conflict) {
+                Write-Host ('Pipe-mode (no TTY): would replace ven {0} -> {1} ({2}).' -f $conflict.Version, $targetVer, $mode)
+            } else {
+                Write-Host ('Pipe-mode (no TTY): would install ven {0} ({1}) alongside the existing {2} install.' -f $targetVer, $mode, $other.Mode)
+                Write-Host '              PATH precedence will pick whichever is listed first.'
+            }
+            Write-Host 'Aborting to avoid surprises. Set VEN_FORCE_INSTALL=true to proceed,'
+            Write-Host 'or run the uninstall snippet first:'
+            Write-Host '  https://bhuwanb23.github.io/ven/install#uninstall'
+            if (-not $dryRun) { exit 0 }
+        }
+    } else {
+        Write-Host 'VEN_FORCE_INSTALL is set; proceeding anyway.'
+    }
+    Write-Host ''
+}
 
 function Find-Asset {
     param([string] $Name)

@@ -54,6 +54,21 @@ export const PLATFORM_ORDER = ['windows', 'macos', 'linux', 'source']
 // OS family — that actually remove ven from a fresh machine. Kept here (not
 // inline in Install.jsx) so a future cleanup pass touches a single file.
 //
+// Each script handles BOTH install modes the installers support:
+//
+//                       USER (no admin)              SYSTEM (admin)
+//   Windows binaries    %USERPROFILE%\.ven\bin       %ProgramFiles%\ven\bin
+//   Windows PATH        HKCU\Environment\Path        HKLM\...\Path
+//   Unix binaries       ~/.ven/bin                   /usr/local/bin/ven*
+//   Unix PATH           ~/.bashrc / ~/.zshrc / ~/.profile (per-user PATH block)
+//                       /etc/profile.d/ven.sh (system-wide PATH file)
+//
+// The first half of every script is unprivileged (cleans the user-mode
+// install). The second half detects a system install and either cleans it
+// (if running elevated / via sudo) or prints a clear "re-run elevated"
+// message. So copy-paste once unprivileged, optionally a second time
+// elevated, and ven is fully gone — no detective work required.
+//
 // Why three different commands and not one universal one-liner:
 //
 //   - Windows has no `rm -rf` or `sed`. PowerShell-native verbs (Remove-Item +
@@ -67,33 +82,72 @@ export const PLATFORM_ORDER = ['windows', 'macos', 'linux', 'source']
 //   - Linux distros all ship GNU sed; `-i` without an argument is correct.
 //
 // Each `cmd` is multi-line so it survives copy/paste cleanly into the target
-// shell. The trailing `2>/dev/null` swallows "file not found" noise when one
-// of the rc files (e.g. `.zshrc` on a bash-only machine) doesn't exist.
+// shell. The trailing `2>/dev/null` (Unix) and `-ErrorAction SilentlyContinue`
+// (Windows) swallow "not found" noise when only one of the two install modes
+// was actually used.
 export const UNINSTALL = {
   windows: {
     label: 'Windows · PowerShell',
     prompt: 'PS>',
     note:
-      'Removes %USERPROFILE%\\.ven and strips the PATH entry from your user environment. Open a new terminal so the cleaned PATH takes effect.',
+      'Cleans both modes. The user portion always runs; the system portion only triggers if %ProgramFiles%\\ven exists, and asks for elevation when needed. Open a new terminal so the cleaned PATH takes effect.',
     cmd: [
-      `Remove-Item -Recurse -Force "$env:USERPROFILE\\.ven" -ErrorAction SilentlyContinue`,
+      `# 1. User install (no admin needed)`,
+      `$userRoot = Join-Path $env:USERPROFILE '.ven'`,
+      `Remove-Item -Recurse -Force $userRoot -ErrorAction SilentlyContinue`,
+      `$userBin = Join-Path $userRoot 'bin'`,
       `$p = [Environment]::GetEnvironmentVariable('Path', 'User')`,
-      `[Environment]::SetEnvironmentVariable('Path', (($p -split ';') | ? { $_ -and $_ -notlike '*\\.ven\\bin*' }) -join ';', 'User')`,
+      `if ($p) { [Environment]::SetEnvironmentVariable('Path', (($p -split ';') | ? { $_ -and $_.TrimEnd('\\') -ine $userBin }) -join ';', 'User') }`,
+      ``,
+      `# 2. System install at %ProgramFiles%\\ven (admin only)`,
+      `$sysRoot = Join-Path $env:ProgramFiles 'ven'`,
+      `if (Test-Path $sysRoot) {`,
+      `  $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)`,
+      `  if ($isAdmin) {`,
+      `    Remove-Item -Recurse -Force $sysRoot`,
+      `    $sysBin = Join-Path $sysRoot 'bin'`,
+      `    $mp = [Environment]::GetEnvironmentVariable('Path', 'Machine')`,
+      `    if ($mp) { [Environment]::SetEnvironmentVariable('Path', (($mp -split ';') | ? { $_ -and $_.TrimEnd('\\') -ine $sysBin }) -join ';', 'Machine') }`,
+      `    Write-Host "Removed system install: $sysRoot"`,
+      `  } else {`,
+      `    Write-Warning "System install at $sysRoot needs admin. Re-run this script in an elevated PowerShell to remove it."`,
+      `  }`,
+      `}`,
     ].join('\n'),
   },
   macos: {
     label: 'macOS · bash / zsh',
     prompt: '$',
     note:
-      'macOS ships BSD sed, which needs the empty backup-extension (`-i \'\'`). Same idea as Linux, just one extra quoted argument.',
-    cmd: `rm -rf ~/.ven && sed -i '' '/\\.ven\\/bin/d' ~/.bashrc ~/.zshrc ~/.zprofile ~/.profile 2>/dev/null && hash -r`,
+      'macOS ships BSD sed, which needs the empty backup-extension (-i \'\'). The user portion always runs; the system portion auto-uses sudo and only fires if /usr/local/bin/ven actually exists.',
+    cmd: [
+      `# 1. User install (no sudo needed)`,
+      `rm -rf ~/.ven`,
+      `sed -i '' '/\\.ven\\/bin/d' ~/.bashrc ~/.zshrc ~/.zprofile ~/.profile 2>/dev/null`,
+      ``,
+      `# 2. System install (sudo only if it exists)`,
+      `if [ -e /usr/local/bin/ven ] || [ -e /etc/profile.d/ven.sh ]; then`,
+      `  sudo rm -f /usr/local/bin/ven /usr/local/bin/ven-launcher /usr/local/bin/ven-setup /etc/profile.d/ven.sh`,
+      `fi`,
+      `hash -r 2>/dev/null`,
+    ].join('\n'),
   },
   linux: {
     label: 'Linux · bash / zsh',
     prompt: '$',
     note:
-      'Works on every distro the release matrix tests (Debian, Ubuntu, Fedora, Arch, Alpine). GNU sed accepts -i without an argument.',
-    cmd: `rm -rf ~/.ven && sed -i '/\\.ven\\/bin/d' ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null && hash -r`,
+      'Works on every distro the release matrix tests (Debian, Ubuntu, Fedora, Arch, Alpine). User portion runs unprivileged; system portion uses sudo and only fires if /usr/local/bin/ven actually exists.',
+    cmd: [
+      `# 1. User install (no sudo needed)`,
+      `rm -rf ~/.ven`,
+      `sed -i '/\\.ven\\/bin/d' ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null`,
+      ``,
+      `# 2. System install (sudo only if it exists)`,
+      `if [ -e /usr/local/bin/ven ] || [ -e /etc/profile.d/ven.sh ]; then`,
+      `  sudo rm -f /usr/local/bin/ven /usr/local/bin/ven-launcher /usr/local/bin/ven-setup /etc/profile.d/ven.sh`,
+      `fi`,
+      `hash -r 2>/dev/null`,
+    ].join('\n'),
   },
 }
 

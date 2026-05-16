@@ -44,6 +44,10 @@ const FAQ = [
     q: '"error sending request for url" behind Zscaler / corporate proxy?',
     a: 'Upgrade to **v0.1.3 or newer**. Enterprise proxies (Zscaler, Netskope, Bluecoat) MITM HTTPS using a private root CA installed in the OS trust store. ven ≤ v0.1.2 used only the bundled Mozilla roots and ignored the OS store, so `ven install python` failed even though the same URL opened in your browser. v0.1.3 enables `rustls-tls-native-roots` and merges both root pools — no flags, no env vars, no custom CA file to maintain. The same binary works at home and behind Zscaler.',
   },
+  {
+    q: 'What happens if I re-run the installer over an existing version?',
+    a: 'Since v0.1.5 the installer detects every existing ven on disk (`%USERPROFILE%\\.ven\\bin` and `%ProgramFiles%\\ven\\bin` on Windows; `~/.ven/bin` and `/usr/local/bin/ven` on Unix) and prints what it finds. Same mode + same version → exits cleanly with "nothing to do". Same mode + a different version → prompts to upgrade. Different mode (e.g. user install requested while a system install already exists) → warns that PATH precedence will shadow one of the two binaries, then asks you to confirm. In CI / piped contexts there is no TTY to prompt, so the installer aborts safely; set `VEN_FORCE_INSTALL=true` (or pass `-Force` / `--force`) to skip the prompt.',
+  },
 ]
 
 // Display labels + tone for the per-kind groups of the downloads table.
