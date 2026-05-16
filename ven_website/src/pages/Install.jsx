@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: 'Does it support Windows?',
-    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines (also shipped as a discoverable `ven-launcher-windows-{arch}.zip` bundle in v0.1.1), and a UAC-aware `ven-setup.exe` for system installs.',
+    a: 'Yes — first-class. PowerShell 5.1 + 7+ hook, a portable `ven-launcher.exe` for locked-down corporate machines (shipped as a discoverable `ven-launcher-windows-{arch}.zip` bundle that includes a double-clickable `Start ven.cmd` shim since v0.1.2), and a UAC-aware `ven-setup.exe` for system installs.',
   },
   {
     q: 'Can it coexist with nvm / pyenv?',
@@ -40,6 +40,10 @@ const FAQ = [
     q: 'Where does ven store data?',
     a: 'Resolved on every run via `VEN_HOME` (4-tier precedence: `$VEN_HOME` → `$VEN_STORAGE_PATH` → `<launcher-dir>/.ven` → `~/.ven`). Binaries live in `<root>/bin`, runtimes in `<root>/<lang>/<version>/`, and a SQLite cache at `<root>/cache/` for OSV / EOL / docs lookups. Drop a `.ven/` folder next to `ven-launcher` for fully portable USB-stick installs — no `~/.ven` writes, no PATH edits.',
   },
+  {
+    q: '"error sending request for url" behind Zscaler / corporate proxy?',
+    a: 'Upgrade to **v0.1.3 or newer**. Enterprise proxies (Zscaler, Netskope, Bluecoat) MITM HTTPS using a private root CA installed in the OS trust store. ven ≤ v0.1.2 used only the bundled Mozilla roots and ignored the OS store, so `ven install python` failed even though the same URL opened in your browser. v0.1.3 enables `rustls-tls-native-roots` and merges both root pools — no flags, no env vars, no custom CA file to maintain. The same binary works at home and behind Zscaler.',
+  },
 ]
 
 // Display labels + tone for the per-kind groups of the downloads table.
@@ -55,7 +59,7 @@ const KIND_META = {
   launcher: {
     label: 'Portable launcher bundle',
     tagline:
-      'No-PATH-modification, no-admin. Extract anywhere; drop a sibling .ven/ for fully portable USB-stick mode.',
+      'Corporate / Zscaler friendly. Includes a double-clickable terminal shim (Start ven.cmd / Start ven.command / start-ven.sh) so non-CLI users can extract and run with one click. No admin, no PATH edits.',
     accent: 'text-secondary-fixed-dim',
   },
   setup: {
@@ -67,6 +71,54 @@ const KIND_META = {
 }
 
 const KIND_ORDER = ['combined', 'launcher', 'setup']
+
+// ---------------------------------------------------------------------------
+// Corporate / portable download card metadata.
+//
+// We map each `os_label` to the user-facing OS name, the default arch we
+// recommend (x64 for Windows/Linux, arm64 for macOS since Apple Silicon is
+// the modern default), and the per-OS terminal-shim filename so the UI can
+// say "Double-click 'Start ven.cmd'" instead of forcing the visitor to
+// guess what to click after extracting.
+// ---------------------------------------------------------------------------
+const OS_LABEL = { windows: 'Windows', macos: 'macOS', linux: 'Linux' }
+const OS_DEFAULT_ARCH = { windows: 'x64', macos: 'arm64', linux: 'x64' }
+const OS_SHIM = {
+  windows: 'Start ven.cmd',
+  macos: 'Start ven.command',
+  linux: 'start-ven.sh',
+}
+const OS_ICON = { windows: 'window', macos: 'laptop_mac', linux: 'terminal' }
+const OS_ORDER = ['windows', 'macos', 'linux']
+const ARCH_ORDER = ['x64', 'arm64']
+
+function findLauncherAsset(data, os, arch) {
+  if (!data) return null
+  const file = `ven-launcher-${os}-${arch}.${os === 'windows' ? 'zip' : 'tar.gz'}`
+  return data.assets.find((a) => a.kind === 'launcher' && a.file === file) ?? null
+}
+
+// Lifted out of `DownloadsTable` so multiple sections (Corporate one-click
+// download CTA + the full Direct-downloads table) can share a single fetch
+// instead of racing the same request twice.
+function useReleasesManifest() {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/releases-manifest.json')
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((j) => !cancelled && setData(j))
+      .catch((e) => !cancelled && setErr(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return { data, err }
+}
 
 function PlatformTabs({ active, onChange }) {
   return (
@@ -94,27 +146,7 @@ function PlatformTabs({ active, onChange }) {
   )
 }
 
-function DownloadsTable() {
-  const [data, setData] = useState(null)
-  const [err, setErr] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-    // The manifest lives in `/public` so Vite serves it at the site root.
-    // Fetching as JSON at runtime keeps the page release-cadence-aware
-    // without needing a rebuild for every version bump.
-    fetch('/releases-manifest.json')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((j) => !cancelled && setData(j))
-      .catch((e) => !cancelled && setErr(e.message))
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
+function DownloadsTable({ data, err }) {
   if (err) {
     return (
       <p className="text-on-surface-variant text-sm opacity-70">
@@ -212,10 +244,256 @@ function DownloadsTable() {
   )
 }
 
+// One-click corporate download CTA. Replaces the old "run these commands"
+// callout. The visitor sees:
+//
+//   - A primary download button auto-targeted at their detected OS + sensible
+//     default arch (so 90 % of users never have to think).
+//   - Tabs to switch OS, and (when the chosen OS has multiple arches in this
+//     release) a small arch toggle.
+//   - A 3-step "Download → Extract → Double-click <shim>" list naming the
+//     exact shim filename for the chosen OS so there is zero command-line
+//     instruction in the happy path.
+//   - An "Advanced (skip the shim)" disclosure for power users who still
+//     want to run `./ven-launcher` manually.
+function CorporateDownload({ data, err }) {
+  const [os, setOs] = useState(() => {
+    const detected = detectPlatform()
+    return OS_LABEL[detected] ? detected : 'windows'
+  })
+  const [arch, setArch] = useState(() => OS_DEFAULT_ARCH[os] ?? 'x64')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  // Whenever the OS tab changes, snap arch back to that OS's default so the
+  // user never lands on a (windows, arm64) combo they didn't intend.
+  function pickOs(next) {
+    setOs(next)
+    setArch(OS_DEFAULT_ARCH[next] ?? 'x64')
+  }
+
+  const asset = findLauncherAsset(data, os, arch)
+  const shim = OS_SHIM[os]
+  const archesAvailable = ARCH_ORDER.filter((a) => findLauncherAsset(data, os, a))
+
+  return (
+    <div className="glass-surface p-8 border-l-4 border-secondary-fixed-dim rounded-r-xl">
+      <div className="flex flex-col md:flex-row gap-8 items-start">
+        <div className="grow w-full">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-secondary-fixed-dim bg-secondary-fixed-dim/10 px-2 py-0.5 rounded">
+              NEW IN v0.1.2
+            </span>
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant opacity-70">
+              works behind Zscaler · no admin · no PATH edits
+            </span>
+          </div>
+          <h2 className="font-headline-md text-headline-md mb-2 text-secondary-fixed-dim">
+            Corporate &amp; portable — one-click bundle
+          </h2>
+          <p className="text-on-surface-variant text-body-base mb-6">
+            Locked-down laptop where{' '}
+            <code className="text-on-surface">irm | iex</code> and{' '}
+            <code className="text-on-surface">curl | sh</code> are blocked? Download the
+            zip, extract anywhere, and double-click the bundled terminal shim. A shell
+            opens with <code className="text-on-surface">ven</code> already activated —
+            no command line typing, no admin prompt, no proxy issues.
+          </p>
+
+          {/* OS tabs */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {OS_ORDER.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => pickOs(id)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-mono transition-colors border',
+                  os === id
+                    ? 'border-secondary-fixed-dim text-secondary-fixed-dim bg-secondary-fixed-dim/10'
+                    : 'border-outline-variant/40 text-on-surface-variant hover:text-on-surface'
+                )}
+              >
+                <Icon name={OS_ICON[id]} className="text-base" />
+                {OS_LABEL[id]}
+              </button>
+            ))}
+          </div>
+
+          {/* Arch toggle (only shown when the OS has more than one arch) */}
+          {archesAvailable.length > 1 && (
+            <div className="flex items-center gap-2 mb-5 text-xs">
+              <span className="text-on-surface-variant opacity-70 uppercase tracking-widest">
+                arch
+              </span>
+              {archesAvailable.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setArch(a)}
+                  className={clsx(
+                    'px-2.5 py-0.5 rounded-full font-mono uppercase tracking-widest border transition-colors',
+                    arch === a
+                      ? 'border-secondary-fixed-dim text-secondary-fixed-dim'
+                      : 'border-outline-variant/30 text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Big download button */}
+          <div className="mb-6">
+            {err ? (
+              <p className="text-sm text-on-surface-variant opacity-70">
+                Releases manifest unavailable — see{' '}
+                <a
+                  className="text-primary-fixed-dim hover:underline"
+                  href={RELEASES_URL}
+                >
+                  GitHub Releases
+                </a>
+                .
+              </p>
+            ) : !data ? (
+              <p className="text-sm text-on-surface-variant opacity-70">
+                Loading release assets…
+              </p>
+            ) : !asset ? (
+              <p className="text-sm text-on-surface-variant opacity-70">
+                No bundle for {OS_LABEL[os]} {arch} in v{data.version} — try a
+                different arch above or browse{' '}
+                <a className="text-primary-fixed-dim hover:underline" href={data.notesUrl}>
+                  the release page
+                </a>
+                .
+              </p>
+            ) : (
+              <a
+                href={asset.url}
+                className="group inline-flex items-center gap-3 px-6 py-4 rounded-xl bg-secondary-fixed-dim text-on-secondary-fixed font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
+                <Icon name="download" className="text-2xl" />
+                <span className="text-left">
+                  <span className="block text-base">
+                    Download for {OS_LABEL[os]} ({arch})
+                  </span>
+                  <span className="block font-mono text-[11px] opacity-80">
+                    {asset.file} · {asset.size} · v{data.version}
+                  </span>
+                </span>
+                <Icon
+                  name="arrow_forward"
+                  className="ml-2 text-base transition-transform group-hover:translate-x-1"
+                />
+              </a>
+            )}
+          </div>
+
+          {/* 3-step "what to do after download" */}
+          <ol className="space-y-3 mb-6">
+            {[
+              {
+                n: 1,
+                t: 'Extract the zip',
+                b: 'Right-click → Extract All (Windows) or double-click (macOS / GNOME). Drop it on Desktop, in Downloads, on a USB stick — anywhere you have write access. No admin needed.',
+              },
+              {
+                n: 2,
+                t: (
+                  <>
+                    Double-click <code className="text-on-surface">{shim}</code>
+                  </>
+                ),
+                b:
+                  os === 'linux'
+                    ? 'Most Linux file managers offer a "Run in Terminal" option for executable scripts. If yours does not, open a terminal in the extracted folder and run ./start-ven.sh.'
+                    : os === 'macos'
+                    ? 'Finder treats .command files as double-clickable Terminal scripts. The first launch may show a Gatekeeper warning — right-click → Open the first time and Gatekeeper remembers your choice.'
+                    : 'Windows runs .cmd files without any execution-policy or admin gate. Double-click in Explorer and a shell opens.',
+              },
+              {
+                n: 3,
+                t: 'A terminal opens with ven activated',
+                b: (
+                  <>
+                    Try <code className="text-on-surface">ven --version</code>,{' '}
+                    <code className="text-on-surface">ven init</code>, or{' '}
+                    <code className="text-on-surface">ven install node 22</code>. Close
+                    the window when done — nothing was added to your system PATH or
+                    shell rc files.
+                  </>
+                ),
+              },
+            ].map((s) => (
+              <li key={s.n} className="flex gap-4 items-start">
+                <span className="shrink-0 w-7 h-7 rounded-full border border-secondary-fixed-dim flex items-center justify-center text-xs font-bold text-secondary-fixed-dim">
+                  {s.n}
+                </span>
+                <div className="grow text-sm">
+                  <p className="font-bold text-on-surface mb-1">{s.t}</p>
+                  <p className="text-on-surface-variant leading-relaxed">{s.b}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          {/* Optional: USB-stick / advanced toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="text-xs text-on-surface-variant hover:text-secondary-fixed-dim transition-colors flex items-center gap-1"
+          >
+            <Icon
+              name={showAdvanced ? 'expand_less' : 'expand_more'}
+              className="text-sm"
+            />
+            Advanced — USB-stick mode &amp; raw launcher invocation
+          </button>
+          {showAdvanced && (
+            <div className="mt-3 space-y-3 text-sm text-on-surface-variant">
+              <p>
+                Want everything (runtimes, cache, lockfile state) inside the bundle so
+                the same folder is portable across machines? Create a{' '}
+                <code className="text-on-surface">.ven/</code> folder next to the
+                launcher and ven will resolve <code>VEN_HOME</code> to it
+                automatically.
+              </p>
+              <CodeBlock
+                code={
+                  os === 'windows'
+                    ? 'mkdir .ven\n.\\ven-launcher.exe --show-env'
+                    : 'mkdir .ven\n./ven-launcher --show-env'
+                }
+                prompt={os === 'windows' ? '>' : '$'}
+                tone="success"
+                copyable={false}
+              />
+              <p className="text-xs opacity-70">
+                Power users can skip the shim entirely — call{' '}
+                <code className="text-on-surface">
+                  {os === 'windows' ? '.\\ven-launcher.exe' : './ven-launcher'}
+                </code>{' '}
+                directly. The shim is just a 3–7 line wrapper that does this for you.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="hidden md:flex w-48 aspect-square bg-surface-container-high rounded items-center justify-center border border-outline-variant/30">
+          <Icon name="business_center" className="text-[64px] text-secondary-fixed-dim" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Install() {
   // Lazy initializer — `detectPlatform` handles missing-navigator gracefully,
   // so we can compute the default tab without an effect-induced flash.
   const [active, setActive] = useState(() => detectPlatform())
+  // Single fetch shared by Corporate CTA + Direct downloads table below.
+  const { data: releases, err: releasesErr } = useReleasesManifest()
 
   const current = INSTALL[active] ?? INSTALL.windows
 
@@ -325,40 +603,8 @@ export default function Install() {
         </div>
       </Reveal>
 
-      <Reveal as="section" className="mb-24 glass-surface p-8 border-l-4 border-secondary-fixed-dim rounded-r-xl">
-        <div className="flex flex-col md:flex-row gap-8 items-start">
-          <div className="grow">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-secondary-fixed-dim bg-secondary-fixed-dim/10 px-2 py-0.5 rounded">
-                NEW IN v0.1.1
-              </span>
-            </div>
-            <h2 className="font-headline-md text-headline-md mb-4 text-secondary-fixed-dim">
-              Corporate &amp; portable
-            </h2>
-            <p className="text-on-surface-variant text-body-base mb-4">
-              Restricted environment? Download the discoverable{' '}
-              <code className="text-on-surface">ven-launcher-{'{'}os{'}'}-{'{'}arch{'}'}.{'{'}zip|tar.gz{'}'}</code>{' '}
-              bundle (above), extract anywhere — USB stick, Downloads, a network share — and run the
-              launcher. It spawns a shell with the project's ven.toml applied, never edits the system
-              PATH or rc files, and never asks for admin.
-            </p>
-            <p className="text-on-surface-variant text-body-base mb-6">
-              Drop a sibling <code className="text-on-surface">.ven/</code> folder next to the launcher
-              and every runtime, cache entry, and lockfile state lives inside the bundle — fully
-              self-contained, fully movable.
-            </p>
-            <CodeBlock
-              code={'./ven-launcher          # opens shell with ven activated\nmkdir .ven              # promote bundle to USB-stick mode\n./ven-launcher --show-env'}
-              prompt="$"
-              tone="success"
-              copyable={false}
-            />
-          </div>
-          <div className="w-full md:w-48 aspect-square bg-surface-container-high rounded flex items-center justify-center border border-outline-variant/30">
-            <Icon name="business_center" className="text-[64px] text-secondary-fixed-dim" />
-          </div>
-        </div>
+      <Reveal as="section" className="mb-24">
+        <CorporateDownload data={releases} err={releasesErr} />
       </Reveal>
 
       <Reveal as="section" className="mb-24">
@@ -374,7 +620,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.1 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.4 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>
@@ -392,7 +638,7 @@ export default function Install() {
       </Reveal>
 
       <Reveal as="section" className="mb-24 overflow-x-auto">
-        <DownloadsTable />
+        <DownloadsTable data={releases} err={releasesErr} />
       </Reveal>
 
       <Reveal as="section" className="mb-24 border-t border-outline-variant/30 pt-16">

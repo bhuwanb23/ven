@@ -110,16 +110,18 @@ Each `ven-setup-*` binary is the **self-contained installer** with `ven` and `ve
 
 ### Portable launcher bundle
 
-Discoverable, no-PATH-modification archive shipped alongside the combined release artifacts. Identical binaries to the Replicate-path archive plus a top-level `README.txt` explaining sibling-`.ven/` portable mode (see [docs/ven-launcher.md](ven-launcher.md#portable-mode)). The install scripts continue to fetch the combined `ven-{os}-{arch}` archive — the launcher bundle is for users who want to download and run `ven` without touching `$PATH` at all.
+Discoverable, no-PATH-modification archive shipped alongside the combined release artifacts. Same `ven` + `ven-launcher` binaries as the combined archive, plus a per-OS **double-clickable terminal shim** and a top-level `README.txt` explaining sibling-`.ven/` portable mode (see [docs/ven-launcher.md](ven-launcher.md#portable-mode) and the [double-click shim](ven-launcher.md#double-click-shim) section).
 
-| Platform               | Asset name                                  | Contents                                                |
-|------------------------|---------------------------------------------|---------------------------------------------------------|
-| Windows x64            | `ven-launcher-windows-x64.zip`              | `ven.exe`, `ven-launcher.exe`, `README.txt`             |
-| Windows arm64          | `ven-launcher-windows-arm64.zip`            | `ven.exe`, `ven-launcher.exe`, `README.txt`             |
-| Linux x64              | `ven-launcher-linux-x64.tar.gz`             | `ven`, `ven-launcher` (mode 0755), `README.txt`         |
-| Linux arm64            | `ven-launcher-linux-arm64.tar.gz`           | `ven`, `ven-launcher`, `README.txt`                     |
-| macOS x64              | `ven-launcher-macos-x64.tar.gz`             | `ven`, `ven-launcher`, `README.txt`                     |
-| macOS arm64            | `ven-launcher-macos-arm64.tar.gz`           | `ven`, `ven-launcher`, `README.txt`                     |
+The install scripts (`install.ps1` / `install.sh`) continue to fetch the combined `ven-{os}-{arch}` archive — the launcher bundle is for two specific audiences: (a) users who want to run `ven` without touching `$PATH` at all, and (b) non-CLI users on corporate/locked-down machines where the web proxy blocks `irm | iex` / `curl | sh` style one-liners but allows downloading a `.zip` over HTTPS.
+
+| Platform      | Asset name                          | Contents                                                                        |
+|---------------|-------------------------------------|---------------------------------------------------------------------------------|
+| Windows x64   | `ven-launcher-windows-x64.zip`      | `ven.exe`, `ven-launcher.exe`, `Start ven.cmd`, `README.txt`                    |
+| Windows arm64 | `ven-launcher-windows-arm64.zip`    | `ven.exe`, `ven-launcher.exe`, `Start ven.cmd`, `README.txt`                    |
+| Linux x64     | `ven-launcher-linux-x64.tar.gz`     | `ven`, `ven-launcher` (mode 0755), `start-ven.sh` (mode 0755), `README.txt`     |
+| Linux arm64   | `ven-launcher-linux-arm64.tar.gz`   | `ven`, `ven-launcher`, `start-ven.sh` (mode 0755), `README.txt`                 |
+| macOS x64     | `ven-launcher-macos-x64.tar.gz`     | `ven`, `ven-launcher`, `Start ven.command` (mode 0755), `README.txt`            |
+| macOS arm64   | `ven-launcher-macos-arm64.tar.gz`   | `ven`, `ven-launcher`, `Start ven.command` (mode 0755), `README.txt`            |
 
 ### Integrity (preferred: per-asset sidecar; fallback: manifest)
 
@@ -168,7 +170,7 @@ Install path: /Users/you/.ven/bin
   Verifying installation...                           [ok]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[OK] ven 0.1.0 installed successfully!
+[OK] ven 0.1.4 installed successfully!
 
 Open a NEW terminal (or `exec $SHELL -l`) and run:
   ven --version

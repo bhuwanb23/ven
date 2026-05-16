@@ -1,4 +1,4 @@
-mod helpers;
+pub mod helpers;
 
 use crate::plugins::PluginRegistry;
 use anyhow::Result;

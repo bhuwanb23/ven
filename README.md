@@ -409,8 +409,17 @@ ven install <lang>              # interactive picker for that lang
 ven install                     # full interactive picker
 ven list                        # all installed runtimes
 ven list <lang> [--verbose|--json]
+ven delete                      # wizard: pick runtime to remove (since v0.1.4)
+ven delete <lang>               # pick a version of <lang> to delete
+ven delete <lang> <version>     # confirm + delete (-y / --force / --json)
 ven status [--verbose|--json|--fix]
 ```
+
+> `ven delete` is the runtime-deletion sibling of `ven remove`. `remove`
+> uninstalls **packages** (npm / pip / cargo / gem / ...); `delete` removes a
+> **runtime directory** under `$VEN_HOME/<lang>/<version>/`. By default it
+> refuses to delete the runtime your nearest `ven.toml` currently resolves to
+> — pass `--force` to override.
 
 ### Package Operations
 

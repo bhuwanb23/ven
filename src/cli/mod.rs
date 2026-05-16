@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 pub mod add;
 pub mod check;
 pub mod check_add;
+pub mod delete;
 pub mod docs;
 pub mod graph;
 pub mod init;
@@ -31,7 +32,7 @@ pub mod why;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -85,6 +86,43 @@ pub enum Commands {
         verbose: bool,
 
         /// Output as JSON for scripting and automation
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Delete an installed language runtime
+    ///
+    /// Removes the directory at `$VEN_HOME/<language>/<version>/`. Distinct
+    /// from `ven remove`, which uninstalls *packages* from a project. By
+    /// default refuses to delete the runtime currently resolved by the
+    /// nearest `ven.toml` — pass `--force` to override.
+    ///
+    /// Examples:
+    ///   ven delete                   # Wizard: pick language, then version
+    ///   ven delete python            # Pick a Python version to delete
+    ///   ven delete python 3.12.7     # Confirm, then delete
+    ///   ven delete python 3.12.7 -y  # Skip the confirm prompt (CI)
+    ///   ven delete python 3.12.7 --force --json
+    #[command(
+        long_about = "Delete an installed language runtime\n\nRemoves `$VEN_HOME/<language>/<version>/`. Distinct from `ven remove`,\nwhich uninstalls packages (npm / pip / cargo / gem / ...).\n\nBy default refuses to delete the runtime currently resolved by the\nnearest `ven.toml` (passing --force overrides this guard so you can\nclean up actively-pinned versions you no longer want).\n\nExamples:\n  ven delete                   # Wizard: pick language, then version\n  ven delete python            # Skip language picker; pick version\n  ven delete python 3.12.7     # Confirm, then delete\n  ven delete python 3.12.7 -y  # Skip confirm too (CI / scripts)\n  ven delete python 3.12.7 --force        # Allow deleting the active runtime\n  ven delete python 3.12.7 -y --json      # Machine-readable result"
+    )]
+    Delete {
+        /// Language whose runtime should be deleted (omit to enter the wizard)
+        language: Option<String>,
+
+        /// Specific version to delete (omit to pick from a list)
+        version: Option<String>,
+
+        /// Skip the confirmation prompt (CI / scripts)
+        #[arg(short = 'y', long)]
+        yes: bool,
+
+        /// Allow deleting the version that is currently active in `ven.toml`
+        #[arg(long)]
+        force: bool,
+
+        /// Machine-readable output. Requires explicit <language> [version]
+        /// args and -y / --yes (no interactive prompts in JSON mode).
         #[arg(long)]
         json: bool,
     },
@@ -535,6 +573,13 @@ pub fn run(cli: Cli) -> Result<()> {
             verbose,
             json,
         } => list::cmd_list(language.as_deref(), verbose, json),
+        Commands::Delete {
+            language,
+            version,
+            yes,
+            force,
+            json,
+        } => delete::cmd_delete(language, version, yes, force, json),
         Commands::Use { dir } => shell::cmd_use(&dir),
         Commands::Deactivate => shell::cmd_shell_deactivate(),
         Commands::Status { json, verbose, fix } => status::cmd_status(json, verbose, fix),
@@ -614,12 +659,13 @@ pub fn run(cli: Cli) -> Result<()> {
 }
 
 // All command implementations have been moved to their own modules:
-// - src/cli/install.rs
-// - src/cli/list.rs
+// - src/cli/install/
+// - src/cli/list.rs (+ list/helpers.rs, also reused by delete.rs)
+// - src/cli/delete.rs   ← removes an installed runtime, complement of `remove`
 // - src/cli/status/
 // - src/cli/setup.rs
 // - src/cli/shell.rs
 // - src/cli/init.rs
-// - src/cli/add.rs
-// - src/cli/remove.rs
+// - src/cli/add/
+// - src/cli/remove.rs   ← removes packages (npm / pip / cargo / ...)
 // - src/cli/upgrade.rs

@@ -5,7 +5,7 @@ use crate::core::{
 use crate::plugins::PluginRegistry;
 use anyhow::Result;
 
-pub(super) fn detect_active_version(language: &str) -> Result<Option<String>> {
+pub(crate) fn detect_active_version(language: &str) -> Result<Option<String>> {
     let current_dir = std::env::current_dir()?;
     let toml_path = match find_ven_toml(&current_dir) {
         Some(p) => p,
@@ -72,7 +72,7 @@ pub(super) fn detect_active_version(language: &str) -> Result<Option<String>> {
     }
 }
 
-pub(super) fn get_version_status(language: &str, version: &str) -> (&'static str, &'static str) {
+pub(crate) fn get_version_status(language: &str, version: &str) -> (&'static str, &'static str) {
     if language == "python" {
         return get_python_version_status(version);
     }
@@ -130,7 +130,7 @@ fn get_python_version_status(version: &str) -> (&'static str, &'static str) {
     }
 }
 
-pub(super) fn calculate_dir_size(path: &std::path::Path) -> Result<u64> {
+pub(crate) fn calculate_dir_size(path: &std::path::Path) -> Result<u64> {
     let mut total_size = 0;
     if path.is_dir() {
         for entry in std::fs::read_dir(path)? {
@@ -146,7 +146,7 @@ pub(super) fn calculate_dir_size(path: &std::path::Path) -> Result<u64> {
     Ok(total_size)
 }
 
-pub(super) fn format_bytes(bytes: u64) -> String {
+pub(crate) fn format_bytes(bytes: u64) -> String {
     if bytes < 1024 {
         format!("{} B", bytes)
     } else if bytes < 1024 * 1024 {
@@ -158,7 +158,7 @@ pub(super) fn format_bytes(bytes: u64) -> String {
     }
 }
 
-pub(super) fn get_installation_date(version_path: &std::path::Path) -> String {
+pub(crate) fn get_installation_date(version_path: &std::path::Path) -> String {
     if let Ok(metadata) = std::fs::metadata(version_path) {
         if let Ok(created) = metadata.created() {
             let duration = created
@@ -176,7 +176,7 @@ pub(super) fn get_installation_date(version_path: &std::path::Path) -> String {
     "Unknown".to_string()
 }
 
-pub(super) fn get_version_path(language: &str, version: &str) -> Result<std::path::PathBuf> {
+pub(crate) fn get_version_path(language: &str, version: &str) -> Result<std::path::PathBuf> {
     Ok(crate::core::ven_home::ven_home()
         .join(language)
         .join(version))

@@ -502,6 +502,7 @@ ven list --json | jq .
 ## Related Commands
 
 - [`ven install`](install.md) - Install new versions
+- [`ven delete`](delete.md) - Delete an installed runtime (since v0.1.4)
 - [`ven status`](status.md) - Check current project config
 - [`ven setup`](setup.md) - Configure auto-switching
 
@@ -515,9 +516,14 @@ ven list --json | jq .
 # See what's installed
 ven list --verbose
 
-# Remove old versions (manual for now)
-rm -rf ~/.ven/node/16.20.2   # Unix
-Remove-Item -Recurse ~/.ven/node/16.20.2  # Windows
+# Remove old versions (since v0.1.4: use `ven delete` instead of manual rm)
+ven delete node 16.20.2          # interactive confirm
+ven delete node 16.20.2 -y       # skip the prompt (CI / scripts)
+ven delete                       # full wizard if you don't remember versions
+
+# Pre-v0.1.4 manual equivalent:
+#   rm -rf ~/.ven/node/16.20.2              # Unix
+#   Remove-Item -Recurse ~/.ven/node/16.20.2 # Windows
 ```
 
 ### Check Active Version in Project

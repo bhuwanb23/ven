@@ -1,6 +1,6 @@
 [package]
 name = "ven"
-version = "0.1.0"
+version = "0.1.4"
 edition = "2021"
 description = "Any-first intelligent version and dependency manager"
 license = "MIT"
@@ -38,7 +38,14 @@ tokio = { version = "1", features = ["full"] }
 #      reproducible behaviour.
 # `rustls-tls` pulls in `rustls-tls-webpki-roots`, so trust roots ship inside
 # the binary — no dependency on the host's certificate store either.
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "http2", "charset"] }
+# `rustls-tls-native-roots` makes reqwest pull root CAs from the OS cert store
+# in addition to webpki-roots. Without it, corporate SSL-inspecting proxies
+# (Zscaler, Netskope, Bluecoat, etc.) that install their own MITM root into the
+# Windows / macOS / Linux trust store cause every HTTPS request to fail —
+# the browser works (it uses the OS store) but ven would not. With the feature
+# enabled, reqwest merges both root pools, so we still trust Mozilla roots out
+# of the box AND trust whatever an enterprise admin has added system-wide.
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "rustls-tls-native-roots", "http2", "charset"] }
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

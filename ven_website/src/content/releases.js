@@ -3,25 +3,89 @@
 
 export const RELEASES = [
   {
+    version: 'v0.1.4',
+    date: 'May 16, 2026',
+    tag: 'minor',
+    summary:
+      'New `ven delete` command for removing installed runtimes. Refuses to delete the runtime currently pinned in ven.toml unless `--force` is passed, so you can never silently break the next `cd` activation.',
+    sections: {
+      new: [
+        '`ven delete` removes an installed language runtime by deleting its `$VEN_HOME/<lang>/<version>/` directory. Three calling conventions: full wizard (`ven delete`), language-only (`ven delete python` → pick a version), or fully specified (`ven delete python 3.12.7`). Flags: `-y` / `--yes` (skip confirm), `--force` (allow deleting the active runtime), `--json` (machine-readable, requires explicit args + `-y`).',
+        'Active-runtime safety guard: refuses to delete the runtime currently resolved by the nearest `ven.toml`. The error message names the exact `ven.toml` path and points at `--force` as the escape hatch. Prevents the silent-shell-breakage class of bugs where users delete a runtime and then `cd` into a project that pinned it.',
+        'New per-command doc page [docs/cmds/delete.md](https://github.com/bhuwanb23/ven/blob/main/docs/cmds/delete.md) covering all flags, JSON shapes, the safety guard, and storage layout impact.',
+      ],
+      improved: [
+        'README "Runtime Management" block now includes `ven delete` examples next to `ven install` / `ven list`, plus a short note clarifying the `delete` (runtimes) vs `remove` (packages) split.',
+        'docs/cmds/INDEX.md "Version Management" section now lists `ven delete` alongside `install` / `list` / `status`.',
+        'docs/cmds/list.md "Remove Deprecated Versions" tip no longer suggests `rm -rf ~/.ven/<lang>/<version>` — it points at `ven delete` instead (manual rm kept as a footnote for pre-v0.1.4 history).',
+        'docs/commands-reference.md gained a `ven delete [runtime] [version]` row in the Project lifecycle table.',
+        'src/cli/list/helpers.rs helpers (`detect_active_version`, `calculate_dir_size`, `format_bytes`, `get_installation_date`, `get_version_path`) promoted from `pub(super)` to `pub(crate)` so the new delete command can reuse them without duplication.',
+      ],
+      fixed: [],
+    },
+  },
+  {
+    version: 'v0.1.3',
+    date: 'May 16, 2026',
+    tag: 'patch',
+    summary:
+      'Trust the OS certificate store. Fixes "error sending request" failures on Zscaler / Netskope / Bluecoat / any SSL-inspecting corporate proxy.',
+    sections: {
+      new: [],
+      improved: [
+        'reqwest now loads root CAs from the OS trust store in addition to the bundled Mozilla webpki-roots (rustls-tls-native-roots feature). Browsers worked because they read the Windows / macOS / Linux cert store; ven now does the same.',
+        'docs/ven-launcher.md gained a "Corporate proxy / Zscaler" troubleshooting section explaining the failure mode and the fix.',
+        'Install page FAQ gained a Zscaler / corporate-proxy entry pointing at v0.1.3 as the minimum version for SSL-inspecting environments.',
+      ],
+      fixed: [
+        '`ven install <lang>` failing with "error sending request for url (https://...)" inside corporate networks where Zscaler / Netskope / Bluecoat MITM HTTPS using a private root CA installed in the OS trust store. ven now picks that root up automatically — no env vars, no flags, no extra config.',
+      ],
+    },
+  },
+  {
+    version: 'v0.1.2',
+    date: 'May 16, 2026',
+    tag: 'minor',
+    summary:
+      'One-click corporate / Zscaler bundle. Download the zip, double-click the bundled terminal shim, get a ven-ready shell — no command-line typing, no admin, no PATH edits.',
+    sections: {
+      new: [
+        'Double-clickable terminal shim shipped inside every ven-launcher-{os}-{arch}.{zip|tar.gz}: Start ven.cmd on Windows, Start ven.command on macOS, start-ven.sh on Linux. Double-click → terminal opens → ven is already activated. Zero command-line knowledge required, designed for non-CLI teammates on locked-down machines.',
+        'Bundled README.txt rewritten to lead with the 3-step "Extract → Double-click → ven is ready" flow, plus a "Behind Zscaler / corporate proxy" explainer for users whose firewall blocks irm | iex / curl | sh installers.',
+      ],
+      improved: [
+        'Install page "Corporate & portable" section replaced with a single download button auto-targeted at the visitor\'s OS + arch, a 3-step "Download → Extract → Double-click <shim>" list naming the exact shim filename for the chosen OS, and an "Advanced" disclosure for power users — no more wall of shell commands as the happy path.',
+        'Landing page "Built for restricted environments" hero now demonstrates the double-click flow and earns a "Bypasses Zscaler" pill alongside no-sudo / no-UAC / portable.',
+        'Install page shares a single /releases-manifest.json fetch between the new Corporate CTA and the Direct downloads table via a useReleasesManifest() hook, so the page renders deterministically without racing the same request twice.',
+        'docs/ven-launcher.md gained a "Double-click shim" section with a per-OS table and a "Behind Zscaler / corporate proxy" subsection explaining why zip + double-click passes corporate firewalls; the USB-stick layout example now shows the shim file.',
+        'docs/install-scripts.md "Portable launcher bundle" asset table now lists the per-OS shim filename and mode 0755 for the Unix shims.',
+        'release.yml launcher-bundle step now stages the per-OS shim alongside ven + ven-launcher and ships a corporate-focused README that opens with the double-click flow.',
+      ],
+      fixed: [],
+    },
+  },
+  {
     version: 'v0.1.1',
     date: 'May 15, 2026',
     tag: 'minor',
     summary:
-      'Portable launcher bundle + centralized VEN_HOME resolver. Run ven from a USB stick without touching $PATH.',
+      'Portable launcher bundle + centralized VEN_HOME resolver. Double-click a terminal shim and ven is live — no admin, no PATH edits, works behind corporate proxies.',
     sections: {
       new: [
-        'Discoverable portable launcher bundle: ven-launcher-{os}-{arch}.{zip|tar.gz} for all 6 platform/arch combos, each with bundled README.txt and per-asset SHA-256 sidecar',
+        'One-click corporate / Zscaler download: the portable bundle now ships a double-clickable terminal shim per OS (Start ven.cmd on Windows, Start ven.command on macOS, start-ven.sh on Linux). Double-click → terminal opens → ven is already activated. Zero command-line typing.',
+        'Discoverable portable launcher bundle: ven-launcher-{os}-{arch}.{zip|tar.gz} for all 6 platform/arch combos, each with bundled README.txt, terminal shim, and per-asset SHA-256 sidecar',
         'Centralized VEN_HOME resolver with 4-tier precedence: $VEN_HOME → $VEN_STORAGE_PATH → <launcher-dir>/.ven → ~/.ven',
         'USB-stick / fully-portable mode: drop a sibling .ven/ folder next to ven-launcher and every runtime, cache entry, and lockfile state lives inside the bundle',
         'ven-launcher --show-env now prints the resolved VEN_HOME so you can confirm portable vs shared mode at a glance',
         '"Which binary should I use?" persona table in the README with a fourth row pointing at the new portable-launcher asset',
       ],
       improved: [
+        'Install page "Corporate & portable" section replaced with a single download button auto-targeted at the visitor\'s OS + arch, a 3-step "Download → Extract → Double-click <shim>" list, and an "Advanced" disclosure for power users — no more wall of shell commands as the happy path',
         'Unified all ~17 storage call-sites in src/core/, src/cli/, src/intelligence/, src/bin/setup/ through a single core::ven_home::ven_home() function — kills pre-existing drift between hardcoded ~/.ven/ and VEN_STORAGE_PATH-aware paths',
         'apply_activation_env and apply_launcher_portable_env now export VEN_HOME to every spawned shell, so portable-mode bundles never silently fall back to ~/.ven once you cd into a project',
-        'docs/ven-launcher.md rewritten with a Portable mode section, resolver precedence table, and USB-stick layout example',
+        'docs/ven-launcher.md rewritten with a Portable mode section, resolver precedence table, USB-stick layout example, and a "Behind Zscaler" section explaining why the zip + double-click flow passes corporate firewalls',
         'docs/install-scripts.md gained a "Portable launcher bundle" section listing the new asset names',
-        'release.yml workflow now emits four assets per matrix entry (combined + launcher + setup + .sha256 sidecars) for all six (os, arch) combos',
+        'release.yml workflow now emits four assets per matrix entry (combined + launcher + setup + .sha256 sidecars) for all six (os, arch) combos; the launcher bundle includes a per-OS terminal-shim file and a corporate-focused README',
       ],
       fixed: [],
     },

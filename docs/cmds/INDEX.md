@@ -12,6 +12,7 @@ Complete documentation for all `ven` commands and their subcommands.
 |---------|-------------|---------------|
 | `ven install` | Install language versions (native download) | [→ install.md](install.md) |
 | `ven list` | List installed versions with metadata | [→ list.md](list.md) |
+| `ven delete` | Delete an installed runtime (refuses active version without `--force`) | [→ delete.md](delete.md) |
 | `ven status` | Show current project configuration | [→ status.md](status.md) |
 
 ## 📋 Package Management
