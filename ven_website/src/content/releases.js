@@ -3,6 +3,28 @@
 
 export const RELEASES = [
   {
+    version: 'v0.1.4',
+    date: 'May 16, 2026',
+    tag: 'minor',
+    summary:
+      'New `ven delete` command for removing installed runtimes. Refuses to delete the runtime currently pinned in ven.toml unless `--force` is passed, so you can never silently break the next `cd` activation.',
+    sections: {
+      new: [
+        '`ven delete` removes an installed language runtime by deleting its `$VEN_HOME/<lang>/<version>/` directory. Three calling conventions: full wizard (`ven delete`), language-only (`ven delete python` → pick a version), or fully specified (`ven delete python 3.12.7`). Flags: `-y` / `--yes` (skip confirm), `--force` (allow deleting the active runtime), `--json` (machine-readable, requires explicit args + `-y`).',
+        'Active-runtime safety guard: refuses to delete the runtime currently resolved by the nearest `ven.toml`. The error message names the exact `ven.toml` path and points at `--force` as the escape hatch. Prevents the silent-shell-breakage class of bugs where users delete a runtime and then `cd` into a project that pinned it.',
+        'New per-command doc page [docs/cmds/delete.md](https://github.com/bhuwanb23/ven/blob/main/docs/cmds/delete.md) covering all flags, JSON shapes, the safety guard, and storage layout impact.',
+      ],
+      improved: [
+        'README "Runtime Management" block now includes `ven delete` examples next to `ven install` / `ven list`, plus a short note clarifying the `delete` (runtimes) vs `remove` (packages) split.',
+        'docs/cmds/INDEX.md "Version Management" section now lists `ven delete` alongside `install` / `list` / `status`.',
+        'docs/cmds/list.md "Remove Deprecated Versions" tip no longer suggests `rm -rf ~/.ven/<lang>/<version>` — it points at `ven delete` instead (manual rm kept as a footnote for pre-v0.1.4 history).',
+        'docs/commands-reference.md gained a `ven delete [runtime] [version]` row in the Project lifecycle table.',
+        'src/cli/list/helpers.rs helpers (`detect_active_version`, `calculate_dir_size`, `format_bytes`, `get_installation_date`, `get_version_path`) promoted from `pub(super)` to `pub(crate)` so the new delete command can reuse them without duplication.',
+      ],
+      fixed: [],
+    },
+  },
+  {
     version: 'v0.1.3',
     date: 'May 16, 2026',
     tag: 'patch',

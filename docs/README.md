@@ -33,6 +33,6 @@ The hub page [`languages.md`](languages.md) explains the `LanguagePlugin` trait,
 
 ## Per-command pages
 
-`docs/cmds/` has one page per CLI subcommand (`install`, `init`, `add`, `remove`, `upgrade`, `status`, `setup`, `shell`, `list`, `check-add`, `graph`, `lock`, `sync`, `resolve`).
+`docs/cmds/` has one page per CLI subcommand (`install`, `init`, `add`, `remove`, `delete`, `upgrade`, `status`, `setup`, `shell`, `list`, `check-add`, `graph`, `lock`, `sync`, `resolve`).
 
 Start with [`cmds/INDEX.md`](cmds/INDEX.md).

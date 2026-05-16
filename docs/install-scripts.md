@@ -170,7 +170,7 @@ Install path: /Users/you/.ven/bin
   Verifying installation...                           [ok]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[OK] ven 0.1.3 installed successfully!
+[OK] ven 0.1.4 installed successfully!
 
 Open a NEW terminal (or `exec $SHELL -l`) and run:
   ven --version
