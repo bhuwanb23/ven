@@ -50,6 +50,55 @@ export const INSTALL = {
 
 export const PLATFORM_ORDER = ['windows', 'macos', 'linux', 'source']
 
+// Uninstall snippets shown on /install. Three real, working scripts — one per
+// OS family — that actually remove ven from a fresh machine. Kept here (not
+// inline in Install.jsx) so a future cleanup pass touches a single file.
+//
+// Why three different commands and not one universal one-liner:
+//
+//   - Windows has no `rm -rf` or `sed`. PowerShell-native verbs (Remove-Item +
+//     [Environment]::SetEnvironmentVariable) are the only thing that works on
+//     a stock install of PowerShell 5.1 / 7+, which is what the install
+//     one-liner targets.
+//   - macOS ships BSD sed, which **requires** an explicit backup-extension
+//     argument (`-i ''`). The Linux GNU sed form (`-i` alone) silently
+//     truncates the file to nothing on macOS, so reusing the Linux command
+//     there would *break* the user's rc files instead of cleaning them up.
+//   - Linux distros all ship GNU sed; `-i` without an argument is correct.
+//
+// Each `cmd` is multi-line so it survives copy/paste cleanly into the target
+// shell. The trailing `2>/dev/null` swallows "file not found" noise when one
+// of the rc files (e.g. `.zshrc` on a bash-only machine) doesn't exist.
+export const UNINSTALL = {
+  windows: {
+    label: 'Windows · PowerShell',
+    prompt: 'PS>',
+    note:
+      'Removes %USERPROFILE%\\.ven and strips the PATH entry from your user environment. Open a new terminal so the cleaned PATH takes effect.',
+    cmd: [
+      `Remove-Item -Recurse -Force "$env:USERPROFILE\\.ven" -ErrorAction SilentlyContinue`,
+      `$p = [Environment]::GetEnvironmentVariable('Path', 'User')`,
+      `[Environment]::SetEnvironmentVariable('Path', (($p -split ';') | ? { $_ -and $_ -notlike '*\\.ven\\bin*' }) -join ';', 'User')`,
+    ].join('\n'),
+  },
+  macos: {
+    label: 'macOS · bash / zsh',
+    prompt: '$',
+    note:
+      'macOS ships BSD sed, which needs the empty backup-extension (`-i \'\'`). Same idea as Linux, just one extra quoted argument.',
+    cmd: `rm -rf ~/.ven && sed -i '' '/\\.ven\\/bin/d' ~/.bashrc ~/.zshrc ~/.zprofile ~/.profile 2>/dev/null && hash -r`,
+  },
+  linux: {
+    label: 'Linux · bash / zsh',
+    prompt: '$',
+    note:
+      'Works on every distro the release matrix tests (Debian, Ubuntu, Fedora, Arch, Alpine). GNU sed accepts -i without an argument.',
+    cmd: `rm -rf ~/.ven && sed -i '/\\.ven\\/bin/d' ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null && hash -r`,
+  },
+}
+
+export const UNINSTALL_ORDER = ['windows', 'macos', 'linux']
+
 // `null` hides the Contact link in the Footer until a real address exists.
 export const CONTACT_EMAIL = null
 

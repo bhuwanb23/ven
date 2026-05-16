@@ -8,6 +8,8 @@ import Reveal from '../components/effects/Reveal.jsx'
 import {
   INSTALL,
   PLATFORM_ORDER,
+  UNINSTALL,
+  UNINSTALL_ORDER,
   GITHUB_URL,
   RELEASES_URL,
   detectPlatform,
@@ -394,19 +396,51 @@ export default function Install() {
       </Reveal>
 
       <Reveal as="section" className="mb-24 border-t border-outline-variant/30 pt-16">
-        <div className="text-center max-w-lg mx-auto">
-          <h2 className="font-headline-md text-headline-md mb-4">Uninstall</h2>
-          <p className="text-on-surface-variant mb-8">
-            Leaving us? Remove everything with a single sweep.
-          </p>
-          <div className="bg-surface-container-lowest p-4 font-mono text-on-error border border-error/30 inline-block rounded">
-            rm -rf ~/.ven &amp;&amp; sed -i '/\.ven\/bin/d' ~/.bashrc ~/.zshrc
+        <div className="max-w-3xl mx-auto">
+          <header className="text-center mb-12">
+            <h2 className="font-headline-md text-headline-md mb-4">Uninstall</h2>
+            <p className="text-on-surface-variant">
+              Leaving us? These commands fully reverse the install one-liners — they remove the{' '}
+              <code className="text-on-surface">~/.ven</code> tree (binaries, runtimes, cache, lockfile
+              state) and strip the PATH entry that the installer added. Pick the block for your shell;
+              they are not interchangeable.
+            </p>
+          </header>
+
+          <div className="space-y-8">
+            {UNINSTALL_ORDER.map((id) => {
+              const u = UNINSTALL[id]
+              return (
+                <div key={id}>
+                  <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+                    <h3 className="font-headline-md text-lg font-bold text-error">
+                      {u.label}
+                    </h3>
+                    <span className="text-xs text-on-surface-variant opacity-70">
+                      {u.note}
+                    </span>
+                  </header>
+                  <CodeBlock
+                    code={u.cmd}
+                    prompt={u.prompt}
+                    tone="cyan"
+                    language={id === 'windows' ? 'powershell' : 'shell'}
+                  />
+                </div>
+              )
+            })}
           </div>
-          <p className="mt-6 text-xs text-on-surface-variant opacity-60">
-            On Windows: <code className="text-on-surface">ven-setup --uninstall</code> reverses the PATH
-            edit and removes <code className="text-on-surface">%USERPROFILE%\.ven</code>.
+
+          <p className="mt-10 text-xs text-on-surface-variant opacity-60 text-center">
+            Using a non-default <code className="text-on-surface">$VEN_HOME</code> or a portable
+            launcher with a sibling <code className="text-on-surface">.ven/</code> folder? Replace{' '}
+            <code className="text-on-surface">~/.ven</code> /{' '}
+            <code className="text-on-surface">%USERPROFILE%\.ven</code> with that path. Nothing else
+            needs to change — the installers never write outside the install root and the matching
+            shell-rc / PATH entry.
           </p>
-          <div className="mt-8 text-sm">
+
+          <div className="mt-6 text-sm text-center">
             <a
               href={GITHUB_URL}
               target="_blank"
