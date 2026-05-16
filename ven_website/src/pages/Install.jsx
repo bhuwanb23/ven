@@ -38,6 +38,10 @@ const FAQ = [
     q: 'Where does ven store data?',
     a: 'Resolved on every run via `VEN_HOME` (4-tier precedence: `$VEN_HOME` → `$VEN_STORAGE_PATH` → `<launcher-dir>/.ven` → `~/.ven`). Binaries live in `<root>/bin`, runtimes in `<root>/<lang>/<version>/`, and a SQLite cache at `<root>/cache/` for OSV / EOL / docs lookups. Drop a `.ven/` folder next to `ven-launcher` for fully portable USB-stick installs — no `~/.ven` writes, no PATH edits.',
   },
+  {
+    q: '"error sending request for url" behind Zscaler / corporate proxy?',
+    a: 'Upgrade to **v0.1.3 or newer**. Enterprise proxies (Zscaler, Netskope, Bluecoat) MITM HTTPS using a private root CA installed in the OS trust store. ven ≤ v0.1.2 used only the bundled Mozilla roots and ignored the OS store, so `ven install python` failed even though the same URL opened in your browser. v0.1.3 enables `rustls-tls-native-roots` and merges both root pools — no flags, no env vars, no custom CA file to maintain. The same binary works at home and behind Zscaler.',
+  },
 ]
 
 // Display labels + tone for the per-kind groups of the downloads table.
@@ -614,7 +618,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.2 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.3 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>

@@ -417,7 +417,7 @@ function FeatureGrid() {
           </div>
           <div className="hidden md:flex items-center gap-2 text-xs font-mono text-on-surface-variant">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim animate-pulse" />
-            v0.1.2 · all green
+            v0.1.3 · all green
           </div>
         </div>
 
@@ -762,7 +762,7 @@ function EnterpriseSection() {
               <span className="text-secondary-fixed-dim">PS&gt;</span>{' '}
               <span className="text-on-surface">ven --version</span>
             </div>
-            <div className="text-on-surface">ven 0.1.2 (x86_64-pc-windows-msvc)</div>
+            <div className="text-on-surface">ven 0.1.3 (x86_64-pc-windows-msvc)</div>
             <div className="text-secondary-fixed-dim">✓ Environment ready: node 22 · python 3.13 · 34 packages</div>
             <div className="text-on-surface-variant"># Close the window — the host is untouched.</div>
           </Terminal>

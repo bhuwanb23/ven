@@ -3,6 +3,24 @@
 
 export const RELEASES = [
   {
+    version: 'v0.1.3',
+    date: 'May 16, 2026',
+    tag: 'patch',
+    summary:
+      'Trust the OS certificate store. Fixes "error sending request" failures on Zscaler / Netskope / Bluecoat / any SSL-inspecting corporate proxy.',
+    sections: {
+      new: [],
+      improved: [
+        'reqwest now loads root CAs from the OS trust store in addition to the bundled Mozilla webpki-roots (rustls-tls-native-roots feature). Browsers worked because they read the Windows / macOS / Linux cert store; ven now does the same.',
+        'docs/ven-launcher.md gained a "Corporate proxy / Zscaler" troubleshooting section explaining the failure mode and the fix.',
+        'Install page FAQ gained a Zscaler / corporate-proxy entry pointing at v0.1.3 as the minimum version for SSL-inspecting environments.',
+      ],
+      fixed: [
+        '`ven install <lang>` failing with "error sending request for url (https://...)" inside corporate networks where Zscaler / Netskope / Bluecoat MITM HTTPS using a private root CA installed in the OS trust store. ven now picks that root up automatically — no env vars, no flags, no extra config.',
+      ],
+    },
+  },
+  {
     version: 'v0.1.2',
     date: 'May 16, 2026',
     tag: 'minor',

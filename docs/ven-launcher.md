@@ -40,6 +40,33 @@ The shims themselves are 3–7 lines each — just a `cd "$(dirname "$0")"` foll
 
 Most corporate web proxies (Zscaler, Symantec, Forcepoint) block `irm | iex` and `curl | sh` style one-liners because they look like script injection, but they do **not** block downloading a regular `.zip` from `github.com` over HTTPS. The portable bundle is designed for that constraint: download the zip through the browser, extract via Explorer / Finder, double-click the shim, get a working `ven`. Nothing in the path requires elevated permissions, hits a non-GitHub host, or touches the system `PATH`.
 
+### Corporate cert trust (Zscaler / Netskope / Bluecoat) — v0.1.3+ required
+
+Most enterprise web proxies don't just route traffic — they **MITM** every HTTPS connection so they can inspect the contents. They do this by issuing their own dynamic per-host certificate signed by a private root CA that an admin pre-installs into the Windows / macOS / Linux trust store. Your browser trusts it (browsers read the OS store), so `https://...` "just works" from Chrome / Edge / Firefox.
+
+`ven` versions **≤ v0.1.2** used `rustls` with only the bundled Mozilla webpki-roots and ignored the OS store entirely. That meant `ven install python` (and any other download) failed with:
+
+```text
+Error: Cannot list Python releases: error sending request for url (https://www.python.org/ftp/python/)
+```
+
+…even though the URL opened fine in a browser on the same machine.
+
+**Fix: upgrade to v0.1.3 or newer.** v0.1.3 enables reqwest's `rustls-tls-native-roots` feature, so `ven` merges the bundled Mozilla root pool with whatever roots the OS trusts — including the corporate intercept CA. No flags, no env vars, no `~/.config/ven/ca.pem` to maintain. The same binary works at home and behind Zscaler.
+
+Verify the upgrade worked:
+
+```pwsh
+ven --version          # ven 0.1.3 (or newer)
+ven install python     # should now reach python.org without "error sending request"
+```
+
+If you're still seeing TLS errors after upgrading to v0.1.3+:
+
+1. Confirm the corporate root CA is actually installed in the OS trust store (`certmgr.msc` on Windows → Trusted Root Certification Authorities). If your browser shows a green padlock on `https://www.python.org`, it's there.
+2. Make sure your admin hasn't blocked outbound access to `python.org` / `nodejs.org` / `go.dev` / `crates.io` etc. in the proxy. A cert problem looks like "error sending request"; a blocked-host problem looks like "403 Forbidden" or a hung connection — those are policy issues, not `ven` bugs.
+3. If you're on a network with an explicit proxy (rare for Zscaler, common for older corp setups), set `HTTPS_PROXY=http://proxy.corp:8080` in the shell before running `ven`. reqwest reads `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` automatically.
+
 ## Portable mode
 
 `ven-launcher` resolves a single **storage root** (called `VEN_HOME`) on every run, then propagates that value to the spawned shell so every subsequent `ven` call inside it lands in the same place. Resolution is most-specific → least-specific:

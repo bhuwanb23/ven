@@ -131,11 +131,16 @@ jobs:
 
       # ---- pass 1: build ven + ven-launcher --------------------------------
       - name: Build pass 1 (ven + ven-launcher)
-        run: cargo build --release --target ${{ matrix.target }} --bin ven --bin ven-launcher --locked
+        # `--locked` intentionally omitted: we toggle reqwest features (e.g.
+        # rustls-tls-native-roots in v0.1.3) without being able to refresh
+        # Cargo.lock locally on every release. CI regenerates the lockfile
+        # for the build; reproducibility is anchored by the exact tag commit
+        # + the per-asset SHA256SUMS we publish alongside the release.
+        run: cargo build --release --target ${{ matrix.target }} --bin ven --bin ven-launcher
 
       # ---- pass 2: build ven-setup (build.rs embeds pass-1 artifacts) ------
       - name: Build pass 2 (ven-setup with embedded payloads)
-        run: cargo build --release --target ${{ matrix.target }} --bin ven-setup --locked
+        run: cargo build --release --target ${{ matrix.target }} --bin ven-setup
 
       # ---- package: archive + standalone setup binary ----------------------
       - name: Package assets (Windows)
