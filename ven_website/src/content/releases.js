@@ -3,29 +3,25 @@
 
 export const RELEASES = [
   {
-    version: 'v0.1.6',
+    version: 'v0.1.5',
     date: 'May 17, 2026',
     tag: 'minor',
     summary:
-      'New `ven path` command for relocating ven\'s storage root (default `~/.ven`) to a different drive — atomic move with rollback, persistent pointer file, and a User-scope `VEN_HOME` so npm / pip / new shells inherit the new location automatically. Built for the "my C: drive is full" case on company-managed Windows machines.',
+      'Installer hardening: detect existing ven installs (user + system) before touching disk, prompt for the right thing (skip / upgrade / shadow-warning), and tidy up the matching uninstall snippets so a "clean slate" actually removes both copies. Closes the failure mode where someone installs system v0.1.1, then user v0.1.4 a month later, and ends up with two `ven` binaries on PATH fighting for precedence.',
     sections: {
       new: [
-        '`ven path show` prints the resolved `$VEN_HOME`, the resolver source (env / portable / pointer / default), size on disk, and the active pointer. `--json` for scripting.',
-        '`ven path set <dir>` relocates the storage root. Interactive prompt by default ("move existing data? / pointer only? / cancel"); explicit flags `--move`, `--no-move`, `--pointer-only`, `-y / --yes`, `--json` for non-interactive use. Cross-drive moves fall back from `fs::rename` to recursive copy + verify + delete with an `indicatif` progress bar; the source is never touched until the target is fully populated and the file count + byte count match, so a failed move never leaves ven half-relocated.',
-        '`ven path reset` clears the pointer (with or without moving data back) and reverts to `~/.ven`. Same flag surface as `set`.',
-        'Persistent pointer file at `~/.config/ven/config.toml` (Linux), `~/Library/Application Support/ven/config.toml` (macOS), or `%APPDATA%\\ven\\config.toml` (Windows). Survives a user wiping `~/.ven`. Atomic write (`.tmp` + rename) so a crash mid-write can\'t corrupt it.',
-        'Persistent `VEN_HOME` user-env mutation: Windows uses `[Environment]::SetEnvironmentVariable(..., \'User\')` + `WM_SETTINGCHANGE` broadcast (same pattern as `ven-setup` PATH); Unix adds/replaces a `# >>> ven env >>>` block in `~/.bashrc`, `~/.zshrc`, `~/.profile`, and `~/.config/fish/config.fish` (whichever exist). Failures are warnings, not errors — the pointer file is ven\'s source of truth.',
-        'A `.ven-move.lock` file containing the PID protects against concurrent moves. `--force-unlock` clears a stale lock from a crashed previous attempt.',
-        'New per-command doc page [docs/cmds/path.md](https://github.com/bhuwanb23/ven/blob/main/docs/cmds/path.md) covering all flags, JSON shapes, the safety semantics (cross-drive copy/verify, lock file, env-shadow warning), and what does NOT move (binaries, portable sibling `.ven/`s).',
+        '`install.ps1` and `install.sh` now probe both user-scope (`%USERPROFILE%\\.ven\\bin` / `~/.ven/bin`) and system-scope (`%ProgramFiles%\\ven\\bin` / `/usr/local/bin/ven`) install paths before doing anything else, print what they found, and gate the install on three possible outcomes: same mode + same version → exit cleanly with "nothing to do"; same mode + different version → prompt to upgrade; different mode → warn that PATH precedence will shadow one of the two binaries, then ask for explicit confirmation.',
+        'Pipe-mode safety: when there is no TTY (CI, `curl | sh`, scripted contexts), the installer aborts cleanly with a hint to set `VEN_FORCE_INSTALL=true` (or pass `-Force` on Windows / `--force` on Unix) to skip the prompt. No more silent double-installs from copy-pasted README snippets running inside an unattended shell.',
+        '`-Force` / `--force` flag and `VEN_FORCE_INSTALL` environment variable on both installers, so CI pipelines can opt into "yes, replace whatever is there" without losing the safety prompt for interactive runs.',
+        'New FAQ entry on the [Install](https://ven.dev/install) page documenting the re-install detection behaviour end-to-end (what gets probed, what the three prompts mean, how to skip them).',
       ],
       improved: [
-        '`src/core/ven_home.rs` resolver now has 5 steps (was 4): the pointer file slots in between portable mode and the `~/.ven` default. `$VEN_HOME` and `$VEN_STORAGE_PATH` env vars still take precedence over the pointer so per-process overrides keep working unchanged.',
-        'New `ven_home_source()` helper returns a `HomeSource` enum (`EnvVenHome` / `EnvVenStoragePath` / `PortableSibling` / `Pointer` / `Default`) so `ven path show` can tell the user exactly which knob is currently in effect — and warn when an active env var would shadow a freshly-written pointer.',
-        'README "Runtime Management" block now includes `ven path show` / `ven path set <dir>` / `ven path reset` examples alongside `ven install` / `ven list` / `ven delete`, with a short note about when to use it.',
-        'docs/cmds/INDEX.md "Project Setup" section now lists `ven path` next to `ven init` and `ven setup`.',
-        'docs/ven-launcher.md got a new "Relocating an installed ven" section that disambiguates the pointer-file flow from portable mode (portable sibling `.ven/` still wins; pointer is the per-user "I moved my data" preference).',
+        '`ven_website/src/content/site.js` uninstall snippets now clean both user and system installs in one shot. On Unix the snippet auto-uses `sudo` when `/usr/local/bin/ven` exists; on Windows it detects the system install and prints a "re-run this elevated" warning when the current shell is not already running as Administrator. Same UX as the install snippets, mirrored for the teardown direction.',
+        'Existing-install probe path list is exhaustive and crash-safe: a missing directory is treated the same as a missing binary, never as an error. So the installer works identically on a brand-new machine and on a machine that has half a previous install left behind from a manual rm.',
       ],
-      fixed: [],
+      fixed: [
+        'The "system install shadowed by user install (or vice versa)" foot-gun: silently letting both stay on PATH meant `ven --version` could disagree with `which ven` depending on the current shell\'s PATH ordering. v0.1.5 catches this at install time and forces an explicit choice instead of hoping the user notices.',
+      ],
     },
   },
   {
