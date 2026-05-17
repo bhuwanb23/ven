@@ -412,6 +412,9 @@ ven list <lang> [--verbose|--json]
 ven delete                      # wizard: pick runtime to remove (since v0.1.4)
 ven delete <lang>               # pick a version of <lang> to delete
 ven delete <lang> <version>     # confirm + delete (-y / --force / --json)
+ven path show                   # where ven keeps its data on disk (since v0.1.6)
+ven path set <dir>              # relocate $VEN_HOME (wizard / --move / --pointer-only / --json)
+ven path reset                  # back to ~/.ven (move data back with --move)
 ven status [--verbose|--json|--fix]
 ```
 
@@ -420,6 +423,14 @@ ven status [--verbose|--json|--fix]
 > **runtime directory** under `$VEN_HOME/<lang>/<version>/`. By default it
 > refuses to delete the runtime your nearest `ven.toml` currently resolves to
 > — pass `--force` to override.
+
+> `ven path set <dir>` (v0.1.6+) is for the "my C: drive is full" case. It
+> physically relocates `~/.ven` (runtimes + cache + lockfile state) to a
+> different drive, writes a pointer file at `~/.config/ven/config.toml`
+> (Linux) / `%APPDATA%\ven\config.toml` (Windows), and persists `VEN_HOME`
+> in your User environment so npm / pip / new shells inherit it. The move
+> is atomic and rolls back if it fails partway through — ven is never left
+> half-relocated.
 
 ### Package Operations
 

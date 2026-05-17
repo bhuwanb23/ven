@@ -12,12 +12,17 @@
 //!    enables "USB-stick portable" mode: drop the launcher anywhere, create
 //!    a sibling `.ven/` folder, and ven keeps every runtime / cache / lock
 //!    state inside the bundle without touching `$HOME`.
-//! 4. `~/.ven` — the default for an installed ven on a user's machine.
+//! 4. Pointer in the global ven config file ([`ven_config::pointer_home`]).
+//!    This is what `ven path set <dir>` writes (since v0.1.6) so a user who
+//!    relocates `~/.ven` to a different drive doesn't have to also set an
+//!    env var by hand.
+//! 5. `~/.ven` — the default for an installed ven on a user's machine.
 //!
 //! Every consumer of the ven storage root MUST go through [`ven_home`] so the
-//! four cases stay coherent. Hardcoding `dirs::home_dir().join(".ven")`
-//! anywhere in the codebase silently breaks portable mode.
+//! five cases stay coherent. Hardcoding `dirs::home_dir().join(".ven")`
+//! anywhere in the codebase silently breaks portable mode and the pointer.
 
+use crate::core::ven_config;
 use std::path::PathBuf;
 
 /// Resolve the active ven storage root for this process.
@@ -44,9 +49,87 @@ pub fn ven_home() -> PathBuf {
             }
         }
     }
+    if let Some(pointer) = ven_config::pointer_home() {
+        return pointer;
+    }
     dirs::home_dir()
         .map(|h| h.join(".ven"))
         .unwrap_or_else(|| PathBuf::from(".ven"))
+}
+
+/// Discriminated description of which resolver step produced the current
+/// `ven_home()` value. Used by `ven path show` to explain to the user which
+/// knob is currently in effect, and by `ven path set` to warn when an env
+/// var will shadow the pointer they're about to write.
+///
+/// Resolver step is computed identically to [`ven_home`] — same precedence,
+/// same emptiness rules — so the two cannot disagree. If they ever do, treat
+/// it as a bug in this module.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HomeSource {
+    /// `$VEN_HOME` env var.
+    EnvVenHome(PathBuf),
+    /// `$VEN_STORAGE_PATH` env var (back-compat).
+    EnvVenStoragePath(PathBuf),
+    /// `<exe-dir>/.ven` exists alongside the launcher (portable mode).
+    PortableSibling(PathBuf),
+    /// Pointer in `~/.config/ven/config.toml` `[storage].home`.
+    Pointer(PathBuf),
+    /// Default — no override active.
+    Default(PathBuf),
+}
+
+impl HomeSource {
+    pub fn path(&self) -> &std::path::Path {
+        match self {
+            HomeSource::EnvVenHome(p)
+            | HomeSource::EnvVenStoragePath(p)
+            | HomeSource::PortableSibling(p)
+            | HomeSource::Pointer(p)
+            | HomeSource::Default(p) => p,
+        }
+    }
+
+    /// Short, machine-readable identifier (used in `--json` output and the
+    /// "Source: ..." line of `ven path show`).
+    pub fn kind(&self) -> &'static str {
+        match self {
+            HomeSource::EnvVenHome(_) => "env:VEN_HOME",
+            HomeSource::EnvVenStoragePath(_) => "env:VEN_STORAGE_PATH",
+            HomeSource::PortableSibling(_) => "portable",
+            HomeSource::Pointer(_) => "pointer",
+            HomeSource::Default(_) => "default",
+        }
+    }
+}
+
+/// Same precedence as [`ven_home`], but also tells you *why*.
+pub fn ven_home_source() -> HomeSource {
+    if let Ok(p) = std::env::var("VEN_HOME") {
+        if !p.is_empty() {
+            return HomeSource::EnvVenHome(PathBuf::from(p));
+        }
+    }
+    if let Ok(p) = std::env::var("VEN_STORAGE_PATH") {
+        if !p.is_empty() {
+            return HomeSource::EnvVenStoragePath(PathBuf::from(p));
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let portable = dir.join(".ven");
+            if portable.is_dir() {
+                return HomeSource::PortableSibling(portable);
+            }
+        }
+    }
+    if let Some(pointer) = ven_config::pointer_home() {
+        return HomeSource::Pointer(pointer);
+    }
+    let default = dirs::home_dir()
+        .map(|h| h.join(".ven"))
+        .unwrap_or_else(|| PathBuf::from(".ven"));
+    HomeSource::Default(default)
 }
 
 #[cfg(test)]
@@ -171,5 +254,121 @@ mod tests {
         if created_for_test {
             let _ = std::fs::remove_dir(&portable);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Pointer-file precedence tests (introduced in v0.1.6).
+    //
+    // These tests redirect `dirs::config_dir()` at a tempdir by mutating
+    // HOME / XDG_CONFIG_HOME / APPDATA. Because that's the same process-
+    // global env state as the other tests in this module, we reuse
+    // ENV_LOCK to serialize.
+    // ─────────────────────────────────────────────────────────────────────
+
+    struct ConfigDirRedirect {
+        _temp: tempfile::TempDir,
+        prev: Vec<(&'static str, Option<String>)>,
+    }
+
+    impl ConfigDirRedirect {
+        fn new() -> Self {
+            let temp = tempfile::tempdir().expect("tempdir");
+            let path = temp.path().to_path_buf();
+            let keys = ["HOME", "XDG_CONFIG_HOME", "APPDATA"];
+            let prev: Vec<_> = keys
+                .iter()
+                .map(|k| (*k, std::env::var(k).ok()))
+                .collect();
+            std::env::set_var("XDG_CONFIG_HOME", &path);
+            std::env::set_var("HOME", &path);
+            std::env::set_var("APPDATA", &path);
+            Self { _temp: temp, prev }
+        }
+    }
+
+    impl Drop for ConfigDirRedirect {
+        fn drop(&mut self) {
+            for (k, v) in &self.prev {
+                match v {
+                    Some(val) => std::env::set_var(k, val),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pointer_file_overrides_default_home() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
+        let _redir = ConfigDirRedirect::new();
+
+        let target = PathBuf::from(if cfg!(windows) {
+            r"D:\relocated-ven"
+        } else {
+            "/tmp/relocated-ven"
+        });
+        crate::core::ven_config::set_storage_home(target.clone()).unwrap();
+
+        // The default ($HOME/.ven) is whatever ConfigDirRedirect put us in,
+        // and that absolutely is NOT `target`, so this assertion is meaningful.
+        let resolved = ven_home();
+        // The resolver may still pick the portable sibling if a `.ven/` happens
+        // to sit next to the test binary on the runner. Accept either pointer
+        // or that sibling — both prove the default fallback was not taken.
+        let exe_sibling = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join(".ven")));
+        assert!(
+            resolved == target || Some(&resolved) == exe_sibling.as_ref(),
+            "expected pointer {target:?} or portable {exe_sibling:?}, got {resolved:?}",
+        );
+
+        // Clean up so we don't pollute other tests' tempdirs.
+        let _ = crate::core::ven_config::clear_storage_home();
+    }
+
+    #[test]
+    fn env_var_overrides_pointer_file() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
+        let _redir = ConfigDirRedirect::new();
+
+        crate::core::ven_config::set_storage_home(PathBuf::from("/tmp/pointer-says")).unwrap();
+        std::env::set_var("VEN_HOME", "/tmp/env-wins");
+
+        assert_eq!(ven_home(), PathBuf::from("/tmp/env-wins"));
+
+        let _ = crate::core::ven_config::clear_storage_home();
+    }
+
+    #[test]
+    fn home_source_reports_correct_kind() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
+        let _redir = ConfigDirRedirect::new();
+
+        // No overrides at all — default.
+        assert_eq!(ven_home_source().kind(), "default");
+
+        // Pointer beats default.
+        crate::core::ven_config::set_storage_home(PathBuf::from("/tmp/p")).unwrap();
+        // Skip assertion if a portable sibling exists next to the test binary,
+        // because then "portable" rightfully outranks "pointer" and the
+        // resolver's behavior is correct — we just can't observe "pointer"
+        // from this environment.
+        let portable_present = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join(".ven").is_dir()))
+            .unwrap_or(false);
+        if !portable_present {
+            assert_eq!(ven_home_source().kind(), "pointer");
+        }
+
+        // Env beats pointer.
+        std::env::set_var("VEN_HOME", "/tmp/e");
+        assert_eq!(ven_home_source().kind(), "env:VEN_HOME");
+
+        let _ = crate::core::ven_config::clear_storage_home();
     }
 }

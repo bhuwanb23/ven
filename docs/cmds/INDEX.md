@@ -64,6 +64,7 @@ For the underlying threat model, caching strategy, and exit-code semantics, see 
 |---------|-------------|---------------|
 | `ven init` | Create ven.toml with templates | [→ init.md](init.md) |
 | `ven setup` | Install shell hook for auto-switching | [→ setup.md](setup.md) |
+| `ven path` | Move ven's storage root to another drive (v0.1.6+) | [→ path.md](path.md) |
 
 ## 💿 Installer / Spawner
 

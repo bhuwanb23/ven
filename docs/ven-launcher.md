@@ -105,3 +105,18 @@ VEN_HOME=/srv/ci-cache/ven ./ven-launcher
 ```
 
 The launcher exports the resolved value to the child shell, so `ven status`, `ven install`, and `ven sync` inside that shell will all use `/srv/ci-cache/ven`.
+
+### Relocating an installed ven (v0.1.6+)
+
+If `ven` is already installed and your C: drive (or `$HOME` partition) fills up, you don't need to reinstall or fiddle with portable mode — use [`ven path set`](cmds/path.md):
+
+```
+ven path show                # see current location, size, free space
+ven path set D:\ven          # wizard: ask whether to move existing data
+ven path set D:\ven --move   # skip the prompt; move everything
+ven path reset --move        # back to ~/.ven
+```
+
+`ven path set` writes a pointer file at `~/.config/ven/config.toml` (Linux), `~/Library/Application Support/ven/config.toml` (macOS), or `%APPDATA%\ven\config.toml` (Windows), AND persists `VEN_HOME` in your User environment so external tools (npm, pip, your editor) see the new path automatically in a fresh shell.
+
+This is independent of portable mode: dropping a sibling `.ven/` next to the launcher still wins over the pointer file. The pointer is for "I installed ven normally and want my data on D:"; portable mode is for "this bundle ships with its own data".

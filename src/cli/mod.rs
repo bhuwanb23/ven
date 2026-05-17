@@ -12,6 +12,7 @@ pub mod init;
 pub mod install;
 pub mod list;
 pub mod lockfile;
+pub mod path;
 pub mod remove;
 pub mod resolve;
 pub mod scan;
@@ -32,7 +33,7 @@ pub mod why;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -125,6 +126,36 @@ pub enum Commands {
         /// args and -y / --yes (no interactive prompts in JSON mode).
         #[arg(long)]
         json: bool,
+    },
+
+    /// Manage where ven stores its data (since v0.1.6)
+    ///
+    /// Use this when your default `~/.ven` (or `%USERPROFILE%\.ven`) is on
+    /// a full drive and you want to move every runtime, cache, and
+    /// lockfile-state file somewhere else. The relocation is atomic and
+    /// rolls back on failure; the new location is recorded in a global
+    /// pointer file AND persisted as `VEN_HOME` in your user environment
+    /// so child shells and external tools (npm, pip) pick it up too.
+    ///
+    /// Subcommands:
+    ///   show      Print the current $VEN_HOME, its source, size, free disk
+    ///   set DIR   Relocate to DIR (wizard by default; --move / --no-move / --pointer-only / -y / --json)
+    ///   reset     Clear the pointer; ven home reverts to ~/.ven
+    ///
+    /// Examples:
+    ///   ven path                       # alias for `ven path show`
+    ///   ven path show                  # see what's currently in effect
+    ///   ven path set D:\\ven           # wizard: ask about moving existing data
+    ///   ven path set D:\\ven --move    # move data, no prompt
+    ///   ven path set D:\\ven --pointer-only   # leave data where it is, just point future installs at D:\\ven
+    ///   ven path set D:\\ven -y --json # CI: default to move, machine-readable
+    ///   ven path reset --move          # revert to ~/.ven, move data back
+    #[command(
+        long_about = "Manage where ven stores its data on disk.\n\nDefault is $HOME/.ven (Linux/macOS) or %USERPROFILE%\\.ven (Windows). When\nthat drive fills up, `ven path set <dir>` relocates the whole storage\nroot — runtimes, cache, lockfile state — atomically, with rollback on\nfailure. The new location is recorded in:\n\n  1. A pointer file at ~/.config/ven/config.toml (ven's source of truth)\n  2. VEN_HOME in your user environment (so npm / pip / new shells see it)\n\nResolution precedence ven uses to find the storage root:\n  $VEN_HOME env var > $VEN_STORAGE_PATH > portable sibling .ven/ > pointer file > ~/.ven\n\nSubcommands:\n  show      Print the current $VEN_HOME, the resolver source, size, free disk\n  set DIR   Relocate to DIR (--move / --no-move / --pointer-only / -y / --json)\n  reset     Clear the pointer; ven home reverts to ~/.ven\n\nExamples:\n  ven path show\n  ven path set D:\\ven                    # wizard\n  ven path set D:\\ven --move             # move, no prompt\n  ven path set D:\\ven --pointer-only     # just update the pointer\n  ven path set /mnt/data/ven -y --json   # CI: default to move, JSON output\n  ven path reset --move                  # revert to ~/.ven, move data back"
+    )]
+    Path {
+        #[command(subcommand)]
+        cmd: Option<path::PathCmd>,
     },
 
     /// Apply nearest ven.toml runtime to your shell session (prints exports; evaluate in shell)
@@ -580,6 +611,7 @@ pub fn run(cli: Cli) -> Result<()> {
             force,
             json,
         } => delete::cmd_delete(language, version, yes, force, json),
+        Commands::Path { cmd } => path::cmd_path(cmd),
         Commands::Use { dir } => shell::cmd_use(&dir),
         Commands::Deactivate => shell::cmd_shell_deactivate(),
         Commands::Status { json, verbose, fix } => status::cmd_status(json, verbose, fix),
@@ -662,6 +694,7 @@ pub fn run(cli: Cli) -> Result<()> {
 // - src/cli/install/
 // - src/cli/list.rs (+ list/helpers.rs, also reused by delete.rs)
 // - src/cli/delete.rs   ← removes an installed runtime, complement of `remove`
+// - src/cli/path.rs     ← `ven path show / set / reset` (storage relocation; v0.1.6+)
 // - src/cli/status/
 // - src/cli/setup.rs
 // - src/cli/shell.rs

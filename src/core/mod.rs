@@ -23,6 +23,9 @@ pub mod ruby_install;
 pub mod runtime_bin;
 pub mod rust_install;
 pub mod security;
+pub mod storage_move;
+pub mod user_env;
+pub mod ven_config;
 pub mod ven_home;
 
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
