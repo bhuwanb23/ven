@@ -91,8 +91,7 @@ pub fn load() -> Result<Option<VenGlobalConfig>> {
 /// mid-write from leaving a half-written `config.toml` that the next ven
 /// invocation would reject.
 pub fn save(cfg: &VenGlobalConfig) -> Result<()> {
-    let path =
-        config_path().context("Could not resolve a per-user config directory on this OS")?;
+    let path = config_path().context("Could not resolve a per-user config directory on this OS")?;
     let parent = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Config path has no parent: {}", path.display()))?;
@@ -206,33 +205,65 @@ fn civil_from_days(z: i64) -> (i32, u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // The config-dir-dependent tests below are skipped on Windows because
+    // `dirs::config_dir()` on Windows calls the Win32
+    // `SHGetKnownFolderPath(FOLDERID_RoamingAppData)` shell API, which does
+    // NOT read the `APPDATA` env var — so the `ConfigDirRedirect` mechanism
+    // doesn't actually isolate them on Windows runners. Running them there
+    // would write into the real `%APPDATA%\ven\config.toml` and race
+    // against other tests, polluting the runner's environment and causing
+    // mutex-poison cascades.
+    //
+    // The pointer-file code path itself is platform-agnostic (no
+    // `#[cfg(windows)]` in production code) so the Linux/macOS runs of
+    // these tests prove the same behavior holds on Windows. Manual end-
+    // to-end testing of `ven path set` on Windows covers the real
+    // dirs::config_dir() integration.
+    //
+    // `civil_from_days_matches_known_dates` is pure-math, no env access,
+    // so it runs on every platform.
+    // ─────────────────────────────────────────────────────────────────────
+
+    #[cfg(not(target_os = "windows"))]
+    use std::sync::{Mutex, MutexGuard};
 
     /// `dirs::config_dir()` is process-global on every platform we ship to;
     /// redirecting it via `HOME` / `XDG_CONFIG_HOME` / `APPDATA` env mutation
     /// inside a single test process must therefore be serialized.
+    #[cfg(not(target_os = "windows"))]
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Poison-resilient lock acquisition. If a prior test panicked inside
+    /// the critical section, take ownership of the inner guard instead of
+    /// re-panicking on every subsequent test (which otherwise cascades a
+    /// single root-cause failure into N reported failures and hides the
+    /// actual one).
+    #[cfg(not(target_os = "windows"))]
+    fn lock_env() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+    }
 
     /// Repoint `dirs::config_dir()` at a fresh tempdir for the duration of
     /// the test, restoring whatever was there before on drop.
+    #[cfg(not(target_os = "windows"))]
     struct ConfigDirRedirect {
-        _guard: std::sync::MutexGuard<'static, ()>,
+        _guard: MutexGuard<'static, ()>,
         _temp: tempfile::TempDir,
         prev: Vec<(&'static str, Option<String>)>,
     }
 
+    #[cfg(not(target_os = "windows"))]
     impl ConfigDirRedirect {
         fn new() -> Self {
-            let guard = ENV_LOCK.lock().unwrap();
+            let guard = lock_env();
             let temp = tempfile::tempdir().expect("tempdir");
             let path = temp.path().to_path_buf();
 
             // Save current values so Drop can restore them.
             let keys = ["HOME", "XDG_CONFIG_HOME", "APPDATA"];
-            let prev: Vec<_> = keys
-                .iter()
-                .map(|k| (*k, std::env::var(k).ok()))
-                .collect();
+            let prev: Vec<_> = keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
 
             // Linux / fallback macOS: `dirs::config_dir()` honors
             // XDG_CONFIG_HOME first, then $HOME/.config. Setting both pins
@@ -240,7 +271,8 @@ mod tests {
             // takes on this platform.
             std::env::set_var("XDG_CONFIG_HOME", &path);
             std::env::set_var("HOME", &path);
-            // Windows: `dirs::config_dir()` reads APPDATA.
+            // Windows: `dirs::config_dir()` ignores APPDATA (uses Known Folders),
+            // which is exactly why these tests are #[cfg(not(target_os = "windows"))].
             std::env::set_var("APPDATA", &path);
 
             Self {
@@ -251,6 +283,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_os = "windows"))]
     impl Drop for ConfigDirRedirect {
         fn drop(&mut self) {
             for (k, v) in &self.prev {
@@ -262,6 +295,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn missing_file_returns_none() {
         let _r = ConfigDirRedirect::new();
@@ -269,6 +303,7 @@ mod tests {
         assert!(pointer_home().is_none());
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn round_trip_storage_home() {
         let _r = ConfigDirRedirect::new();
@@ -288,6 +323,7 @@ mod tests {
         assert_eq!(pointer_home(), Some(target));
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn clear_storage_removes_the_file_when_no_other_sections_exist() {
         let _r = ConfigDirRedirect::new();
@@ -299,6 +335,7 @@ mod tests {
         assert!(pointer_home().is_none());
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn malformed_file_is_an_error_not_silent_none() {
         let _r = ConfigDirRedirect::new();
@@ -318,6 +355,7 @@ mod tests {
         assert!(pointer_home().is_none());
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn empty_storage_home_is_treated_as_no_pointer() {
         let _r = ConfigDirRedirect::new();

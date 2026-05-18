@@ -288,7 +288,9 @@ fn replace_block_for(content: &str, name: &str, block: &str) -> String {
     // Only replace the block when it actually mentions our var name. Future
     // versions may support multiple ven-managed vars per file, but for now
     // the block is owned 1:1 by VEN_HOME.
-    if !block_content.contains(&format!(" {name}=")) && !block_content.contains(&format!(" {name} ")) {
+    if !block_content.contains(&format!(" {name}="))
+        && !block_content.contains(&format!(" {name} "))
+    {
         return content.to_string();
     }
     let mut out = String::with_capacity(content.len());
@@ -308,7 +310,9 @@ fn remove_block_for(content: &str, name: &str) -> String {
     };
     let end = start + end_rel + VEN_ENV_BLOCK_END.len();
     let block_content = &content[start..end];
-    if !block_content.contains(&format!(" {name}=")) && !block_content.contains(&format!(" {name} ")) {
+    if !block_content.contains(&format!(" {name}="))
+        && !block_content.contains(&format!(" {name} "))
+    {
         return content.to_string();
     }
     let mut out = String::with_capacity(content.len());

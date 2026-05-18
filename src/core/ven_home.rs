@@ -135,11 +135,21 @@ pub fn ven_home_source() -> HomeSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use std::sync::{Mutex, MutexGuard};
 
     // The resolver reads process-global state (env vars + current exe), so
     // tests that mutate VEN_HOME / VEN_STORAGE_PATH must run serially.
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Acquire ENV_LOCK in a poison-resilient way: if a previous test
+    /// panicked while holding the lock, take ownership of the poisoned
+    /// guard rather than re-panicking on every subsequent test. Without
+    /// this, one assertion failure cascades into N spurious failures and
+    /// hides the real root cause (see CI failure list when this guard
+    /// was added — 8 reported failures, 1 actual root cause).
+    fn lock_env() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+    }
 
     struct EnvGuard {
         keys: Vec<&'static str>,
@@ -177,7 +187,7 @@ mod tests {
 
     #[test]
     fn defaults_to_home_dot_ven_when_no_env_set() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
 
         let resolved = ven_home();
@@ -200,7 +210,7 @@ mod tests {
 
     #[test]
     fn ven_home_env_var_wins_outright() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
 
         std::env::set_var("VEN_HOME", "/tmp/explicit-ven");
@@ -210,7 +220,7 @@ mod tests {
 
     #[test]
     fn ven_storage_path_used_when_ven_home_unset() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
 
         std::env::set_var("VEN_STORAGE_PATH", "/tmp/legacy-ven");
@@ -219,7 +229,7 @@ mod tests {
 
     #[test]
     fn empty_env_var_is_treated_as_unset() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
 
         std::env::set_var("VEN_HOME", "");
@@ -229,7 +239,7 @@ mod tests {
 
     #[test]
     fn portable_sibling_dir_takes_precedence_over_home_default() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
 
         let exe = match std::env::current_exe() {
@@ -263,22 +273,33 @@ mod tests {
     // HOME / XDG_CONFIG_HOME / APPDATA. Because that's the same process-
     // global env state as the other tests in this module, we reuse
     // ENV_LOCK to serialize.
+    //
+    // **Skipped on Windows.** `dirs::config_dir()` on Windows calls the
+    // Win32 `SHGetKnownFolderPath(FOLDERID_RoamingAppData)` shell API,
+    // which does NOT read the `APPDATA` env var — so this redirection
+    // doesn't actually isolate the test. Running these on a Windows CI
+    // runner writes into the real `%APPDATA%\ven\config.toml` and races
+    // against other tests, which is both a correctness hazard and a
+    // pollution hazard. The pointer-file code path itself is platform-
+    // agnostic (no `#[cfg(windows)]` in `ven_config.rs`), so the Linux
+    // and macOS runs of these tests prove the same behavior holds on
+    // Windows. Manual end-to-end testing via `ven path set` on Windows
+    // exercises the dirs::config_dir() integration directly.
     // ─────────────────────────────────────────────────────────────────────
 
+    #[cfg(not(target_os = "windows"))]
     struct ConfigDirRedirect {
         _temp: tempfile::TempDir,
         prev: Vec<(&'static str, Option<String>)>,
     }
 
+    #[cfg(not(target_os = "windows"))]
     impl ConfigDirRedirect {
         fn new() -> Self {
             let temp = tempfile::tempdir().expect("tempdir");
             let path = temp.path().to_path_buf();
             let keys = ["HOME", "XDG_CONFIG_HOME", "APPDATA"];
-            let prev: Vec<_> = keys
-                .iter()
-                .map(|k| (*k, std::env::var(k).ok()))
-                .collect();
+            let prev: Vec<_> = keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
             std::env::set_var("XDG_CONFIG_HOME", &path);
             std::env::set_var("HOME", &path);
             std::env::set_var("APPDATA", &path);
@@ -286,6 +307,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_os = "windows"))]
     impl Drop for ConfigDirRedirect {
         fn drop(&mut self) {
             for (k, v) in &self.prev {
@@ -297,17 +319,14 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn pointer_file_overrides_default_home() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
         let _redir = ConfigDirRedirect::new();
 
-        let target = PathBuf::from(if cfg!(windows) {
-            r"D:\relocated-ven"
-        } else {
-            "/tmp/relocated-ven"
-        });
+        let target = PathBuf::from("/tmp/relocated-ven");
         crate::core::ven_config::set_storage_home(target.clone()).unwrap();
 
         // The default ($HOME/.ven) is whatever ConfigDirRedirect put us in,
@@ -328,9 +347,10 @@ mod tests {
         let _ = crate::core::ven_config::clear_storage_home();
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn env_var_overrides_pointer_file() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
         let _redir = ConfigDirRedirect::new();
 
@@ -342,9 +362,10 @@ mod tests {
         let _ = crate::core::ven_config::clear_storage_home();
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn home_source_reports_correct_kind() {
-        let _g = ENV_LOCK.lock().unwrap();
+        let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
         let _redir = ConfigDirRedirect::new();
 
