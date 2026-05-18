@@ -162,11 +162,24 @@ pub fn install_rust(downloader: &RustDownloader, version: &str) -> Result<()> {
     } else {
         bin.join("rustc")
     };
-    let cargo_smoke = integrity::smoke_test_binary(&cargo, &["--version"], "cargo")
-        .with_context(|| format!("cargo --version smoke test failed at {}", cargo.display()))?;
+    // cargo / rustc here are rustup shims, not the real binaries. They consult
+    // $RUSTUP_HOME / $CARGO_HOME to find the per-toolchain layout — without
+    // those they fall back to ~/.rustup (the user's global rustup config),
+    // which has no entry for ven's per-version install and exits with
+    // "rustup could not choose a version of cargo to run ... no default is
+    // configured". Pass the same env we used to drive rustup-init so the
+    // shim resolves to the toolchain we just installed.
+    let shim_env: [(&str, &Path); 2] = [
+        ("CARGO_HOME", install_dir.as_path()),
+        ("RUSTUP_HOME", install_dir.as_path()),
+    ];
+    let cargo_smoke =
+        integrity::smoke_test_binary_with_env(&cargo, &["--version"], "cargo", &shim_env)
+            .with_context(|| format!("cargo --version smoke test failed at {}", cargo.display()))?;
     integrity::print_smoke_ok(&cargo_smoke);
-    let rustc_smoke = integrity::smoke_test_binary(&rustc, &["--version"], "rustc")
-        .with_context(|| format!("rustc --version smoke test failed at {}", rustc.display()))?;
+    let rustc_smoke =
+        integrity::smoke_test_binary_with_env(&rustc, &["--version"], "rustc", &shim_env)
+            .with_context(|| format!("rustc --version smoke test failed at {}", rustc.display()))?;
     integrity::print_smoke_ok(&rustc_smoke);
     Ok(())
 }

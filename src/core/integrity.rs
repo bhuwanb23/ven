@@ -110,8 +110,36 @@ fn extract_first_hex_token(body: &str) -> Option<String> {
 /// `expected_substr` (case-insensitive). Returns the trimmed first non-empty
 /// line for the caller to print.
 pub fn smoke_test_binary(bin: &Path, args: &[&str], expected_substr: &str) -> Result<String> {
-    let output = Command::new(bin)
-        .args(args)
+    smoke_test_binary_with_env(bin, args, expected_substr, &[])
+}
+
+/// Variant of [`smoke_test_binary`] that lets the caller inject env vars into
+/// the child process. Needed for Rust's `cargo` / `rustc`, which are rustup
+/// shims that consult `RUSTUP_HOME` / `CARGO_HOME` to find the right
+/// per-toolchain config — without those the shim falls back to the user's
+/// global `~/.rustup`, finds no default toolchain matching ven's per-version
+/// install, and exits with:
+///
+/// ```text
+/// error: rustup could not choose a version of cargo to run,
+///        because one wasn't specified explicitly,
+///        and no default is configured.
+/// ```
+///
+/// (See `src/core/rust_install.rs`. Other languages don't need this because
+/// their binaries are self-contained, not shims.)
+pub fn smoke_test_binary_with_env(
+    bin: &Path,
+    args: &[&str],
+    expected_substr: &str,
+    envs: &[(&str, &Path)],
+) -> Result<String> {
+    let mut cmd = Command::new(bin);
+    cmd.args(args);
+    for (k, v) in envs {
+        cmd.env(k, v);
+    }
+    let output = cmd
         .output()
         .with_context(|| format!("Could not exec {} {:?}", bin.display(), args))?;
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
