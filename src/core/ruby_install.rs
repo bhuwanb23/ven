@@ -159,14 +159,15 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         fs::create_dir_all(&dl.cache_dir)?;
         let archive = dl.cache_dir.join(&fname);
         if !archive.is_file() {
-            let resp = Client::new()
-                .get(&url)
-                .header("User-Agent", "ven")
-                .send()
-                .with_context(|| format!("Failed to fetch {}", url))?
-                .error_for_status()
-                .with_context(|| format!("HTTP error for {}", url))?;
-            fs::write(&archive, resp.bytes()?)?;
+            // Streaming download with timeouts + retry on transient errors.
+            // Replaces the old `Client::new().get(url).send()?.bytes()?`
+            // pattern that was buffering ~30 MB of RubyInstaller2 7z into
+            // memory with no read timeout, so SSL-inspecting corporate
+            // proxies (Zscaler / Netskope / Bluecoat) would stall mid-body
+            // and surface as "error decoding response body / operation
+            // timed out".
+            integrity::download_to_file(&url, &archive, ruby_user_agent())
+                .with_context(|| format!("Failed to download {}", url))?;
         }
         verify_ruby_archive(&archive, &fname, &url);
         let install_dir = dl.get_install_dir(&semver);
@@ -191,14 +192,9 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
             .to_string();
         let archive = dl.cache_dir.join(&fname);
         if !archive.is_file() {
-            let resp = Client::new()
-                .get(&url)
-                .header("User-Agent", "ven")
-                .send()
-                .with_context(|| format!("Failed to fetch {}", url))?
-                .error_for_status()
-                .with_context(|| format!("HTTP error for {}", url))?;
-            fs::write(&archive, resp.bytes()?)?;
+            // See Windows branch above for why we don't do `.bytes()?`.
+            integrity::download_to_file(&url, &archive, ruby_user_agent())
+                .with_context(|| format!("Failed to download {}", url))?;
         }
         verify_ruby_archive(&archive, &fname, &url);
         let install_dir = dl.get_install_dir(&semver);
@@ -612,4 +608,8 @@ fn version_cmp_parts_desc(a: &str, b: &str) -> std::cmp::Ordering {
             .collect()
     };
     parse(a).cmp(&parse(b))
+}
+
+fn ruby_user_agent() -> &'static str {
+    concat!("ven/", env!("CARGO_PKG_VERSION"), " (ruby-installer)")
 }

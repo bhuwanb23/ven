@@ -8,12 +8,14 @@
 
 use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
 use sha2::{Digest, Sha256};
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
 /// Compute the SHA256 of `file` and compare it (case-insensitive) to
 /// `expected_hex`. Returns `Ok(())` only on a byte-for-byte match.
@@ -195,6 +197,188 @@ pub fn print_checksum_unavailable(filename: &str, reason: &str) {
     );
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// HTTP client + streaming download (added in v0.1.6)
+//
+// Every language installer used to do this:
+//
+//     let resp = Client::new().get(url).send()?.error_for_status()?;
+//     fs::write(&archive, resp.bytes()?)?;
+//
+// Two problems with that pattern:
+//
+//   1. `Client::new()` has no read-timeout configured. Behind Zscaler /
+//      Netskope / Bluecoat the SSL inspector throttles bytes after the
+//      handshake, the response body stalls, and reqwest eventually trips
+//      with a confusing "error decoding response body / operation timed
+//      out". The fix is to build a Client with explicit connect/read
+//      timeouts so we fail fast and predictably.
+//
+//   2. `resp.bytes()?` buffers the entire archive into memory before a
+//      single byte hits disk. RubyInstaller2 7z is ~30 MB, full Rust
+//      toolchains 100+ MB — wasteful, and any progress bar fed from this
+//      data is fake (the download is already finished by the time we
+//      "stream" it). Streaming via `Response::read` gives a real progress
+//      bar and bounded memory.
+//
+// `download_to_file` wraps both fixes and adds a 3-attempt retry loop for
+// transient errors (timeouts, 5xx, connection resets) so a Zscaler hiccup
+// doesn't kill an entire install.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// HTTP client tuned for ven's installer workflow.
+///
+/// - **30s connect timeout** — catches DNS failures, dead routes, and
+///   corporate proxies that swallow the connection request quickly.
+/// - **60s read timeout** — catches mid-stream stalls. We deliberately do
+///   NOT set a total request timeout, because a single big toolchain
+///   download (Rust = 100+ MB on a slow link) can legitimately take
+///   minutes. We only care that bytes keep flowing.
+/// - **`rustls-tls-native-roots`** is enabled in `Cargo.toml`, so this
+///   client trusts the OS cert store and works behind MITM proxies
+///   (the v0.1.3 Zscaler fix).
+///
+/// `user_agent` is also recorded so upstream rate-limit logs can identify
+/// ven specifically rather than seeing anonymous traffic.
+pub fn http_client(user_agent: &str) -> Result<Client> {
+    Client::builder()
+        .user_agent(user_agent)
+        .connect_timeout(Duration::from_secs(30))
+        .read_timeout(Duration::from_secs(60))
+        .build()
+        .context("Failed to build reqwest::blocking::Client")
+}
+
+/// Stream `url` to `dest` with a real progress bar and retry on transient
+/// errors. Returns the byte count written.
+///
+/// Prefer this over `Client::new().get(url).send()?.bytes()?` everywhere
+/// in the installer modules — see the comment block above for why.
+pub fn download_to_file(url: &str, dest: &Path, user_agent: &str) -> Result<u64> {
+    const MAX_ATTEMPTS: u32 = 3;
+    let mut last_err: Option<anyhow::Error> = None;
+    for attempt in 1..=MAX_ATTEMPTS {
+        match download_to_file_once(url, dest, user_agent) {
+            Ok(n) => return Ok(n),
+            Err(e) if attempt < MAX_ATTEMPTS && is_transient_http_error(&e) => {
+                let backoff = Duration::from_secs(1u64 << (attempt - 1)); // 1s, 2s
+                eprintln!(
+                    "  {} attempt {}/{} failed: {:#}",
+                    "[warn]".yellow(),
+                    attempt,
+                    MAX_ATTEMPTS,
+                    e
+                );
+                eprintln!("         retrying in {}s...", backoff.as_secs());
+                std::thread::sleep(backoff);
+                last_err = Some(e);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| anyhow!("download_to_file: unreachable")))
+}
+
+fn download_to_file_once(url: &str, dest: &Path, user_agent: &str) -> Result<u64> {
+    let client = http_client(user_agent)?;
+    let mut response = client
+        .get(url)
+        .send()
+        .with_context(|| format!("Failed to start download: {url}"))?
+        .error_for_status()
+        .with_context(|| format!("Upstream HTTP error for {url}"))?;
+
+    let total = response.content_length();
+    let label = dest
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("download")
+        .to_string();
+
+    // Print before the bar — if the server hangs without sending any bytes,
+    // at least the user sees what we're attempting.
+    println!("  {} Downloading {} ...", "[DL]".cyan(), label.bold());
+
+    let pb = ProgressBar::new(total.unwrap_or(0));
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template(
+                "  [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})",
+            )
+            .unwrap_or_else(|_| ProgressStyle::default_bar())
+            .progress_chars("#>-"),
+    );
+
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    // Write to a temp sibling so a half-downloaded file can't be mistaken
+    // for a complete archive on the next run.
+    let tmp = dest.with_extension(format!(
+        "{}.partial",
+        dest.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("download")
+    ));
+    let file =
+        File::create(&tmp).with_context(|| format!("Failed to create {}", tmp.display()))?;
+    let mut writer = BufWriter::new(file);
+
+    let mut buf = [0u8; 64 * 1024];
+    let mut total_written: u64 = 0;
+    loop {
+        let n = response
+            .read(&mut buf)
+            .with_context(|| format!("Failed while reading body of {url}"))?;
+        if n == 0 {
+            break;
+        }
+        writer
+            .write_all(&buf[..n])
+            .with_context(|| format!("Failed writing to {}", tmp.display()))?;
+        total_written += n as u64;
+        pb.set_position(total_written);
+    }
+    writer
+        .flush()
+        .with_context(|| format!("Failed flushing {}", tmp.display()))?;
+    drop(writer);
+
+    pb.finish_and_clear();
+
+    // Atomic rename into final place. If the program crashes between
+    // download and rename, the next run sees no `dest` and re-downloads.
+    std::fs::rename(&tmp, dest).with_context(|| {
+        format!(
+            "Failed to rename {} -> {}",
+            tmp.display(),
+            dest.display()
+        )
+    })?;
+    Ok(total_written)
+}
+
+fn is_transient_http_error(err: &anyhow::Error) -> bool {
+    // anyhow doesn't downcast to reqwest::Error here because we wrap with
+    // `.with_context(...)` everywhere; pattern-match on the chained
+    // message string instead. Cheap and good enough for retry classification.
+    let s = format!("{err:#}").to_ascii_lowercase();
+    s.contains("timed out")
+        || s.contains("timeout")
+        || s.contains("connection reset")
+        || s.contains("connection refused")
+        || s.contains("connection aborted")
+        || s.contains("error decoding response body")
+        || s.contains("broken pipe")
+        || s.contains("dns")
+        || s.contains("502 ")
+        || s.contains("503 ")
+        || s.contains("504 ")
+        || s.contains("status: 502")
+        || s.contains("status: 503")
+        || s.contains("status: 504")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,5 +396,45 @@ mod tests {
     fn extracts_hex_with_filename() {
         let body = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  some-archive.tar.gz\n";
         assert!(extract_first_hex_token(body).is_some());
+    }
+
+    #[test]
+    fn http_client_builds_with_timeouts() {
+        // Just ensure the builder accepts our combination of settings.
+        let _ = http_client("ven-test/0.0").expect("client should build");
+    }
+
+    #[test]
+    fn transient_classifier_catches_the_ruby_zscaler_message() {
+        // This is the exact pattern the user hit on Ruby install behind Zscaler.
+        let e = anyhow!("error decoding response body")
+            .context("Failed while reading body of https://example.test/ruby.7z");
+        assert!(is_transient_http_error(&e), "got: {e:#}");
+    }
+
+    #[test]
+    fn transient_classifier_catches_typical_network_phrases() {
+        for phrase in [
+            "operation timed out",
+            "connection reset by peer",
+            "Connection refused",
+            "broken pipe",
+            "dns error: failed to lookup",
+            "status: 503",
+        ] {
+            let e = anyhow::anyhow!("{}", phrase);
+            assert!(
+                is_transient_http_error(&e),
+                "expected {phrase:?} classified transient"
+            );
+        }
+    }
+
+    #[test]
+    fn transient_classifier_does_not_retry_permanent_errors() {
+        let e = anyhow::anyhow!("404 Not Found");
+        assert!(!is_transient_http_error(&e));
+        let e = anyhow::anyhow!("Checksum mismatch");
+        assert!(!is_transient_http_error(&e));
     }
 }
