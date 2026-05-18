@@ -276,8 +276,7 @@ fn copy_then_remove(
     size: SourceSize,
     opts: &MoveOptions,
 ) -> Result<MoveReport> {
-    fs::create_dir_all(target)
-        .with_context(|| format!("Failed to create {}", target.display()))?;
+    fs::create_dir_all(target).with_context(|| format!("Failed to create {}", target.display()))?;
 
     let bar = if opts.progress && size.bytes > 0 {
         let pb = ProgressBar::new(size.bytes);
@@ -298,10 +297,13 @@ fn copy_then_remove(
 
     for entry in WalkDir::new(source).follow_links(false) {
         let entry = entry.with_context(|| format!("walkdir error in {}", source.display()))?;
-        let rel = entry
-            .path()
-            .strip_prefix(source)
-            .with_context(|| format!("Path {} not under {}", entry.path().display(), source.display()))?;
+        let rel = entry.path().strip_prefix(source).with_context(|| {
+            format!(
+                "Path {} not under {}",
+                entry.path().display(),
+                source.display()
+            )
+        })?;
 
         // Skip our own lock file — it's intentionally orphaned at the
         // source until we finalize, and we don't want to ship it to the
@@ -323,7 +325,11 @@ fn copy_then_remove(
                     .with_context(|| format!("Failed to create {}", parent.display()))?;
             }
             let n = fs::copy(entry.path(), &dst).with_context(|| {
-                format!("Failed to copy {} -> {}", entry.path().display(), dst.display())
+                format!(
+                    "Failed to copy {} -> {}",
+                    entry.path().display(),
+                    dst.display()
+                )
             })?;
             copied_bytes += n;
             copied_files += 1;
@@ -378,8 +384,12 @@ fn copy_then_remove(
     }
 
     // ── Sweep source ────────────────────────────────────────────────────
-    fs::remove_dir_all(source)
-        .with_context(|| format!("Failed to delete source {} after successful copy", source.display()))?;
+    fs::remove_dir_all(source).with_context(|| {
+        format!(
+            "Failed to delete source {} after successful copy",
+            source.display()
+        )
+    })?;
 
     Ok(MoveReport {
         source: source.to_path_buf(),
@@ -417,15 +427,19 @@ fn acquire_lock(source: &Path, opts: &MoveOptions) -> Result<()> {
             ));
         }
     }
-    fs::write(&lock, format!("{}\nstarted_at={}\n", std::process::id(), now_secs()))
-        .with_context(|| format!("Failed to write lock {}", lock.display()))?;
+    fs::write(
+        &lock,
+        format!("{}\nstarted_at={}\n", std::process::id(), now_secs()),
+    )
+    .with_context(|| format!("Failed to write lock {}", lock.display()))?;
     Ok(())
 }
 
 fn release_lock(dir: &Path) -> Result<()> {
     let lock = lock_path(dir);
     if lock.is_file() {
-        fs::remove_file(&lock).with_context(|| format!("Failed to remove lock {}", lock.display()))?;
+        fs::remove_file(&lock)
+            .with_context(|| format!("Failed to remove lock {}", lock.display()))?;
     }
     Ok(())
 }
@@ -451,7 +465,10 @@ mod tests {
 
     fn populate_fake_ven(root: &Path) -> SourceSize {
         touch(&root.join("node/20.11.0/node"), b"fake node binary");
-        touch(&root.join("node/20.11.0/lib/something.js"), b"console.log(1)");
+        touch(
+            &root.join("node/20.11.0/lib/something.js"),
+            b"console.log(1)",
+        );
         touch(&root.join("python/3.12.7/python.exe"), &vec![0u8; 4096]);
         touch(&root.join("cache/osv.sqlite"), &vec![0u8; 2048]);
         measure_source(root).unwrap()
@@ -473,10 +490,7 @@ mod tests {
         create_dir_all(&source).unwrap();
         let nested = source.join("nested");
         let err = validate_target(&source, &nested, &MoveOptions::default()).unwrap_err();
-        assert!(
-            err.to_string().contains("inside the source"),
-            "got: {err}"
-        );
+        assert!(err.to_string().contains("inside the source"), "got: {err}");
     }
 
     #[test]

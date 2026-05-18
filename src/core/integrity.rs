@@ -231,11 +231,7 @@ pub fn print_checksum_unavailable(filename: &str, reason: &str) {
 /// from an installer module so upstream rate-limit logs and analytics
 /// can identify ven traffic distinctly from anonymous curl users.
 pub fn installer_user_agent(language: &str) -> String {
-    format!(
-        "ven/{} ({}-installer)",
-        env!("CARGO_PKG_VERSION"),
-        language
-    )
+    format!("ven/{} ({}-installer)", env!("CARGO_PKG_VERSION"), language)
 }
 
 /// Maximum gap between two successful chunk reads before we declare the
@@ -350,8 +346,7 @@ fn download_to_file_once(url: &str, dest: &Path, user_agent: &str) -> Result<u64
             .and_then(|e| e.to_str())
             .unwrap_or("download")
     ));
-    let file =
-        File::create(&tmp).with_context(|| format!("Failed to create {}", tmp.display()))?;
+    let file = File::create(&tmp).with_context(|| format!("Failed to create {}", tmp.display()))?;
     let mut writer = BufWriter::new(file);
 
     let mut buf = [0u8; 64 * 1024];
@@ -401,13 +396,8 @@ fn download_to_file_once(url: &str, dest: &Path, user_agent: &str) -> Result<u64
 
     // Atomic rename into final place. If the program crashes between
     // download and rename, the next run sees no `dest` and re-downloads.
-    std::fs::rename(&tmp, dest).with_context(|| {
-        format!(
-            "Failed to rename {} -> {}",
-            tmp.display(),
-            dest.display()
-        )
-    })?;
+    std::fs::rename(&tmp, dest)
+        .with_context(|| format!("Failed to rename {} -> {}", tmp.display(), dest.display()))?;
     Ok(total_written)
 }
 

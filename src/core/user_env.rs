@@ -198,12 +198,11 @@ fn unset_unix_user_env(name: &str) -> Result<()> {
         if !rc.is_file() {
             continue;
         }
-        let existing = fs::read_to_string(&rc)
-            .with_context(|| format!("Failed to read {}", rc.display()))?;
+        let existing =
+            fs::read_to_string(&rc).with_context(|| format!("Failed to read {}", rc.display()))?;
         let updated = remove_block_for(&existing, name);
         if updated != existing {
-            fs::write(&rc, updated)
-                .with_context(|| format!("Failed to write {}", rc.display()))?;
+            fs::write(&rc, updated).with_context(|| format!("Failed to write {}", rc.display()))?;
         }
     }
     Ok(())

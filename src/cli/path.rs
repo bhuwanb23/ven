@@ -107,7 +107,14 @@ pub fn cmd_path(cmd: Option<PathCmd>) -> Result<()> {
             yes,
             force_unlock,
             json,
-        } => cmd_set(target, r#move, no_move || pointer_only, yes, force_unlock, json),
+        } => cmd_set(
+            target,
+            r#move,
+            no_move || pointer_only,
+            yes,
+            force_unlock,
+            json,
+        ),
         PathCmd::Reset {
             r#move,
             no_move,
@@ -204,9 +211,7 @@ fn cmd_show(json: bool) -> Result<()> {
 fn describe_source(source: &HomeSource) -> String {
     match source {
         HomeSource::EnvVenHome(_) => "env var $VEN_HOME (highest precedence)".to_string(),
-        HomeSource::EnvVenStoragePath(_) => {
-            "env var $VEN_STORAGE_PATH (back-compat)".to_string()
-        }
+        HomeSource::EnvVenStoragePath(_) => "env var $VEN_STORAGE_PATH (back-compat)".to_string(),
         HomeSource::PortableSibling(p) => format!(
             "portable: .ven/ next to {}",
             p.parent()
@@ -601,9 +606,7 @@ fn canonicalize_target(raw: &Path) -> Result<PathBuf> {
         std::env::current_dir()?.join(raw)
     };
     // Trim a trailing slash to make display + path-prefix checks robust.
-    let normalized = abs
-        .components()
-        .collect::<PathBuf>();
+    let normalized = abs.components().collect::<PathBuf>();
     if normalized.as_os_str().is_empty() {
         return Err(anyhow!("Target path is empty after normalization"));
     }

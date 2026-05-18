@@ -609,4 +609,3 @@ fn version_cmp_parts_desc(a: &str, b: &str) -> std::cmp::Ordering {
     };
     parse(a).cmp(&parse(b))
 }
-
