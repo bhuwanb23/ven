@@ -48,6 +48,10 @@ const FAQ = [
     q: 'What happens if I re-run the installer over an existing version?',
     a: 'Since v0.1.5 the installer detects every existing ven on disk (`%USERPROFILE%\\.ven\\bin` and `%ProgramFiles%\\ven\\bin` on Windows; `~/.ven/bin` and `/usr/local/bin/ven` on Unix) and prints what it finds. Same mode + same version → exits cleanly with "nothing to do". Same mode + a different version → prompts to upgrade. Different mode (e.g. user install requested while a system install already exists) → warns that PATH precedence will shadow one of the two binaries, then asks you to confirm. In CI / piped contexts there is no TTY to prompt, so the installer aborts safely; set `VEN_FORCE_INSTALL=true` (or pass `-Force` / `--force`) to skip the prompt.',
   },
+  {
+    q: 'How do I upgrade ven once it\'s installed?',
+    a: 'Run `ven update`. Since v0.1.7 ven self-updates: it detects whether you installed in user-mode (`~/.ven/bin`) or system-mode (`%ProgramFiles%\\ven\\bin` / `/usr/local/bin`), downloads the platform-specific combined release asset, verifies it against the release\'s SHA256SUMS manifest, and swaps both `ven` and `ven-launcher` in place. System installs auto-elevate through UAC on Windows or `sudo` on Unix. Use `ven update --check` to see what\'s available without applying, or `ven update --version v0.1.6` to roll back. Do NOT confuse it with `ven upgrade` — that one upgrades project packages (npm / pip / cargo / …), not ven itself.',
+  },
 ]
 
 // Display labels + tone for the per-kind groups of the downloads table.
@@ -643,6 +647,73 @@ export default function Install() {
 
       <Reveal as="section" className="mb-24 overflow-x-auto">
         <DownloadsTable data={releases} err={releasesErr} />
+      </Reveal>
+
+      <Reveal as="section" className="mb-24 border-t border-outline-variant/30 pt-16">
+        <div className="max-w-3xl mx-auto">
+          <header className="text-center mb-12">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-fixed-dim/10 text-primary-fixed-dim text-xs font-semibold tracking-wider uppercase mb-4">
+              <Icon name="autorenew" size={14} />
+              v0.1.7+
+            </span>
+            <h2 className="font-headline-md text-headline-md mb-4">Upgrade ven</h2>
+            <p className="text-on-surface-variant">
+              Already installed? Run <code className="text-on-surface">ven update</code>. It
+              downloads the latest <code className="text-on-surface">ven</code> +{' '}
+              <code className="text-on-surface">ven-launcher</code> from GitHub, verifies the
+              SHA256 against the release manifest, and swaps them in place — no re-install,
+              no PATH edits. System installs auto-elevate through UAC / <code className="text-on-surface">sudo</code>.
+            </p>
+          </header>
+
+          <div className="space-y-6">
+            <div>
+              <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+                <h3 className="font-headline-md text-lg font-bold text-primary-fixed-dim">
+                  Standard upgrade
+                </h3>
+                <span className="text-xs text-on-surface-variant opacity-70">
+                  works on Windows / macOS / Linux, user + system installs
+                </span>
+              </header>
+              <CodeBlock
+                code={'ven update'}
+                prompt="$"
+                tone="cyan"
+                language="shell"
+              />
+            </div>
+
+            <div>
+              <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+                <h3 className="font-headline-md text-lg font-bold text-primary-fixed-dim">
+                  CI / scripted
+                </h3>
+                <span className="text-xs text-on-surface-variant opacity-70">
+                  no confirmation prompt, machine-readable
+                </span>
+              </header>
+              <CodeBlock
+                code={'ven update --yes --json\nven update --check --json    # exit 0 even when current\nven update --version v0.1.6  # roll back to a specific tag'}
+                prompt="$"
+                tone="cyan"
+                language="shell"
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-lg border border-outline-variant/40 bg-surface-container-low/50 p-4">
+            <p className="text-sm text-on-surface-variant">
+              <strong className="text-on-surface">ven update</strong> vs{' '}
+              <strong className="text-on-surface">ven upgrade</strong>:{' '}
+              <code className="text-on-surface">ven update</code> updates the ven binaries
+              themselves.{' '}
+              <code className="text-on-surface">ven upgrade</code> updates the npm / pip /
+              cargo / gem packages inside your project. Different commands, different
+              surfaces.
+            </p>
+          </div>
+        </div>
       </Reveal>
 
       <Reveal as="section" className="mb-24 border-t border-outline-variant/30 pt-16">

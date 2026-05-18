@@ -553,6 +553,37 @@ See: [`cmds/docs.md`](cmds/docs.md)
 
 ---
 
+## 13. Self-update — `ven update`
+
+`ven update` swaps the running `ven` (and its sibling `ven-launcher`) in place from the latest GitHub release. No re-run of the installer. No PATH surgery.
+
+### What it does
+
+- Resolves the current install dir from `std::env::current_exe().parent()` — same path the original installer (`ven-setup`) wrote to.
+- Hits `https://api.github.com/repos/bhuwanb23/ven/releases/latest` (or `/tags/<tag>` for `--version`) and compares against `CARGO_PKG_VERSION`.
+- Downloads the *combined* release asset (`ven-{os}-{arch}.zip` on Windows, `.tar.gz` everywhere else) and verifies it against the release's `SHA256SUMS` manifest before touching anything on disk.
+- Replaces both binaries atomically: on Windows the running `.exe` is moved aside to `*.exe.old` first (allowed even while running); on Unix the file is `unlink`-ed and rewritten — the open file descriptor in the running ven keeps pointing at the dead inode until the process exits.
+- Auto-elevates via UAC (Windows) / `sudo` (Unix) when the install dir requires admin. The elevated child carries an internal `--reentry` flag so the elevation loop terminates after one hop.
+
+### Surface
+
+```bash
+ven update                    # check + apply latest stable
+ven update --check            # report only; safe in CI
+ven update --version v0.1.5   # roll back to a specific tag
+ven update --yes              # skip the confirmation prompt
+ven update --force            # reinstall over the same version
+ven update --json             # machine-readable report
+```
+
+### Not to be confused with `ven upgrade`
+
+`ven upgrade` updates **project packages** (npm / pip / cargo / gem / …). `ven update` updates **ven itself**.
+
+See: [`cmds/update.md`](cmds/update.md)
+
+---
+
 ## Quick command index (everything in one place)
 
 | Category | Commands |
@@ -565,6 +596,7 @@ See: [`cmds/docs.md`](cmds/docs.md)
 | **Health**       | `ven check [--security|--eol] [--json]` · `ven scan [--ghosts] [--fix] [--json]` |
 | **Docs**         | `ven docs <pkg> [--browser|--diff V1 V2|--json]` |
 | **Activation**   | `ven use [DIR]` · `ven deactivate` · `ven setup` · `ven shell hook <shell>` · `ven shell install` · `ven shell activate <DIR>` · `ven shell deactivate` |
+| **Maintenance**  | `ven update [--check\|--version <tag>\|--yes\|--force\|--json]` |
 | **Spawn**        | `ven-launcher [PATH] [--show-env]` |
 
 For granular flags and per-command examples, see [`cmds/INDEX.md`](cmds/INDEX.md).

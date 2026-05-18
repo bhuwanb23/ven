@@ -493,6 +493,19 @@ ven-launcher <PATH>             # spawn shell with PATH's ven.toml pre-loaded
 ven-launcher --show-env [PATH]  # print resolved env instead of spawning
 ```
 
+### Self-Update (since v0.1.7)
+
+```bash
+ven update                      # check for + apply latest stable
+ven update --check              # report only; safe in CI
+ven update --version v0.1.6     # roll back to a specific tag
+ven update --yes --json         # scripted: no prompt, machine-readable
+```
+
+> `ven update` swaps `ven` + `ven-launcher` in place from the latest GitHub
+> release. SHA256-verified, auto-elevates via UAC / `sudo` for system
+> installs. Distinct from `ven upgrade`, which touches **project packages**.
+
 ---
 
 ## 🗂️ Storage Layout

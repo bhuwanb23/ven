@@ -20,6 +20,7 @@ pub mod setup;
 pub mod shell;
 pub mod status;
 pub mod sync;
+pub mod update;
 pub mod upgrade;
 pub mod why;
 
@@ -33,7 +34,7 @@ pub mod why;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n  ven update                   # Self-update ven + ven-launcher to the latest release\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -555,6 +556,51 @@ pub enum Commands {
     )]
     Setup,
 
+    /// Update ven itself to the latest release (self-update)
+    ///
+    /// Detects the install location of the running `ven` binary, fetches the
+    /// latest release from GitHub, verifies the SHA256 from the release's
+    /// SHA256SUMS manifest, and swaps `ven` + `ven-launcher` in place. On
+    /// Windows the running .exe is moved to `*.exe.old` first (left for
+    /// next-boot cleanup); on Unix the inode is unlinked + rewritten while
+    /// the old process keeps running until it exits.
+    ///
+    /// If the install directory is not writable (system install on
+    /// Windows / `/usr/local/bin`), ven re-launches itself elevated via UAC
+    /// (Windows) or `sudo` (Unix). Set `--reentry` to bypass the elevation
+    /// step — used internally; do not pass it by hand.
+    ///
+    /// Examples:
+    ///   ven update                    # check for + apply latest stable
+    ///   ven update --check            # report only, no download
+    ///   ven update --version v0.1.6   # install a specific tag (rollback)
+    ///   ven update --yes              # skip the confirmation prompt
+    ///   ven update --force            # reinstall even if already current
+    ///   ven update --json             # machine-readable result
+    #[command(
+        long_about = "Self-update ven to the latest published release.\n\nDownloads the platform-specific 'combined' release asset\n(ven-{os}-{arch}.{zip|tar.gz}) from https://github.com/bhuwanb23/ven/releases,\nverifies it against the SHA256SUMS manifest in the same release, and swaps\nboth `ven` and `ven-launcher` in place — no need to re-run the installer\nor edit PATH.\n\nFlags:\n  --check               Report the available version without downloading.\n  --version <tag>       Install a specific tag (`v0.1.6` or `0.1.6`).\n                        Lets you roll back to an older release.\n  --yes / -y            Skip the interactive confirmation.\n  --force               Reinstall even when already at the target version.\n  --json                Emit a machine-readable update report and exit.\n\nElevation:\n  When the install dir is not writable by the current user (system installs\n  on Windows / Unix), ven re-launches itself elevated through UAC or sudo.\n  The `--reentry` flag is used internally to break the elevation loop and\n  should not be passed by hand.\n\nExit codes:\n  0  No-op (already current) OR update applied successfully\n  1  Network / verification / write failure\n  2  Aborted by user at the confirmation prompt"
+    )]
+    Update {
+        /// Report the available version without downloading or applying anything
+        #[arg(long)]
+        check: bool,
+        /// Install a specific release tag (`v0.1.6` or `0.1.6`). Default: latest stable.
+        #[arg(long)]
+        version: Option<String>,
+        /// Skip the confirmation prompt (CI / scripts)
+        #[arg(short = 'y', long)]
+        yes: bool,
+        /// Reinstall even if the running version already matches the target
+        #[arg(long)]
+        force: bool,
+        /// Machine-readable output for CI gates
+        #[arg(long)]
+        json: bool,
+        /// Internal: we already re-launched ourselves with elevation. Do not pass by hand.
+        #[arg(long, hide = true)]
+        reentry: bool,
+    },
+
     /// Shell integration (internal — called by shell hook)
     #[command(hide = true)] // hides from --help
     Shell {
@@ -681,6 +727,14 @@ pub fn run(cli: Cli) -> Result<()> {
             json,
         } => docs::cmd_docs(&package, browser, diff.as_deref(), json),
         Commands::Setup => setup::cmd_setup(),
+        Commands::Update {
+            check,
+            version,
+            yes,
+            force,
+            json,
+            reentry,
+        } => update::cmd_update(check, version.as_deref(), yes, force, json, reentry),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),

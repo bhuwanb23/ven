@@ -66,6 +66,12 @@ For the underlying threat model, caching strategy, and exit-code semantics, see 
 | `ven setup` | Install shell hook for auto-switching | [→ setup.md](setup.md) |
 | `ven path` | Move ven's storage root to another drive (v0.1.6+) | [→ path.md](path.md) |
 
+## 🔄 Maintenance
+
+| Command | Description | Documentation |
+|---------|-------------|---------------|
+| `ven update` | Self-update `ven` + `ven-launcher` to the latest release (auto-elevates for system installs; v0.1.7+) | [→ update.md](update.md) |
+
 ## 💿 Installer / Spawner
 
 | Binary / Script | Description | Documentation |

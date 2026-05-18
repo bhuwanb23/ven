@@ -19,6 +19,7 @@ import {
   INSTALL,
   PLATFORM_ORDER,
   GITHUB_URL,
+  AFTER_INSTALL_COMMANDS,
   detectPlatform,
 } from '../content/site.js'
 
@@ -212,6 +213,12 @@ function DemoSection() {
         </div>
         <div className="max-w-3xl mx-auto">
           <ScriptedTerminal title="ven — interactive demo" script={HERO_SCRIPT} loop autoPlay />
+          <p className="text-center text-xs text-on-surface-variant mt-6 font-mono">
+            After installing:{' '}
+            <span className="text-primary-fixed-dim">
+              {AFTER_INSTALL_COMMANDS.join(' → ')}
+            </span>
+          </p>
         </div>
       </div>
     </Reveal>

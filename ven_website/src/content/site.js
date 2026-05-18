@@ -29,17 +29,20 @@ export const INSTALL = {
   windows: {
     label: 'Windows',
     cmd: `irm ${INSTALL_PS1_URL} | iex`,
-    note: 'PowerShell 5.1 or 7+. Installs to %USERPROFILE%\\.ven\\bin.',
+    note:
+      'PowerShell 5.1 or 7+. Installs to %USERPROFILE%\\.ven\\bin. Then run ven setup (once); upgrade ven anytime with ven update.',
   },
   macos: {
     label: 'macOS',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
-    note: 'Installs to ~/.ven/bin/ven and adds it to PATH automatically.',
+    note:
+      'Installs to ~/.ven/bin and adds PATH. Then ven setup (once); upgrade with ven update.',
   },
   linux: {
     label: 'Linux',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
-    note: 'Bash / Zsh / Fish supported. Installs to ~/.ven/bin/ven.',
+    note:
+      'Bash / Zsh / Fish. Then ven setup (once); upgrade with ven update.',
   },
   source: {
     label: 'From source',
@@ -49,6 +52,10 @@ export const INSTALL = {
 }
 
 export const PLATFORM_ORDER = ['windows', 'macos', 'linux', 'source']
+
+// First-time hook, then self-update — surfaced on the landing demo section.
+// Order matches the recommended workflow (setup once; `ven update` from v0.1.7+).
+export const AFTER_INSTALL_COMMANDS = ['ven setup', 'ven update']
 
 // Uninstall snippets shown on /install. Three real, working scripts — one per
 // OS family — that actually remove ven from a fresh machine. Kept here (not

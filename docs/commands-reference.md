@@ -58,6 +58,12 @@ See [shell-integration.md](shell-integration.md).
 |--------|---------|
 | `ven-launcher [PROJECT]` | Open a **new** terminal with env for nearest `ven.toml`; `--show-env` prints resolved env instead. See [ven-launcher.md](ven-launcher.md). |
 
+## Maintenance
+
+| Command | Purpose |
+|---------|---------|
+| `ven update [--check\|--version <tag>\|-y\|--force\|--json]` | Self-update `ven` + `ven-launcher` to the latest GitHub release. Verifies SHA256, swaps both binaries in place (Windows: rename-aside trick; Unix: unlink + write), and auto-elevates (UAC / `sudo`) when the install dir requires admin. Distinct from `ven upgrade`, which touches **project packages**. See [cmds/update.md](cmds/update.md). |
+
 ## Installer (cross-platform)
 
 | Binary | Purpose |

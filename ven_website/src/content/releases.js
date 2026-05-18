@@ -3,6 +3,27 @@
 
 export const RELEASES = [
   {
+    version: 'v0.1.7',
+    date: 'May 18, 2026',
+    tag: 'minor',
+    summary:
+      'New `ven update` command — self-updates `ven` + `ven-launcher` to the latest GitHub release with SHA256 verification and in-place binary swap. No re-install, no PATH edits. System installs auto-elevate through UAC (Windows) or `sudo` (Unix). Plus a website docs overhaul: every CLI command now has a dedicated page (was 8 of 22, now 22 of 22) and the sidebar is reorganised into six groups — Getting started / Packages / Insight / Runtimes / Maintenance / Languages.',
+    sections: {
+      new: [
+        '`ven update` self-update command. Detects the install dir from `std::env::current_exe().parent()`, hits the GitHub releases API for `bhuwanb23/ven`, picks the platform-specific combined asset (`ven-{os}-{arch}.{zip|tar.gz}`), verifies it against the release\'s SHA256SUMS manifest, and swaps both binaries atomically. Windows uses the rename-aside trick (`*.exe.old`) since the OS refuses to overwrite a running `.exe`; Unix uses POSIX `unlink + write` (the open file descriptor in the running ven keeps pointing at the dead inode until the process exits). Auto-elevates via UAC on Windows / `sudo` on Unix when the install dir requires admin; the elevated child carries an internal `--reentry` flag so the elevation loop terminates after one hop.',
+        '`ven update --check` reports the latest available version without downloading or applying anything — safe in CI. `--json` emits a structured `UpdateReport` (current, target, up_to_date, action, install_dir, install_mode, asset, repo, release_url) for CI gates. `--version v0.1.6` installs a specific tag, letting you roll back to an older release.',
+        'New per-command doc page [docs/cmds/update.md](https://github.com/bhuwanb23/ven/blob/main/docs/cmds/update.md) covering the flow end-to-end, the Windows/Unix self-replace semantics, the elevation contract, and CI examples.',
+        'Website docs reorganised into six groups (Getting started / Packages / Insight / Runtimes / Maintenance / Languages) and every CLI command got its own page: list, delete, path, use, deactivate, setup, check-add, graph, why, resolve, remove, upgrade, scan, update.',
+      ],
+      improved: [
+        '`ven --help` examples now include `ven update` so it\'s discoverable from the top-level surface.',
+        'Install page gained an explicit "Upgrade ven" panel between the downloads table and the uninstall section, with a small "v0.1.7+" pill, the standard `ven update` invocation, a CI block (`--yes --json`, `--check --json`, `--version`), and an inline note on the `ven update` vs `ven upgrade` distinction.',
+        'docs/features.md gained a new section 13 "Self-update — ven update" and a `Maintenance` row in the quick command index.',
+      ],
+      fixed: [],
+    },
+  },
+  {
     version: 'v0.1.6',
     date: 'May 18, 2026',
     tag: 'minor',

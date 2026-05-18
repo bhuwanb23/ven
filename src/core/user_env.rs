@@ -26,14 +26,20 @@
 //!   shell hook, so the user has one place to look when something feels off.
 
 use anyhow::{anyhow, Context, Result};
-use std::path::Path;
 
+// `Path` and the rc-file block markers are only consumed by the Unix branch.
+// On Windows persistence runs through the registry, which doesn't read or
+// write the rc files at all.
 #[cfg(unix)]
 use std::fs;
+#[cfg(unix)]
+use std::path::Path;
 
-/// Marker that opens the ven-managed block in user rc files.
+/// Marker that opens the ven-managed block in user rc files (Unix only).
+#[cfg(unix)]
 const VEN_ENV_BLOCK_START: &str = "# >>> ven env >>>";
-/// Marker that closes it.
+/// Marker that closes it (Unix only).
+#[cfg(unix)]
 const VEN_ENV_BLOCK_END: &str = "# <<< ven env <<<";
 
 /// Set `name=value` in the user's persistent environment. Returns `Ok(())`
