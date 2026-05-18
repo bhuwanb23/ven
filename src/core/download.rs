@@ -1,8 +1,5 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
-use reqwest::blocking::Client;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::core::integrity;
@@ -79,51 +76,35 @@ impl NodeDownloader {
         format!("https://nodejs.org/dist/{}/SHASUMS256.txt", v)
     }
 
-    /// Download a file with a progress bar
+    /// Download a file with a real streaming progress bar.
+    ///
+    /// Delegates to [`integrity::download_to_file`], which adds:
+    ///   - sensible connect/read timeouts (was a footgun with corporate
+    ///     proxies stalling mid-stream),
+    ///   - actual byte-by-byte streaming to disk (the previous loop
+    ///     buffered the whole archive via `.bytes()?` and only *then*
+    ///     "streamed" from memory, defeating the progress bar),
+    ///   - 3-attempt retry with exponential backoff on transient errors.
     fn download_file(&self, url: &str, dest: &Path) -> Result<()> {
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let client = Client::new();
-        let response = client.get(url).send()?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!(
-                "Download failed: HTTP {} for {}",
-                response.status(),
-                url
-            ));
-        }
-
-        let total_size = response.content_length().unwrap_or(0);
-
-        let pb = ProgressBar::new(total_size);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
-                .progress_chars("#>-"),
-        );
-
-        let mut file = std::fs::File::create(dest)?;
-        let mut downloaded: u64 = 0;
-
-        let bytes = response.bytes()?;
-        for chunk in bytes.chunks(8192) {
-            file.write_all(chunk)?;
-            downloaded += chunk.len() as u64;
-            pb.set_position(downloaded);
-        }
-
-        pb.finish_with_message("Download complete");
+        integrity::download_to_file(url, dest, &integrity::installer_user_agent("node"))
+            .with_context(|| format!("Failed to download {}", url))?;
         Ok(())
     }
 
-    /// Fetch expected SHA256 checksum from nodejs.org for this version
+    /// Fetch expected SHA256 checksum from nodejs.org for this version.
+    /// Uses the timeout-aware shared HTTP client so corporate proxies that
+    /// stall on text payloads don't hang this small request indefinitely.
     fn fetch_checksum(version: &str) -> Result<String> {
         let url = Self::build_checksum_url(version);
-        let client = Client::new();
-        let text = client.get(&url).send()?.text()?;
+        let client = integrity::http_client(&integrity::installer_user_agent("node"))?;
+        let text = client
+            .get(&url)
+            .send()
+            .with_context(|| format!("Failed to fetch {}", url))?
+            .error_for_status()
+            .with_context(|| format!("Upstream HTTP error for {}", url))?
+            .text()
+            .with_context(|| format!("Failed to read body of {}", url))?;
 
         // Figure out the filename we downloaded (to match line in SHASUMS256.txt)
         let ver_clean = version.trim_start_matches('v');

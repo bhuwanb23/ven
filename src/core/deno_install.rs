@@ -136,13 +136,14 @@ pub fn install_deno(downloader: &DenoDownloader, version: &str) -> Result<()> {
     let archive_filename = url.split('/').last().unwrap_or("deno.zip").to_string();
     let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
-        let resp = Client::new()
-            .get(&url)
-            .header("User-Agent", "ven")
-            .send()
-            .with_context(|| format!("Failed to download {}", url))?
-            .error_for_status()?;
-        fs::write(&archive, resp.bytes()?)?;
+        // Streaming download with timeouts + retry. Replaces the old
+        // `Client::new().get(url).send()?.bytes()?` pattern that had no
+        // read timeout and buffered the whole archive into memory, so
+        // SSL-inspecting corporate proxies (Zscaler / Netskope / Bluecoat)
+        // stalled mid-body and surfaced as "error decoding response body
+        // / operation timed out".
+        integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("deno"))
+            .with_context(|| format!("Failed to download {}", url))?;
     }
 
     let sidecar_url = format!("{}.sha256sum", url);

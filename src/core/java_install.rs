@@ -3,7 +3,6 @@ use reqwest::blocking::Client;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use crate::core::integrity;
 
@@ -154,13 +153,14 @@ pub fn install_java(downloader: &JavaDownloader, version: &str) -> Result<()> {
     let archive_filename = format!("java-{}.{}", resolved_version, ext);
     let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
-        let resp = Client::new()
-            .get(&link)
-            .timeout(Duration::from_secs(600))
-            .send()
-            .with_context(|| format!("Failed to download Java archive from {}", link))?
-            .error_for_status()?;
-        fs::write(&archive, resp.bytes()?)?;
+        // Streaming download with timeouts + retry; see integrity::download_to_file
+        // for why this replaced `Client::new().get(url).bytes()?` everywhere.
+        // The old code's `.timeout(Duration::from_secs(600))` is no longer
+        // needed — the shared helper uses per-read timeouts (60s between
+        // chunks) instead of a total-request timeout, so genuinely slow
+        // links work but stalled connections still fail fast.
+        integrity::download_to_file(&link, &archive, &integrity::installer_user_agent("java"))
+            .with_context(|| format!("Failed to download Java archive from {}", link))?;
     }
 
     if !checksum.is_empty() {

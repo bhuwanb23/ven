@@ -217,12 +217,10 @@ fn ensure_rustup_init(install_root: &Path) -> Result<PathBuf> {
 
     let url = rustup_init_url()?;
 
-    let resp = Client::new()
-        .get(url)
-        .send()
-        .with_context(|| format!("Failed to download {}", url))?
-        .error_for_status()?;
-    fs::write(&target, resp.bytes()?)?;
+    // Streaming download with timeouts + retry; see integrity::download_to_file
+    // for why this replaced `Client::new().get(url).bytes()?` everywhere.
+    integrity::download_to_file(url, &target, &integrity::installer_user_agent("rust"))
+        .with_context(|| format!("Failed to download {}", url))?;
 
     let sidecar = format!("{}.sha256", url);
     match integrity::fetch_sidecar_sha256(&sidecar) {

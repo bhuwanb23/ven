@@ -135,13 +135,10 @@ impl GoDownloader {
         if dest.is_file() {
             return Ok(dest);
         }
-        let resp = Client::new()
-            .get(&url)
-            .send()
-            .with_context(|| format!("Failed to fetch {}", url))?
-            .error_for_status()
-            .with_context(|| format!("Could not download {}", url))?;
-        fs::write(&dest, resp.bytes()?)?;
+        // Streaming download with timeouts + retry; see integrity::download_to_file
+        // for why this replaced `Client::new().get(url).bytes()?` everywhere.
+        integrity::download_to_file(&url, &dest, &integrity::installer_user_agent("go"))
+            .with_context(|| format!("Failed to download {}", url))?;
         Ok(dest)
     }
 }

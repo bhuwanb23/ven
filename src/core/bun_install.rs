@@ -142,13 +142,10 @@ pub fn install_bun(downloader: &BunDownloader, version: &str) -> Result<()> {
     let archive_filename = url.split('/').next_back().unwrap_or("bun.zip").to_string();
     let archive = downloader.cache_dir.join(&archive_filename);
     if !archive.is_file() {
-        let resp = Client::new()
-            .get(&url)
-            .header("User-Agent", "ven")
-            .send()
-            .with_context(|| format!("Failed to download {}", url))?
-            .error_for_status()?;
-        fs::write(&archive, resp.bytes()?)?;
+        // Streaming download with timeouts + retry; see integrity::download_to_file
+        // for why this replaced `Client::new().get(url).bytes()?` everywhere.
+        integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("bun"))
+            .with_context(|| format!("Failed to download {}", url))?;
     }
 
     let manifest_url = format!(

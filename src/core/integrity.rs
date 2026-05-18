@@ -226,6 +226,18 @@ pub fn print_checksum_unavailable(filename: &str, reason: &str) {
 // doesn't kill an entire install.
 // ─────────────────────────────────────────────────────────────────────────
 
+/// Build a consistent installer user-agent like
+/// `ven/0.1.6 (deno-installer)`. Use this for every download / API call
+/// from an installer module so upstream rate-limit logs and analytics
+/// can identify ven traffic distinctly from anonymous curl users.
+pub fn installer_user_agent(language: &str) -> String {
+    format!(
+        "ven/{} ({}-installer)",
+        env!("CARGO_PKG_VERSION"),
+        language
+    )
+}
+
 /// HTTP client tuned for ven's installer workflow.
 ///
 /// - **30s connect timeout** — catches DNS failures, dead routes, and

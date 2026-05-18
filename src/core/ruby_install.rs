@@ -166,7 +166,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
             // proxies (Zscaler / Netskope / Bluecoat) would stall mid-body
             // and surface as "error decoding response body / operation
             // timed out".
-            integrity::download_to_file(&url, &archive, ruby_user_agent())
+            integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("ruby"))
                 .with_context(|| format!("Failed to download {}", url))?;
         }
         verify_ruby_archive(&archive, &fname, &url);
@@ -193,7 +193,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         let archive = dl.cache_dir.join(&fname);
         if !archive.is_file() {
             // See Windows branch above for why we don't do `.bytes()?`.
-            integrity::download_to_file(&url, &archive, ruby_user_agent())
+            integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("ruby"))
                 .with_context(|| format!("Failed to download {}", url))?;
         }
         verify_ruby_archive(&archive, &fname, &url);
@@ -610,6 +610,3 @@ fn version_cmp_parts_desc(a: &str, b: &str) -> std::cmp::Ordering {
     parse(a).cmp(&parse(b))
 }
 
-fn ruby_user_agent() -> &'static str {
-    concat!("ven/", env!("CARGO_PKG_VERSION"), " (ruby-installer)")
-}
