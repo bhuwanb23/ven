@@ -1,154 +1,154 @@
 {
   "_comment_": "Direct-download manifest consumed by /install. The DownloadsTable in src/pages/Install.jsx fetches this file at runtime, so a new release does NOT require a website rebuild — just update this file and push. Fields per asset: kind ('combined' | 'launcher' | 'setup'), platform (display label), file (exact filename matching .github/workflows/release.yml), sha256 (full hex from SHA256SUMS), size (human string, approximate is fine), url (download link).",
   "_comment_update_": "After a GitHub Release is published: 1) download SHA256SUMS from the release; 2) replace each asset's sha256 with its full hex digest from that file; 3) refine size with the actual MB string (or fetch via `Invoke-RestMethod https://api.github.com/repos/bhuwanb23/ven/releases/tags/<tag>` and divide assets[].size by 1MB); 4) bump version + date + notesUrl.",
-  "_pending_": "v0.1.5 — sha256 placeholders below need to be replaced with the real hex digests from the v0.1.5 GitHub Release's SHA256SUMS file. Sizes copied from v0.1.3 as a starting estimate; refine if any asset's actual size diverges meaningfully.",
-  "version": "0.1.5",
-  "date": "2026-05-17",
-  "notesUrl": "https://github.com/bhuwanb23/ven/releases/tag/v0.1.5",
+  "_pending_": "v0.1.6 — sha256 placeholders below need to be replaced with the real hex digests from the v0.1.6 GitHub Release's SHA256SUMS file once the release pipeline completes. Sizes copied from v0.1.5 as a starting estimate; refine if any asset's actual size diverges meaningfully.",
+  "version": "0.1.6",
+  "date": "2026-05-18",
+  "notesUrl": "https://github.com/bhuwanb23/ven/releases/tag/v0.1.6",
   "assets": [
     {
       "kind": "combined",
       "platform": "macOS (Apple Silicon)",
       "file": "ven-macos-arm64.tar.gz",
-      "sha256": "7e30e72d8a03447a604df5f4f70275a96dee23d0ef16d1cda21219998c284f07",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.0 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-macos-arm64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-macos-arm64.tar.gz"
     },
     {
       "kind": "combined",
       "platform": "macOS (Intel)",
       "file": "ven-macos-x64.tar.gz",
-      "sha256": "e8b47cd228e5ebb187190045e46ceea72652c94814f76639df763661855ddd9a",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.5 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-macos-x64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-macos-x64.tar.gz"
     },
     {
       "kind": "combined",
       "platform": "Linux (x64)",
       "file": "ven-linux-x64.tar.gz",
-      "sha256": "0a5fba04d802112b36e81c1f16beaaf7e4247f52c78005c09054d61d3544a80a",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.8 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-linux-x64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-linux-x64.tar.gz"
     },
     {
       "kind": "combined",
       "platform": "Linux (arm64)",
       "file": "ven-linux-arm64.tar.gz",
-      "sha256": "d943d69fae7755627ab2d3f3979317dfd2eb9caca894368bec6204d1166d3f76",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.4 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-linux-arm64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-linux-arm64.tar.gz"
     },
     {
       "kind": "combined",
       "platform": "Windows (x64)",
       "file": "ven-windows-x64.zip",
-      "sha256": "e23271c01810f2df6fd00c0b28a2a7c1bedf80eec68e1ec9257b02971927be9e",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.6 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-windows-x64.zip"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-windows-x64.zip"
     },
     {
       "kind": "combined",
       "platform": "Windows (arm64)",
       "file": "ven-windows-arm64.zip",
-      "sha256": "e71386eb1c3959389a91168b38b750f32aa8f5e1d6fc390337fe0455900f2327",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.1 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-windows-arm64.zip"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-windows-arm64.zip"
     },
     {
       "kind": "launcher",
       "platform": "macOS (Apple Silicon)",
       "file": "ven-launcher-macos-arm64.tar.gz",
-      "sha256": "d2016058973c9325a218c00842220bf46b58822130f072e3a7a7718995c13611",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.0 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-launcher-macos-arm64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-launcher-macos-arm64.tar.gz"
     },
     {
       "kind": "launcher",
       "platform": "macOS (Intel)",
       "file": "ven-launcher-macos-x64.tar.gz",
-      "sha256": "06ab6368dff6811074c0eff6202ef4387113a5b2c4114466466d57d61e4368c1",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.5 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-launcher-macos-x64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-launcher-macos-x64.tar.gz"
     },
     {
       "kind": "launcher",
       "platform": "Linux (x64)",
       "file": "ven-launcher-linux-x64.tar.gz",
-      "sha256": "b5d9053c03fc0b4dfb98a16d81a2b9a5f66bbd3068f4f6d52121a2fb6de555af",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.8 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-launcher-linux-x64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-launcher-linux-x64.tar.gz"
     },
     {
       "kind": "launcher",
       "platform": "Linux (arm64)",
       "file": "ven-launcher-linux-arm64.tar.gz",
-      "sha256": "f7a5187b26ef8326283a0a2b3eee697adc618d5bb944d7c74c2b3d5ab01f9ac5",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.4 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-launcher-linux-arm64.tar.gz"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-launcher-linux-arm64.tar.gz"
     },
     {
       "kind": "launcher",
       "platform": "Windows (x64)",
       "file": "ven-launcher-windows-x64.zip",
-      "sha256": "962eba7ddc8794d7133844f8d05988647b48db892795123a7f560f7ea7c9e62d",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.6 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-launcher-windows-x64.zip"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-launcher-windows-x64.zip"
     },
     {
       "kind": "launcher",
       "platform": "Windows (arm64)",
       "file": "ven-launcher-windows-arm64.zip",
-      "sha256": "ddc116c0e6c4a6186f519293c771278a6237af6b19bc0297b442a906ed582731",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~5.1 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-launcher-windows-arm64.zip"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-launcher-windows-arm64.zip"
     },
     {
       "kind": "setup",
       "platform": "macOS (Apple Silicon)",
       "file": "ven-setup-macos-arm64",
-      "sha256": "3d5c08c2fd66fb06bb25426dbc67f0d4489c2b20691d2a845e263437a8bd59a5",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~10 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-setup-macos-arm64"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-setup-macos-arm64"
     },
     {
       "kind": "setup",
       "platform": "macOS (Intel)",
       "file": "ven-setup-macos-x64",
-      "sha256": "cf60a5fb64d9aa338d3ff6ffc2bdf0d064268cc514a8d026557226efd27b54b1",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~11 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-setup-macos-x64"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-setup-macos-x64"
     },
     {
       "kind": "setup",
       "platform": "Linux (x64)",
       "file": "ven-setup-linux-x64",
-      "sha256": "5e1117c3dc48d148461a968d5e55615f5e8f8100b5952260c8d415473d95720e",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~11 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-setup-linux-x64"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-setup-linux-x64"
     },
     {
       "kind": "setup",
       "platform": "Linux (arm64)",
       "file": "ven-setup-linux-arm64",
-      "sha256": "8200ff5b49b4e2fd6e3eb7cb84aae74cff49c99357879e5940dff923ea7bdb01",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~10 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-setup-linux-arm64"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-setup-linux-arm64"
     },
     {
       "kind": "setup",
       "platform": "Windows (x64)",
       "file": "ven-setup-windows-x64.exe",
-      "sha256": "46967d13e8d8ce90f846998c554058165389946b2bcac6e8a22908f8670d53d6",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~11 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-setup-windows-x64.exe"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-setup-windows-x64.exe"
     },
     {
       "kind": "setup",
       "platform": "Windows (arm64)",
       "file": "ven-setup-windows-arm64.exe",
-      "sha256": "6b9c2bd240f3c0286a3f836ffc12456274915c006207b908c0c349d73241baad",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size": "~10 MB",
-      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.5/ven-setup-windows-arm64.exe"
+      "url": "https://github.com/bhuwanb23/ven/releases/download/v0.1.6/ven-setup-windows-arm64.exe"
     }
   ]
 }

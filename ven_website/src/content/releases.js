@@ -3,6 +3,35 @@
 
 export const RELEASES = [
   {
+    version: 'v0.1.6',
+    date: 'May 18, 2026',
+    tag: 'minor',
+    summary:
+      'New `ven path` command for relocating your data root to a different drive — atomic, rollback-safe, with persistent `VEN_HOME` so npm / pip / new shells inherit it without you re-exporting anything. Plus a hardening pass on the install pipeline: timeout-aware streaming downloads with retries (fixes "operation timed out" on Ruby / Deno / large tarballs behind corporate proxies), a Rust smoke-test fix (rustup-shim env vars), and an idempotent uninstall path that converges to clean state even after a partial previous run.',
+    sections: {
+      new: [
+        '`ven path show` / `ven path set <dir>` / `ven path reset` — first-class commands for moving `~/.ven` to a different drive (the "my C: drive is full" case). Three calling conventions: interactive wizard (`ven path set D:\\ven`), explicit flags (`--move` / `--no-move` / `--pointer-only`), or fully scripted (`ven path set <dir> --move -y --json`). Moves are atomic: fast-path `rename()` when source + target share a filesystem, fall back to walk-copy-verify-sweep on cross-device. A `.ven-move.lock` blocks concurrent moves; `--force-unlock` breaks a stale lock from a crashed previous run. Any failure rolls back — ven is never left half-relocated.',
+        'New `[storage].home` "pointer file" at `~/.config/ven/config.toml` (Linux/macOS) / `%APPDATA%\\ven\\config.toml` (Windows). The `$VEN_HOME` resolver now has five tiers: `$VEN_HOME` → `$VEN_STORAGE_PATH` → `<exe-dir>/.ven` (portable) → **pointer file** → `~/.ven`. Per-process env vars still win so CI scripts keep working; the pointer file is for "I moved my data once and want ven to remember".',
+        'Persistent `VEN_HOME` env var management: after `ven path set`, ven writes `VEN_HOME` to your User-scope environment so new shells and child processes (npm, pip, etc.) inherit it without manual re-export. Windows uses `SetEnvironmentVariable` + a `WM_SETTINGCHANGE` broadcast so non-shell apps pick it up too; Unix appends a fenced `# >>> ven env >>>` block to `.bashrc` / `.zshrc` / `.profile` / `config.fish`, idempotent on re-run and cleanly removed on `ven path reset`.',
+        'New per-command doc page [docs/cmds/path.md](https://github.com/bhuwanb23/ven/blob/main/docs/cmds/path.md) covering all subcommands, flags, the 5-tier resolver, the lock-file safety semantics, and every `--json` output shape.',
+        '`ven path show --json` exposes the resolved storage root, the source that picked it (`env:VEN_HOME` / `env:VEN_STORAGE_PATH` / `portable` / `pointer` / `default`), total size on disk, free space on the volume, and the on-disk pointer path. Designed as the structured surface for "where is my ven data?" tooling and CI checks.',
+      ],
+      improved: [
+        'All seven language installers (`bun`, `deno`, `go`, `java`, `node`, `ruby`, `rust`) now share one timeout-aware streaming downloader (`integrity::download_to_file`): 30 s connect timeout, 45 min total request budget, 60 s per-chunk stall watchdog, and a 3-attempt retry loop with exponential backoff on transient network errors. Same user-agent string everywhere (`ven/0.1.6 (deno-installer)`, etc.) so upstream mirrors can identify ven traffic. Fixes "operation timed out" failures on large tarballs (Ruby ~30 MB, Deno ~32 MB) behind slow corporate proxies / Zscaler.',
+        'Every install now streams to a `.partial` file with a progress bar, then atomically renames into place once the checksum passes — a crashed install no longer leaves a half-written archive that the next `ven install` would skip past.',
+        '`install.ps1` / `install.sh` uninstall snippet is now fully idempotent. Probes directory existence and PATH presence independently (either alone is enough to enter the cleanup branch), normalizes PATH entries (expand env vars, trim whitespace + trailing slashes, lowercase), and converges to a fully-clean state on every re-run — even if a previous uninstall got interrupted partway through and left orphan PATH entries behind. Unix `sed` loop now skips missing rc files instead of bailing on the first not-found; system-install branch fires when ANY of `/usr/local/bin/{ven,ven-launcher,ven-setup}` or `/etc/profile.d/ven.sh` is present.',
+        'README "Runtime Management" block now includes the `ven path` triplet next to `ven install` / `ven list` / `ven delete`, plus a "my C: drive is full" note explaining the relocation flow.',
+        'docs/ven-launcher.md gained a "Relocating an installed ven" section clarifying the interaction between portable mode and `ven path set` (portable mode wins; `ven path` is for the system-installed binary).',
+      ],
+      fixed: [
+        '`ven install rust` failing with "cargo --version smoke test failed ... rustup could not choose a version of cargo to run" immediately after a successful install. cargo / rustc inside `$VEN_HOME/rust/<ver>/bin/` are rustup shims that need `CARGO_HOME` / `RUSTUP_HOME` in their environment to resolve the toolchain; ven now passes those explicitly to the post-install smoke test.',
+        '`ven install ruby` / `ven install deno` failing with "error decoding response body Caused by: operation timed out" on slow networks. The old downloaders buffered the entire body in memory with no timeout — the new streaming client has explicit connect/read/total deadlines and a per-chunk stall watchdog, so the worst case is a clean retry instead of a 90-second hang followed by a hard failure.',
+        '"I moved ven to D: drive and now npm / pip spawned from another tool still write to `C:\\Users\\me\\.ven`": `ven path set` now persists `VEN_HOME` in the User environment, so every child process — not just shells — inherits the new location.',
+        'Cross-module test race that surfaced as a macOS-only CI flake (`round_trip_storage_home` panicking with "config should exist after save"). The two test modules that mutate `$HOME` / `$XDG_CONFIG_HOME` / `$APPDATA` now share a single crate-wide env mutex; they can no longer trample each other\'s temp-dir redirections mid-test.',
+      ],
+    },
+  },
+  {
     version: 'v0.1.5',
     date: 'May 17, 2026',
     tag: 'minor',
