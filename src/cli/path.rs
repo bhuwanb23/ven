@@ -29,7 +29,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
-use crate::core::storage_move::{self, MoveOptions, MoveReport, SourceSize};
+use crate::core::storage_move::{self, MoveOptions, SourceSize};
 use crate::core::user_env;
 use crate::core::ven_config;
 use crate::core::ven_home::{ven_home, ven_home_source, HomeSource};
