@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import clsx from 'clsx'
+import Brand from '../ui/Brand.jsx'
 import Icon from '../ui/Icon.jsx'
 import { GITHUB_URL } from '../../content/site.js'
 
@@ -26,9 +27,10 @@ export default function Header() {
       <div className="flex justify-between items-center max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop h-16">
         <Link
           to="/"
-          className="font-headline-md text-headline-md font-bold text-primary-fixed-dim tracking-tighter"
+          aria-label="ven — home"
+          className="flex items-center font-headline-md text-headline-md font-bold text-primary-fixed-dim tracking-tighter"
         >
-          ven
+          <Brand size="md" />
         </Link>
 
         <div className="hidden md:flex gap-8 items-center">

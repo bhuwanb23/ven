@@ -2,7 +2,12 @@
 <html class="dark" lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- PNG is the primary favicon (matches the OG/Twitter image so platform
+         crawlers and the browser tab show the same artwork). SVG is kept as a
+         secondary entry for browsers that prefer scalable favicons. -->
+    <link rel="icon" type="image/png" href="/ven-logo.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/ven-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#131313" />
     <meta
@@ -18,7 +23,9 @@
       property="og:description"
       content="One tool. Every language. Zero conflicts. Built for engineers who demand absolute control over their stack."
     />
-    <meta property="og:image" content="https://bhuwanb23.github.io/ven/favicon.svg" />
+    <meta property="og:image" content="https://bhuwanb23.github.io/ven/ven-logo.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="ven logo — stylised V mark in cyan and coral with a molecular cluster" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -27,7 +34,8 @@
       name="twitter:description"
       content="One tool. Every language. Zero conflicts."
     />
-    <meta name="twitter:image" content="https://bhuwanb23.github.io/ven/favicon.svg" />
+    <meta name="twitter:image" content="https://bhuwanb23.github.io/ven/ven-logo.png" />
+    <meta name="twitter:image:alt" content="ven logo — stylised V mark in cyan and coral with a molecular cluster" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

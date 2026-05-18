@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import Brand from '../ui/Brand.jsx'
 import {
   GITHUB_URL,
   ISSUES_URL,
@@ -52,9 +53,9 @@ export default function Footer() {
     <footer className="bg-surface-container-lowest w-full border-t border-outline-variant/20 mt-24">
       <div className="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-16 grid grid-cols-2 md:grid-cols-5 gap-8">
         <div className="col-span-2 md:col-span-1">
-          <div className="font-headline-md text-headline-md text-on-surface font-bold tracking-tighter mb-4">
-            ven
-          </div>
+          <Link to="/" aria-label="ven — home" className="inline-block mb-4">
+            <Brand size="md" textClassName="text-on-surface" />
+          </Link>
           <p className="font-mono text-[12px] text-on-surface-variant leading-relaxed max-w-[14rem]">
             One CLI for eight runtimes. Graph-checked installs. Offline-cached CVE scans.
           </p>

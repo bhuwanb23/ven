@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom'
+import Brand from '../components/ui/Brand.jsx'
 import Icon from '../components/ui/Icon.jsx'
 import Button from '../components/ui/Button.jsx'
 
 export default function NotFound({ title = 'Page not found', sub }) {
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-margin-mobile py-24">
+      <Link to="/" aria-label="ven — home" className="mb-6 opacity-80 hover:opacity-100 transition-opacity">
+        <Brand size="lg" wordmark={false} />
+      </Link>
       <div className="font-mono text-[120px] leading-none font-bold text-primary-fixed-dim/30 mb-4 tracking-tighter">
         404
       </div>

@@ -111,6 +111,200 @@
     );
   }
 
+  /* ──────────────────────────────────────────────────────────────────
+     Site-wide animated background ("aurora")
+     ──────────────────────────────────────────────────────────────────
+     Mounted by `components/effects/AnimatedBackground.jsx`. Three
+     stacked decorative layers that sit behind every page:
+
+       .bg-aurora__cyan   — primary cyan blob, slow drift, fades out
+                            as the user scrolls deeper (scroll-progress
+                            multiplied into opacity).
+       .bg-aurora__coral  — secondary coral blob, opposite drift +
+                            opposite scroll-tied intensity so the colour
+                            balance shifts with scroll.
+       .bg-aurora__grid   — terminal-style dot grid, masked with a
+                            vignette so the edges fade.
+       .bg-aurora__vignette — radial darkening over the upper-middle
+                            band to protect text contrast.
+
+     All animation is on the compositor (transform + opacity only). The
+     `useScrollY` hook publishes `--scroll-y` / `--scroll-progress` on
+     <html>, and `AnimatedBackground` publishes `--mouse-x` /
+     `--mouse-y` on the same root — both are consumed below.
+
+     `prefers-reduced-motion` kills the keyframe animation and zeros
+     out the cursor delta so the layer becomes a static gradient.
+     ────────────────────────────────────────────────────────────────── */
+  .bg-aurora {
+    /* Block out the painted area so the blobs' large filter radii don't
+       force layout. The blobs themselves are positioned absolutely
+       inside. */
+    contain: strict;
+  }
+
+  /* Default cursor offsets if `AnimatedBackground` hasn't published yet
+     (first paint before the pointermove handler fires). */
+  .bg-aurora {
+    --mouse-x: 0;
+    --mouse-y: 0;
+  }
+
+  .bg-aurora__cyan,
+  .bg-aurora__coral {
+    /* 110vmax keeps the blobs comfortably larger than the viewport so
+       their soft edges never reveal a hard boundary as they drift. */
+    width: 110vmax;
+    height: 110vmax;
+    border-radius: 50%;
+    /* Heavy blur is what turns the radial-gradient circles into the
+       soft "aurora" look. `filter: blur` is GPU-accelerated in modern
+       browsers; we keep the value moderate so older mobile chips can
+       still composite at 60fps. */
+    filter: blur(80px);
+    /* Initial fade-in so the layer doesn't flash on load. */
+    opacity: 0;
+    animation:
+      bg-aurora-fade-in 1200ms ease-out 200ms forwards,
+      bg-aurora-drift 38s ease-in-out infinite alternate;
+    will-change: transform, opacity;
+  }
+
+  .bg-aurora__cyan {
+    top: -30vmax;
+    left: -30vmax;
+    background: radial-gradient(
+      circle at center,
+      rgba(0, 219, 231, 0.32) 0%,
+      rgba(0, 219, 231, 0.16) 35%,
+      rgba(0, 219, 231, 0) 65%
+    );
+    /* Cyan drifts diagonally one way, coral drifts the other way for
+       continuous gentle interplay. The scroll component (`--scroll-y`)
+       adds a parallax of ~0.15× so the blob trails the page slightly.
+       The cursor component (`--mouse-x/y`) adds a tiny lean toward the
+       pointer for a sense of depth. */
+    transform: translate3d(
+      calc(var(--mouse-x, 0) * 24px),
+      calc(var(--scroll-y, 0px) * -0.15 + var(--mouse-y, 0) * 24px),
+      0
+    );
+  }
+
+  .bg-aurora__coral {
+    bottom: -30vmax;
+    right: -30vmax;
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 180, 170, 0.28) 0%,
+      rgba(255, 180, 170, 0.14) 35%,
+      rgba(255, 180, 170, 0) 65%
+    );
+    /* Coral mirrors the cyan transform — scroll component pulls the
+       coral DOWNWARD (positive multiplier) while cyan goes UP, so the
+       two blobs visibly separate as the user scrolls long pages. */
+    transform: translate3d(
+      calc(var(--mouse-x, 0) * -24px),
+      calc(var(--scroll-y, 0px) * 0.12 + var(--mouse-y, 0) * -24px),
+      0
+    );
+    /* Stagger the drift so the two blobs don't pulse in lockstep. */
+    animation-delay: 0s, -19s;
+  }
+
+  /* Scroll-tied colour balance. As the page is read, cyan fades out
+     a little (max 35%) and coral fades in (max 35%) — the hero feels
+     cyan-dominant, footer feels warmer. Cheap: just an opacity blend
+     on the same compositor layer that's already animating. */
+  .bg-aurora__cyan {
+    /* clamp so cyan never fully disappears even on very long pages */
+    opacity: calc(0.95 - var(--scroll-progress, 0) * 0.35);
+  }
+  .bg-aurora__coral {
+    opacity: calc(0.55 + var(--scroll-progress, 0) * 0.35);
+  }
+
+  .bg-aurora__grid {
+    /* 24px dot grid in outline-variant alpha — same colour the rest of
+       the site uses for low-priority chrome. */
+    background-image: radial-gradient(
+      rgba(132, 148, 149, 0.18) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+    /* Mask the grid to the upper-middle band of the viewport so the
+       texture doesn't fight the footer's solid surface or the very top
+       header bar. */
+    -webkit-mask-image: radial-gradient(
+      ellipse at 50% 35%,
+      rgba(0, 0, 0, 0.7) 0%,
+      transparent 70%
+    );
+    mask-image: radial-gradient(
+      ellipse at 50% 35%,
+      rgba(0, 0, 0, 0.7) 0%,
+      transparent 70%
+    );
+    /* Slow horizontal drift so the grid never feels static. The grid
+       only animates the background-position so it stays cheap. */
+    animation: bg-aurora-grid-drift 60s linear infinite;
+  }
+
+  .bg-aurora__vignette {
+    /* Subtle darkening near the top + bottom so the navbar and footer
+       never sit on top of a brightest-point gradient. The inner
+       transparent ring stays bright in the middle where the hero/content
+       lives. */
+    background:
+      radial-gradient(
+        ellipse at 50% 0%,
+        rgba(19, 19, 19, 0.65) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at 50% 100%,
+        rgba(19, 19, 19, 0.85) 0%,
+        transparent 55%
+      );
+  }
+
+  @keyframes bg-aurora-fade-in {
+    from { opacity: 0; }
+    to {
+      /* land at the opacity that the scroll-progress formula expects */
+      opacity: var(--bg-aurora-target, 0.9);
+    }
+  }
+
+  @keyframes bg-aurora-drift {
+    0% {
+      transform: translate3d(
+        calc(var(--mouse-x, 0) * 24px),
+        calc(var(--scroll-y, 0px) * -0.15 + var(--mouse-y, 0) * 24px),
+        0
+      ) scale(1);
+    }
+    50% {
+      transform: translate3d(
+        calc(var(--mouse-x, 0) * 24px + 6vmax),
+        calc(var(--scroll-y, 0px) * -0.15 + var(--mouse-y, 0) * 24px - 4vmax),
+        0
+      ) scale(1.08);
+    }
+    100% {
+      transform: translate3d(
+        calc(var(--mouse-x, 0) * 24px - 4vmax),
+        calc(var(--scroll-y, 0px) * -0.15 + var(--mouse-y, 0) * 24px + 6vmax),
+        0
+      ) scale(0.95);
+    }
+  }
+
+  @keyframes bg-aurora-grid-drift {
+    from { background-position: 0 0; }
+    to   { background-position: 240px 120px; }
+  }
+
   /* Pulse used on conflict / red CVE indicators. */
   .red-pulse {
     animation: redPulse 2.4s ease-in-out infinite;
@@ -192,6 +386,18 @@
     .red-pulse {
       animation: none;
       box-shadow: 0 0 16px 1px rgba(255, 59, 48, 0.3);
+    }
+    /* Aurora: kill the keyframe animation (no drift, no fade-in pulse)
+       and lock the cursor/scroll vars at 0 so the layer becomes a flat
+       static gradient. Keeps the brand colours but removes all motion. */
+    .bg-aurora__cyan,
+    .bg-aurora__coral {
+      animation: none !important;
+      opacity: 0.55;
+      transform: none !important;
+    }
+    .bg-aurora__grid {
+      animation: none !important;
     }
   }
 }
