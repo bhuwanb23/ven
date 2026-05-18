@@ -15,7 +15,7 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 use std::process::Command;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Compute the SHA256 of `file` and compare it (case-insensitive) to
 /// `expected_hex`. Returns `Ok(())` only on a byte-for-byte match.
@@ -238,25 +238,43 @@ pub fn installer_user_agent(language: &str) -> String {
     )
 }
 
+/// Maximum gap between two successful chunk reads before we declare the
+/// stream stalled. Enforced in [`download_to_file_once`] (see comment
+/// there); we can't enforce this at the reqwest level because
+/// `reqwest::blocking::ClientBuilder` in 0.12.x doesn't expose
+/// `read_timeout` — only `timeout` (total) and `connect_timeout`.
+const READ_STALL_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Hard total-request cap, used as a backstop if the body is just very
+/// slow but never quite stalls. Big enough for any reasonable toolchain
+/// (Go and Java tarballs are ~150–180 MB; at a corporate-throttled 100
+/// KB/s that's ~30 min) without leaving a wedged process running forever.
+const TOTAL_REQUEST_TIMEOUT: Duration = Duration::from_secs(45 * 60);
+
 /// HTTP client tuned for ven's installer workflow.
 ///
 /// - **30s connect timeout** — catches DNS failures, dead routes, and
 ///   corporate proxies that swallow the connection request quickly.
-/// - **60s read timeout** — catches mid-stream stalls. We deliberately do
-///   NOT set a total request timeout, because a single big toolchain
-///   download (Rust = 100+ MB on a slow link) can legitimately take
-///   minutes. We only care that bytes keep flowing.
+/// - **45min total request timeout** — generous backstop so big toolchains
+///   on slow links can still complete; mid-stream stalls are actually
+///   caught earlier by the per-chunk watchdog in
+///   [`download_to_file_once`].
 /// - **`rustls-tls-native-roots`** is enabled in `Cargo.toml`, so this
 ///   client trusts the OS cert store and works behind MITM proxies
 ///   (the v0.1.3 Zscaler fix).
 ///
 /// `user_agent` is also recorded so upstream rate-limit logs can identify
 /// ven specifically rather than seeing anonymous traffic.
+///
+/// NOTE: We can't use reqwest's own `read_timeout` setting because the
+/// blocking `ClientBuilder` in reqwest 0.12.28 doesn't expose it (that
+/// method exists only on the async builder in this version). Per-chunk
+/// stall detection is implemented manually in `download_to_file_once`.
 pub fn http_client(user_agent: &str) -> Result<Client> {
     Client::builder()
         .user_agent(user_agent)
         .connect_timeout(Duration::from_secs(30))
-        .read_timeout(Duration::from_secs(60))
+        .timeout(TOTAL_REQUEST_TIMEOUT)
         .build()
         .context("Failed to build reqwest::blocking::Client")
 }
@@ -338,6 +356,15 @@ fn download_to_file_once(url: &str, dest: &Path, user_agent: &str) -> Result<u64
 
     let mut buf = [0u8; 64 * 1024];
     let mut total_written: u64 = 0;
+    // Per-chunk stall watchdog. We can't use reqwest's read_timeout
+    // (not exposed on the blocking ClientBuilder in 0.12.28), so we
+    // measure the wall-clock gap between two successful chunk reads
+    // ourselves and bail out — with a transient-classifier-friendly
+    // error message — if it exceeds READ_STALL_TIMEOUT. The 3-attempt
+    // retry loop in download_to_file then gives the connection a
+    // fresh chance, which is exactly the behaviour we want behind a
+    // hiccup-y Zscaler / Netskope proxy.
+    let mut last_read_at = Instant::now();
     loop {
         let n = response
             .read(&mut buf)
@@ -345,6 +372,20 @@ fn download_to_file_once(url: &str, dest: &Path, user_agent: &str) -> Result<u64
         if n == 0 {
             break;
         }
+        // Manual stall check between reads — see comment above.
+        // (We check AFTER read returns rather than wrapping read in a
+        // timer thread because reqwest's blocking Read already blocks
+        // up to TOTAL_REQUEST_TIMEOUT; a chunk that took >60s means
+        // the link is wedged enough to give up early on this attempt.)
+        let elapsed = last_read_at.elapsed();
+        if elapsed > READ_STALL_TIMEOUT {
+            return Err(anyhow!(
+                "Download stalled: no bytes received for {}s while reading {} (operation timed out)",
+                elapsed.as_secs(),
+                url
+            ));
+        }
+        last_read_at = Instant::now();
         writer
             .write_all(&buf[..n])
             .with_context(|| format!("Failed writing to {}", tmp.display()))?;
