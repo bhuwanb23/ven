@@ -135,21 +135,11 @@ pub fn ven_home_source() -> HomeSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, MutexGuard};
-
-    // The resolver reads process-global state (env vars + current exe), so
-    // tests that mutate VEN_HOME / VEN_STORAGE_PATH must run serially.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    /// Acquire ENV_LOCK in a poison-resilient way: if a previous test
-    /// panicked while holding the lock, take ownership of the poisoned
-    /// guard rather than re-panicking on every subsequent test. Without
-    /// this, one assertion failure cascades into N spurious failures and
-    /// hides the real root cause (see CI failure list when this guard
-    /// was added — 8 reported failures, 1 actual root cause).
-    fn lock_env() -> MutexGuard<'static, ()> {
-        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
-    }
+    // Shared with `ven_config::tests` — see the rationale in `core/mod.rs`.
+    // A per-module lock raced visibly on macOS, where `dirs::config_dir()`
+    // is steered only by `$HOME`, because both modules' Drop impls were
+    // restoring env state while the other's test was reading it.
+    use crate::core::lock_test_env as lock_env;
 
     struct EnvGuard {
         keys: Vec<&'static str>,
@@ -270,9 +260,9 @@ mod tests {
     // Pointer-file precedence tests (introduced in v0.1.6).
     //
     // These tests redirect `dirs::config_dir()` at a tempdir by mutating
-    // HOME / XDG_CONFIG_HOME / APPDATA. Because that's the same process-
-    // global env state as the other tests in this module, we reuse
-    // ENV_LOCK to serialize.
+    // HOME / XDG_CONFIG_HOME / APPDATA. Because that's process-global state
+    // shared with `ven_config::tests`, both modules acquire the same
+    // crate-wide lock from `core::lock_test_env()`.
     //
     // **Skipped on Windows.** `dirs::config_dir()` on Windows calls the
     // Win32 `SHGetKnownFolderPath(FOLDERID_RoamingAppData)` shell API,

@@ -57,3 +57,35 @@ pub use ven_home::ven_home;
 
 // Note: All implementation functions have been moved to config.rs and packages.rs
 // This file now only serves as a module export hub
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Crate-wide test-only env mutex.
+//
+// Several submodules (`ven_home::tests`, `ven_config::tests`) need to mutate
+// process-global env state: $HOME / $XDG_CONFIG_HOME / $APPDATA to redirect
+// `dirs::config_dir()`, and $VEN_HOME / $VEN_STORAGE_PATH to drive the
+// resolver. Because these are process-global, those tests must be serialized.
+//
+// If each submodule owned its own static `Mutex<()>`, tests in the two
+// modules would still race each other in parallel — they'd hold different
+// locks. On macOS this raced visibly: `dirs::config_dir()` there reads only
+// `$HOME` (XDG is ignored on Apple platforms), so a `ven_home::tests` Drop
+// restoring `$HOME` mid-flight in another test would silently re-point
+// `config_dir()` at the runner's real home and the assertion would explode.
+//
+// One lock for the whole crate, in one place, fixes that.
+//
+// All env-mutating tests in this crate must `let _g = lock_test_env();` at
+// the top of the test before touching any of the relevant env vars.
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Acquire `TEST_ENV_LOCK` in a poison-resilient way. If a previous test
+/// panicked while holding the lock, take ownership of the inner guard
+/// rather than re-panicking on every subsequent test — that cascades a
+/// single root-cause failure into N spurious failures and hides the
+/// actual one.
+#[cfg(test)]
+pub(crate) fn lock_test_env() -> std::sync::MutexGuard<'static, ()> {
+    TEST_ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+}

@@ -226,30 +226,21 @@ mod tests {
     // so it runs on every platform.
     // ─────────────────────────────────────────────────────────────────────
 
+    // Shared with `ven_home::tests` — see the rationale in `core/mod.rs`.
+    // Per-module locks would let tests in the two modules run concurrently
+    // and trample each other's $HOME / $XDG_CONFIG_HOME / $APPDATA. On
+    // macOS that surfaced as `round_trip_storage_home` panicking with
+    // "config should exist after save" — the file did get written, but
+    // the other module's Drop restored $HOME before we re-read it, so
+    // `dirs::config_dir()` came back pointing at the runner's real home.
     #[cfg(not(target_os = "windows"))]
-    use std::sync::{Mutex, MutexGuard};
-
-    /// `dirs::config_dir()` is process-global on every platform we ship to;
-    /// redirecting it via `HOME` / `XDG_CONFIG_HOME` / `APPDATA` env mutation
-    /// inside a single test process must therefore be serialized.
-    #[cfg(not(target_os = "windows"))]
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    /// Poison-resilient lock acquisition. If a prior test panicked inside
-    /// the critical section, take ownership of the inner guard instead of
-    /// re-panicking on every subsequent test (which otherwise cascades a
-    /// single root-cause failure into N reported failures and hides the
-    /// actual one).
-    #[cfg(not(target_os = "windows"))]
-    fn lock_env() -> MutexGuard<'static, ()> {
-        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
-    }
+    use crate::core::lock_test_env as lock_env;
 
     /// Repoint `dirs::config_dir()` at a fresh tempdir for the duration of
     /// the test, restoring whatever was there before on drop.
     #[cfg(not(target_os = "windows"))]
     struct ConfigDirRedirect {
-        _guard: MutexGuard<'static, ()>,
+        _guard: std::sync::MutexGuard<'static, ()>,
         _temp: tempfile::TempDir,
         prev: Vec<(&'static str, Option<String>)>,
     }
