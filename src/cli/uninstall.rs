@@ -104,10 +104,7 @@ pub fn cmd_uninstall(
                 "Start PowerShell -> Run as Administrator".dimmed()
             );
         } else {
-            println!(
-                "    Re-run with sudo: {}",
-                "sudo ven uninstall".bold()
-            );
+            println!("    Re-run with sudo: {}", "sudo ven uninstall".bold());
         }
         println!(
             "    Or pass {} to skip the system layer for now.",
@@ -254,10 +251,7 @@ fn print_plan(plan: &UninstallPlan) {
             .map(|p| p.display().to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        println!(
-            "    • system PATH entries {}",
-            entries.bold()
-        );
+        println!("    • system PATH entries {}", entries.bold());
     }
     let rc_present: Vec<_> = plan
         .rc_files_to_clean
@@ -270,7 +264,10 @@ fn print_plan(plan: &UninstallPlan) {
             format!("({})", rc_present.len()).bold()
         );
         for rc in &rc_present {
-            println!("                         {}", rc.display().to_string().dimmed());
+            println!(
+                "                         {}",
+                rc.display().to_string().dimmed()
+            );
         }
     }
 

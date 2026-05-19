@@ -189,16 +189,16 @@ pub fn build_plan(scope: UninstallScope) -> Result<UninstallPlan> {
     } else {
         Vec::new()
     };
-    let system_path_entries: Vec<PathBuf> = if cfg!(target_os = "windows") && scope.includes_system()
-    {
-        system_artifacts
-            .iter()
-            .filter(|p| p.is_dir())
-            .cloned()
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let system_path_entries: Vec<PathBuf> =
+        if cfg!(target_os = "windows") && scope.includes_system() {
+            system_artifacts
+                .iter()
+                .filter(|p| p.is_dir())
+                .cloned()
+                .collect()
+        } else {
+            Vec::new()
+        };
 
     let user_env_vars: Vec<&'static str> = if scope.includes_user() {
         vec!["VEN_HOME"]
@@ -283,9 +283,7 @@ pub fn execute_plan(plan: &UninstallPlan, opts: &ExecuteOptions) -> Result<Unins
     for var in &plan.user_env_vars {
         match user_env::unset_user_env(var) {
             Ok(()) => report.removed_env_vars.push((*var).to_string()),
-            Err(e) => report
-                .warnings
-                .push(format!("Could not unset ${var}: {e}")),
+            Err(e) => report.warnings.push(format!("Could not unset ${var}: {e}")),
         }
     }
 
@@ -382,10 +380,9 @@ pub fn execute_plan(plan: &UninstallPlan, opts: &ExecuteOptions) -> Result<Unins
                             "Running executable renamed to {} — Windows will free it on reboot.",
                             orphan.display()
                         )),
-                        Err(e) => report.errors.push(format!(
-                            "Could not self-orphan {}: {e}",
-                            exe.display()
-                        )),
+                        Err(e) => report
+                            .errors
+                            .push(format!("Could not self-orphan {}: {e}", exe.display())),
                     }
                 }
             }
@@ -451,7 +448,13 @@ fn detect_system_artifacts() -> Vec<PathBuf> {
 fn candidate_rc_files() -> Vec<PathBuf> {
     let mut v = Vec::new();
     if let Some(home) = dirs::home_dir() {
-        for name in [".bashrc", ".zshrc", ".zprofile", ".bash_profile", ".profile"] {
+        for name in [
+            ".bashrc",
+            ".zshrc",
+            ".zprofile",
+            ".bash_profile",
+            ".profile",
+        ] {
             v.push(home.join(name));
         }
         v.push(home.join(".config").join("fish").join("config.fish"));
@@ -489,8 +492,8 @@ fn scrub_rc_file(rc: &Path) -> Result<bool> {
     if !rc.is_file() {
         return Ok(false);
     }
-    let original = std::fs::read_to_string(rc)
-        .with_context(|| format!("Failed to read {}", rc.display()))?;
+    let original =
+        std::fs::read_to_string(rc).with_context(|| format!("Failed to read {}", rc.display()))?;
     let scrubbed = scrub_rc_content(&original);
     if scrubbed != original {
         std::fs::write(rc, scrubbed)
@@ -569,11 +572,7 @@ fn is_orphan_ven_path_line(line: &str) -> bool {
 /// remove and report the orphan as a deferred action. `current_exe` is
 /// passed so we can recognise the running .exe.old that we just renamed
 /// in step 6/7 of `execute_plan` (it'll be in this tree).
-fn remove_path_best_effort(
-    path: &Path,
-    current_exe: Option<&Path>,
-    report: &mut UninstallReport,
-) {
+fn remove_path_best_effort(path: &Path, current_exe: Option<&Path>, report: &mut UninstallReport) {
     if !path.exists() {
         return;
     }
@@ -609,10 +608,9 @@ fn remove_path_best_effort(
             // per-entry removal so we get partial cleanup.
             #[cfg(not(target_os = "windows"))]
             {
-                report.errors.push(format!(
-                    "Could not remove dir {}: {e}",
-                    path.display()
-                ));
+                report
+                    .errors
+                    .push(format!("Could not remove dir {}: {e}", path.display()));
                 return;
             }
             #[cfg(target_os = "windows")]
@@ -651,14 +649,11 @@ fn remove_path_best_effort(
                 Err(e) => {
                     // A dir that still contains a skipped orphan can't be
                     // removed; that's expected, not an error.
-                    let still_contains_orphan = skipped_orphans
-                        .iter()
-                        .any(|o| o.starts_with(p));
+                    let still_contains_orphan = skipped_orphans.iter().any(|o| o.starts_with(p));
                     if !still_contains_orphan {
-                        report.errors.push(format!(
-                            "Could not remove {}: {e}",
-                            p.display()
-                        ));
+                        report
+                            .errors
+                            .push(format!("Could not remove {}: {e}", p.display()));
                     }
                 }
             }
@@ -1057,17 +1052,21 @@ mod tests {
             scope: UninstallScope::UserOnly,
         };
 
-        let report = execute_plan(
-            &plan,
-            &ExecuteOptions {
-                dry_run: true,
-            },
-        )
-        .expect("dry-run should succeed");
+        let report =
+            execute_plan(&plan, &ExecuteOptions { dry_run: true }).expect("dry-run should succeed");
 
-        assert!(report.removed_dirs.is_empty(), "dry-run must not remove dirs");
-        assert!(report.removed_files.is_empty(), "dry-run must not remove files");
-        assert!(report.removed_env_vars.is_empty(), "dry-run must not unset env");
+        assert!(
+            report.removed_dirs.is_empty(),
+            "dry-run must not remove dirs"
+        );
+        assert!(
+            report.removed_files.is_empty(),
+            "dry-run must not remove files"
+        );
+        assert!(
+            report.removed_env_vars.is_empty(),
+            "dry-run must not unset env"
+        );
         assert!(
             fake_root.exists(),
             "fake install tree must still exist after dry-run"
@@ -1105,8 +1104,8 @@ mod tests {
             scope: UninstallScope::UserOnly,
         };
 
-        let report = execute_plan(&plan, &ExecuteOptions::default())
-            .expect("execute should succeed");
+        let report =
+            execute_plan(&plan, &ExecuteOptions::default()).expect("execute should succeed");
         assert!(!fake_root.exists(), "fake root should be gone");
         assert_eq!(report.errors.len(), 0, "no errors expected, got {report:?}");
     }
