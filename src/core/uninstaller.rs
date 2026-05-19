@@ -550,10 +550,7 @@ fn scrub_rc_content(input: &str) -> String {
     let mut out = input.to_string();
 
     for (start, end) in KNOWN_BLOCKS {
-        loop {
-            let Some(s) = out.find(start) else {
-                break;
-            };
+        while let Some(s) = out.find(start) {
             let Some(rel) = out[s..].find(end) else {
                 break;
             };
@@ -663,6 +660,12 @@ fn is_orphan_ven_path_line(line: &str) -> bool {
 /// passed so we can recognise the running .exe.old that we just renamed
 /// in step 6/7 of `execute_plan` (it'll be in this tree).
 fn remove_path_best_effort(path: &Path, current_exe: Option<&Path>, report: &mut UninstallReport) {
+    // `current_exe` is only consulted by the Windows per-entry walker below
+    // (we skip the `.exe.old` orphan we just renamed). On Unix the match
+    // below always returns, so silence the unused-variable lint here.
+    #[cfg(not(target_os = "windows"))]
+    let _ = current_exe;
+
     if !path.exists() {
         return;
     }
@@ -757,12 +760,6 @@ fn remove_path_best_effort(path: &Path, current_exe: Option<&Path>, report: &mut
                 path.display()
             ));
         }
-    }
-
-    // Belt-and-braces on non-Windows: we already returned above on success.
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = current_exe;
     }
 }
 
@@ -967,6 +964,11 @@ fn normalize_for_compare(p: &Path) -> String {
 }
 
 /// `child` lives inside `parent` (or equals it).
+///
+/// Only called from `#[cfg(target_os = "windows")]` blocks above plus the
+/// unit test below. Marked dead-code-allowed so the Unix lib build under
+/// `-D warnings` doesn't flag it.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 fn path_starts_with(child: &Path, parent: &Path) -> bool {
     if child == parent {
         return true;
