@@ -482,6 +482,16 @@ try {
             New-Item -ItemType Directory -Force -Path $installDir | Out-Null
             Copy-Item -Force (Join-Path $extractDir 'ven.exe')          (Join-Path $installDir 'ven.exe')
             Copy-Item -Force (Join-Path $extractDir 'ven-launcher.exe') (Join-Path $installDir 'ven-launcher.exe')
+            # Bundle the canonical PowerShell uninstall script alongside the
+            # binary so a user whose `ven.exe` breaks (or whose ven is missing
+            # from PATH) can still recover with one command:
+            #   & "$env:USERPROFILE\.ven\bin\ven-uninstall.ps1"
+            # Source of truth: scripts/uninstall.ps1. Optional — older release
+            # archives (< v0.1.7) don't ship it; degrade silently.
+            $uninstallSrc = Join-Path $extractDir 'ven-uninstall.ps1'
+            if (Test-Path $uninstallSrc) {
+                Copy-Item -Force $uninstallSrc (Join-Path $installDir 'ven-uninstall.ps1')
+            }
         }
         $scope = if ($mode -eq 'system') { 'Machine' } else { 'User' }
         Run-Step ("Updating $scope PATH + WM_SETTINGCHANGE") {

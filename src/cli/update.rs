@@ -514,17 +514,10 @@ fn find_binary(root: &Path, stem: &str) -> Result<PathBuf> {
 #[cfg(target_os = "windows")]
 fn replace_in_place(src: &Path, target: &Path) -> Result<()> {
     if target.exists() {
-        // `with_extension` swaps the *whole* extension: ven.exe -> ven.exe.old.
-        let stale = target.with_extension("exe.old");
-        // Leftover from a previous update — best-effort cleanup.
-        let _ = std::fs::remove_file(&stale);
-        std::fs::rename(target, &stale).with_context(|| {
-            format!(
-                "Could not move {} -> {} (is another ven process running?)",
-                target.display(),
-                stale.display()
-            )
-        })?;
+        // Delegate the .exe → .exe.old rename to `core::uninstaller` so
+        // both `ven update` and `ven uninstall` share the same Windows
+        // self-orphan dance — if you patch one, you patch the other.
+        crate::core::uninstaller::self_orphan_windows_exe(target)?;
     }
     std::fs::copy(src, target).with_context(|| {
         format!(

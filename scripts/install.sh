@@ -524,6 +524,14 @@ do_install_binaries() {
     mkdir -p "$install_dir"
     install -m 0755 "$ven_tmp/extract/ven"          "$install_dir/ven"
     install -m 0755 "$ven_tmp/extract/ven-launcher" "$install_dir/ven-launcher"
+    # Bundle the canonical uninstall script alongside the binary so a
+    # user whose `ven` binary breaks can still recover with one command:
+    #   "$HOME/.ven/bin/ven-uninstall"
+    # See scripts/uninstall.sh for the maintained source. Optional —
+    # older release tarballs (< v0.1.7) won't have it; degrade silently.
+    if [ -f "$ven_tmp/extract/ven-uninstall.sh" ]; then
+        install -m 0755 "$ven_tmp/extract/ven-uninstall.sh" "$install_dir/ven-uninstall"
+    fi
 }
 
 do_path_user()   { ensure_user_rc_path "$install_dir"; }

@@ -506,6 +506,26 @@ ven update --yes --json         # scripted: no prompt, machine-readable
 > release. SHA256-verified, auto-elevates via UAC / `sudo` for system
 > installs. Distinct from `ven upgrade`, which touches **project packages**.
 
+### Uninstall (since v0.1.7)
+
+```bash
+ven uninstall                   # interactive: show plan + prompt before nuking
+ven uninstall --dry-run         # print the plan; touch nothing
+ven uninstall -y                # skip the confirm (CI / scripts)
+ven uninstall --user-only       # skip the system layer (no sudo needed)
+ven uninstall --json -y         # machine-readable result
+```
+
+> `ven uninstall` replaces the long copy-paste PowerShell / shell snippet
+> that used to live on the install page. One confirmed, dry-run-capable
+> command removes the binary, every installed runtime, cache, lockfile
+> state, persisted `VEN_HOME`, the pointer file, PATH entries, and the
+> ven-managed blocks in your shell rc files. Honors a relocated storage
+> root (`ven path set D:\ven` → uninstall removes both `~/.ven` AND
+> `D:\ven`). Bundled fallback scripts (`~/.ven/bin/ven-uninstall` on
+> Unix, `~\.ven\bin\ven-uninstall.ps1` on Windows) keep working even when
+> the binary itself is broken. See [docs/cmds/uninstall.md](docs/cmds/uninstall.md).
+
 ---
 
 ## 🗂️ Storage Layout

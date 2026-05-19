@@ -63,6 +63,7 @@ See [shell-integration.md](shell-integration.md).
 | Command | Purpose |
 |---------|---------|
 | `ven update [--check\|--version <tag>\|-y\|--force\|--json]` | Self-update `ven` + `ven-launcher` to the latest GitHub release. Verifies SHA256, swaps both binaries in place (Windows: rename-aside trick; Unix: unlink + write), and auto-elevates (UAC / `sudo`) when the install dir requires admin. Distinct from `ven upgrade`, which touches **project packages**. See [cmds/update.md](cmds/update.md). |
+| `ven uninstall [-y\|--dry-run\|--user-only\|--system-only\|--json]` | Full-nuke teardown of the ven install: binary + every runtime + cache + state + persisted `VEN_HOME` + pointer file + PATH entries + rc-file blocks. Honors a relocated storage root (`ven path set`). System layer needs `sudo` / Admin; native command bails with a clear hint instead of forking elevation. Bundled fallback scripts (`ven-uninstall.{ps1,sh}`) ship alongside the binary for broken-install recovery. See [cmds/uninstall.md](cmds/uninstall.md). |
 
 ## Installer (cross-platform)
 

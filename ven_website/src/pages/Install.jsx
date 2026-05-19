@@ -628,7 +628,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.6 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.7 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>
@@ -721,45 +721,100 @@ export default function Install() {
           <header className="text-center mb-12">
             <h2 className="font-headline-md text-headline-md mb-4">Uninstall</h2>
             <p className="text-on-surface-variant">
-              Leaving us? These commands fully reverse the install one-liners — they remove the{' '}
-              <code className="text-on-surface">~/.ven</code> tree (binaries, runtimes, cache, lockfile
-              state) and strip the PATH entry that the installer added. Pick the block for your shell;
-              they are not interchangeable.
+              Leaving us? Since <span className="font-bold text-on-surface">v0.1.7</span> one
+              command removes everything — binary, every installed runtime, cache, lockfile state,
+              persisted <code className="text-on-surface">$VEN_HOME</code>, the pointer file, and
+              the PATH entries the installer added. Honors a relocated storage root
+              (<code className="text-on-surface">ven path set D:\ven</code> → uninstall removes
+              both <code className="text-on-surface">~/.ven</code> AND
+              <code className="text-on-surface"> D:\ven</code>).
             </p>
           </header>
 
-          <div className="space-y-8">
-            {UNINSTALL_ORDER.map((id) => {
-              const u = UNINSTALL[id]
-              return (
-                <div key={id}>
-                  <header className="flex items-baseline gap-3 mb-3 flex-wrap">
-                    <h3 className="font-headline-md text-lg font-bold text-error">
-                      {u.label}
-                    </h3>
-                    <span className="text-xs text-on-surface-variant opacity-70">
-                      {u.note}
-                    </span>
-                  </header>
-                  <CodeBlock
-                    code={u.cmd}
-                    prompt={u.prompt}
-                    tone="cyan"
-                    language={id === 'windows' ? 'powershell' : 'shell'}
-                  />
-                </div>
-              )
-            })}
+          {/* The recommended path: one CLI command. */}
+          <div className="mb-10">
+            <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+              <h3 className="font-headline-md text-lg font-bold text-on-surface">
+                {UNINSTALL.simple.label}
+              </h3>
+              <span className="text-xs text-on-surface-variant opacity-70">
+                {UNINSTALL.simple.note}
+              </span>
+            </header>
+            <CodeBlock
+              code={UNINSTALL.simple.cmd}
+              prompt={UNINSTALL.simple.prompt}
+              tone="cyan"
+              language="shell"
+            />
+            <p className="mt-3 text-xs text-on-surface-variant">
+              Same teardown the bundled fallback scripts perform (
+              <code className="text-on-surface">~/.ven/bin/ven-uninstall</code> on Unix,
+              <code className="text-on-surface"> ~\.ven\bin\ven-uninstall.ps1</code> on Windows).
+              System install detected? Re-run with{' '}
+              <code className="text-on-surface">sudo</code> (Unix) or from an elevated PowerShell
+              (Windows).{' '}
+              <a
+                href="https://github.com/bhuwanb23/ven/blob/main/docs/cmds/uninstall.md"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary-fixed-dim hover:underline underline-offset-4"
+              >
+                Full docs →
+              </a>
+            </p>
           </div>
 
-          <p className="mt-10 text-xs text-on-surface-variant opacity-60 text-center">
-            Using a non-default <code className="text-on-surface">$VEN_HOME</code> or a portable
-            launcher with a sibling <code className="text-on-surface">.ven/</code> folder? Replace{' '}
-            <code className="text-on-surface">~/.ven</code> /{' '}
-            <code className="text-on-surface">%USERPROFILE%\.ven</code> with that path. Nothing else
-            needs to change — the installers never write outside the install root and the matching
-            shell-rc / PATH entry.
-          </p>
+          {/* Escape hatch: copy-paste shell snippets for broken-install recovery. */}
+          <details className="group border border-outline-variant/40 rounded-lg overflow-hidden">
+            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold flex items-center justify-between bg-surface-container-low hover:bg-surface-container transition-colors">
+              <span>
+                Advanced: manual uninstall (no <code className="text-on-surface">ven</code> binary on PATH)
+              </span>
+              <span className="text-xs text-on-surface-variant opacity-60 group-open:hidden">
+                show snippets ▼
+              </span>
+              <span className="text-xs text-on-surface-variant opacity-60 hidden group-open:inline">
+                hide ▲
+              </span>
+            </summary>
+            <div className="p-4 space-y-6 border-t border-outline-variant/30">
+              <p className="text-xs text-on-surface-variant">
+                Use these only when <code className="text-on-surface">ven uninstall</code> can't
+                run — e.g. the binary is broken, missing from PATH, or you never installed it via
+                the official script. Same logic as the bundled fallback scripts.
+              </p>
+              {UNINSTALL_ORDER.map((id) => {
+                const u = UNINSTALL.advanced[id]
+                return (
+                  <div key={id}>
+                    <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+                      <h4 className="font-headline-md text-base font-bold text-error">
+                        {u.label}
+                      </h4>
+                      <span className="text-xs text-on-surface-variant opacity-70">
+                        {u.note}
+                      </span>
+                    </header>
+                    <CodeBlock
+                      code={u.cmd}
+                      prompt={u.prompt}
+                      tone="cyan"
+                      language={id === 'windows' ? 'powershell' : 'shell'}
+                    />
+                  </div>
+                )
+              })}
+              <p className="text-xs text-on-surface-variant opacity-60">
+                Using a non-default <code className="text-on-surface">$VEN_HOME</code> or a
+                portable launcher with a sibling <code className="text-on-surface">.ven/</code>{' '}
+                folder? Replace <code className="text-on-surface">~/.ven</code> /{' '}
+                <code className="text-on-surface">%USERPROFILE%\.ven</code> with that path. The
+                <code className="text-on-surface"> ven uninstall</code> CLI does this lookup
+                automatically.
+              </p>
+            </div>
+          </details>
 
           <div className="mt-6 text-sm text-center">
             <a

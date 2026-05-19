@@ -155,6 +155,10 @@ jobs:
           $src = "target/${{ matrix.target }}/release"
           Copy-Item "$src/ven.exe"          (Join-Path $stage "ven.exe")
           Copy-Item "$src/ven-launcher.exe" (Join-Path $stage "ven-launcher.exe")
+          # Bundle the canonical PowerShell uninstall script (since v0.1.7).
+          # `scripts/install.ps1` copies this into the install dir so users
+          # whose `ven.exe` is broken can still recover with one command.
+          Copy-Item "scripts/uninstall.ps1" (Join-Path $stage "ven-uninstall.ps1")
 
           $archive = Join-Path $dist "ven-${{ matrix.os_label }}-${{ matrix.arch }}.zip"
           Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $archive -Force
@@ -165,6 +169,7 @@ jobs:
           # double-clickable terminal shim ("Start ven.cmd") + README.
           Copy-Item "$src/ven.exe"          (Join-Path $launcher "ven.exe")
           Copy-Item "$src/ven-launcher.exe" (Join-Path $launcher "ven-launcher.exe")
+          Copy-Item "scripts/uninstall.ps1" (Join-Path $launcher "ven-uninstall.ps1")
 
           # Double-click shim. .cmd has no execution-policy or admin gate on
           # any Windows version, so it works inside locked-down corp profiles.
@@ -237,9 +242,14 @@ jobs:
           src="target/${{ matrix.target }}/release"
           install -m 0755 "$src/ven"           "$stage/ven"
           install -m 0755 "$src/ven-launcher"  "$stage/ven-launcher"
+          # Bundle the canonical POSIX uninstall script (since v0.1.7).
+          # `scripts/install.sh` copies this into the install dir as
+          # `ven-uninstall` (no extension) so users whose `ven` binary is
+          # broken can still recover with one command.
+          install -m 0755 "scripts/uninstall.sh" "$stage/ven-uninstall.sh"
 
           archive="$dist/ven-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
-          tar -C "$stage" -czf "$archive" ven ven-launcher
+          tar -C "$stage" -czf "$archive" ven ven-launcher ven-uninstall.sh
 
           # Discoverable portable launcher bundle for corporate / locked-down
           # environments where command-line proxies (Zscaler, etc.) block
@@ -247,6 +257,7 @@ jobs:
           # double-clickable terminal shim (Start ven.command / start-ven.sh) + README.
           install -m 0755 "$src/ven"           "$launcher/ven"
           install -m 0755 "$src/ven-launcher"  "$launcher/ven-launcher"
+          install -m 0755 "scripts/uninstall.sh" "$launcher/ven-uninstall.sh"
 
           # Per-OS double-click shim. macOS bundle gets `Start ven.command`
           # (Finder treats .command as double-clickable Terminal scripts).
@@ -301,7 +312,7 @@ jobs:
             https://github.com/bhuwanb23/ven#which-binary-should-i-use
           EOF
           launcher_archive="$dist/ven-launcher-${{ matrix.os_label }}-${{ matrix.arch }}.tar.gz"
-          tar -C "$launcher" -czf "$launcher_archive" ven ven-launcher "$shim_name" README.txt
+          tar -C "$launcher" -czf "$launcher_archive" ven ven-launcher ven-uninstall.sh "$shim_name" README.txt
 
           install -m 0755 "$src/ven-setup" \
             "$dist/ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}"

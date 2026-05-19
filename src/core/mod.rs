@@ -24,6 +24,7 @@ pub mod runtime_bin;
 pub mod rust_install;
 pub mod security;
 pub mod storage_move;
+pub mod uninstaller;
 pub mod user_env;
 pub mod ven_config;
 pub mod ven_home;

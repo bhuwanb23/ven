@@ -57,9 +57,26 @@ export const PLATFORM_ORDER = ['windows', 'macos', 'linux', 'source']
 // Order matches the recommended workflow (setup once; `ven update` from v0.1.7+).
 export const AFTER_INSTALL_COMMANDS = ['ven setup', 'ven update']
 
-// Uninstall snippets shown on /install. Three real, working scripts — one per
-// OS family — that actually remove ven from a fresh machine. Kept here (not
-// inline in Install.jsx) so a future cleanup pass touches a single file.
+// Uninstall snippets shown on /install.
+//
+// SHAPE (since v0.1.7):
+//
+//   UNINSTALL.simple
+//     The recommended path. A single `ven uninstall` invocation: shows a
+//     dry-run plan, prompts for confirmation, then removes binary + every
+//     runtime + cache + state + persisted VEN_HOME + pointer file + PATH
+//     entries + rc-file blocks. Honors a relocated $VEN_HOME (`ven path
+//     set D:\ven` → uninstall removes both `~/.ven` and `D:\ven`).
+//
+//   UNINSTALL.advanced
+//     The original copy-paste snippets, kept for two recovery cases:
+//       1. The `ven` binary is broken / missing from PATH.
+//       2. You want to read the shell version before trusting the
+//          Rust impl.
+//     SYNC: scripts/uninstall.ps1 (windows), scripts/uninstall.sh
+//     (macos/linux). The bundled `ven-uninstall.{ps1,sh}` in each
+//     install dir is the same content as these blocks. Audit all four
+//     when one changes.
 //
 // Each script handles BOTH install modes the installers support:
 //
@@ -70,13 +87,7 @@ export const AFTER_INSTALL_COMMANDS = ['ven setup', 'ven update']
 //   Unix PATH           ~/.bashrc / ~/.zshrc / ~/.profile (per-user PATH block)
 //                       /etc/profile.d/ven.sh (system-wide PATH file)
 //
-// The first half of every script is unprivileged (cleans the user-mode
-// install). The second half detects a system install and either cleans it
-// (if running elevated / via sudo) or prints a clear "re-run elevated"
-// message. So copy-paste once unprivileged, optionally a second time
-// elevated, and ven is fully gone — no detective work required.
-//
-// Why three different commands and not one universal one-liner:
+// Three different `advanced` commands and not one universal one-liner because:
 //
 //   - Windows has no `rm -rf` or `sed`. PowerShell-native verbs (Remove-Item +
 //     [Environment]::SetEnvironmentVariable) are the only thing that works on
@@ -87,12 +98,8 @@ export const AFTER_INSTALL_COMMANDS = ['ven setup', 'ven update']
 //     truncates the file to nothing on macOS, so reusing the Linux command
 //     there would *break* the user's rc files instead of cleaning them up.
 //   - Linux distros all ship GNU sed; `-i` without an argument is correct.
-//
-// Each `cmd` is multi-line so it survives copy/paste cleanly into the target
-// shell. The trailing `2>/dev/null` (Unix) and `-ErrorAction SilentlyContinue`
-// (Windows) swallow "not found" noise when only one of the two install modes
-// was actually used.
-export const UNINSTALL = {
+
+const UNINSTALL_ADVANCED = {
   windows: {
     label: 'Windows · PowerShell',
     prompt: 'PS>',
@@ -210,6 +217,34 @@ export const UNINSTALL = {
       `echo 'Done. Open a NEW terminal so the cleaned PATH takes effect.'`,
     ].join('\n'),
   },
+}
+
+// Recommended path (since v0.1.7): a single first-class CLI command.
+// `ven uninstall` is dry-run-capable, JSON-emitting, scope-flagged
+// (--user-only / --system-only), and idempotent — re-running a partial
+// uninstall converges to a clean state. See docs/cmds/uninstall.md.
+const UNINSTALL_SIMPLE = {
+  label: 'ven 0.1.7+',
+  prompt: '$',
+  note:
+    'Native command. Prints a dry-run plan, prompts before nuking, removes everything (binary + every runtime + cache + state + persisted VEN_HOME + pointer file + PATH entries). Use `--dry-run` first to see exactly what would be removed; `-y` skips the prompt for CI.',
+  cmd: [
+    `# Preview the plan first (recommended)`,
+    `ven uninstall --dry-run`,
+    ``,
+    `# Then do it for real (asks "Permanently remove ven and all installed runtimes? [y/N]")`,
+    `ven uninstall`,
+    ``,
+    `# Non-interactive / CI`,
+    `ven uninstall -y                # skip the confirm prompt`,
+    `ven uninstall --user-only       # skip the system layer (no sudo needed)`,
+    `ven uninstall --json --dry-run  # capture the plan as JSON for a CI gate`,
+  ].join('\n'),
+}
+
+export const UNINSTALL = {
+  simple: UNINSTALL_SIMPLE,
+  advanced: UNINSTALL_ADVANCED,
 }
 
 export const UNINSTALL_ORDER = ['windows', 'macos', 'linux']

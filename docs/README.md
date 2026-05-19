@@ -33,6 +33,14 @@ The hub page [`languages.md`](languages.md) explains the `LanguagePlugin` trait,
 
 ## Per-command pages
 
-`docs/cmds/` has one page per CLI subcommand (`install`, `init`, `add`, `remove`, `delete`, `upgrade`, `status`, `setup`, `path`, `shell`, `list`, `check-add`, `graph`, `lock`, `sync`, `resolve`).
+`docs/cmds/` has one page per CLI subcommand (`install`, `init`, `add`, `remove`, `delete`, `upgrade`, `status`, `setup`, `path`, `update`, `uninstall`, `shell`, `list`, `check-add`, `graph`, `lock`, `sync`, `resolve`).
 
 Start with [`cmds/INDEX.md`](cmds/INDEX.md).
+
+## Install / Uninstall
+
+The lifecycle of ven itself is covered in three pages:
+
+- [`install-scripts.md`](install-scripts.md) — the canonical `install.ps1` / `install.sh` one-liners and the embedded `ven-setup` installer.
+- [`cmds/update.md`](cmds/update.md) — `ven update` self-update flow (v0.1.7+; SHA256-verified, auto-elevation).
+- [`cmds/uninstall.md`](cmds/uninstall.md) — `ven uninstall` full-nuke teardown (v0.1.7+; replaces the long copy-paste shell snippet with a single confirmed, dry-run-capable command).

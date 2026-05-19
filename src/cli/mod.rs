@@ -20,6 +20,7 @@ pub mod setup;
 pub mod shell;
 pub mod status;
 pub mod sync;
+pub mod uninstall;
 pub mod update;
 pub mod upgrade;
 pub mod why;
@@ -34,7 +35,7 @@ pub mod why;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n  ven update                   # Self-update ven + ven-launcher to the latest release\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n  ven update                   # Self-update ven + ven-launcher to the latest release\n  ven uninstall --dry-run      # Preview the full-nuke teardown plan (since v0.1.7)\n  ven uninstall                # Remove ven, all runtimes, PATH entries, persisted env\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -601,6 +602,50 @@ pub enum Commands {
         reentry: bool,
     },
 
+    /// Fully remove ven from this machine (binary + runtimes + state + env) — since v0.1.7
+    ///
+    /// Replaces the long copy-paste PowerShell/shell snippet that used to live on the
+    /// install page. Deletes the user install root (`~/.ven` or
+    /// `%USERPROFILE%\.ven`), the system install (if present and you're elevated),
+    /// the persisted `VEN_HOME` env var, the global pointer file, and every
+    /// ven-managed block in your shell rc files.
+    ///
+    /// Honors a relocated storage root: if you ran `ven path set D:\ven`, this
+    /// removes BOTH `~/.ven` (the binary install) AND `D:\ven` (the data).
+    ///
+    /// Examples:
+    ///   ven uninstall                # Interactive: shows plan, prompts before nuking
+    ///   ven uninstall --dry-run      # Print the plan; touch nothing
+    ///   ven uninstall -y             # Skip the confirm prompt (CI / scripts)
+    ///   ven uninstall --user-only    # Skip the system install layer
+    ///   ven uninstall --system-only  # Skip the user install layer (rare; for admins)
+    ///   ven uninstall --json -y      # Machine-readable result (CI gates)
+    ///   ven uninstall --json --dry-run # Plan as JSON without executing
+    #[command(
+        long_about = "Fully remove ven from this machine (binary + runtimes + state + env).\n\nReplaces the long copy-paste PowerShell/shell snippet on the install page with\na single confirmed, dry-run-capable command. Native Rust implementation;\n`scripts/uninstall.{ps1,sh}` ship alongside the binary as fallback for the\n\"my ven binary is broken\" recovery case.\n\nWhat gets removed (in scope All):\n  • User install root      ~/.ven  or  %USERPROFILE%\\.ven\n  • Relocated data dir     whatever ven path set wrote (if different from above)\n  • System install         /usr/local/bin/{ven,ven-launcher,ven-setup}\n                           +  /etc/profile.d/ven.sh  on Unix\n                           %ProgramFiles%\\ven\\         on Windows\n  • User env vars          VEN_HOME (removed via the same helper ven path set uses)\n  • Pointer file           ~/.config/ven/config.toml (or platform equivalent)\n  • User PATH entries      ~/.ven/bin  (Windows: User-scope registry edit)\n  • System PATH entries    %ProgramFiles%\\ven\\bin  (Windows: Machine-scope, elevated)\n  • Shell rc-file blocks   `# >>> ven env >>>`, `# >>> ven-setup PATH >>>`,\n                           `# >>> ven shell hook >>>` from .bashrc/.zshrc/\n                           .profile/.bash_profile/.zprofile/fish/config.fish\n                           AND any orphan PATH line referencing .ven/bin\n\nWhat survives:\n  • Project files (ven.toml, ven.lock) — those are part of your repo.\n  • node_modules / venv / etc. created inside individual projects.\n\nFlags:\n  --dry-run                  Print the plan; change nothing.\n  -y / --yes                 Skip the confirmation prompt (CI / scripts).\n  --user-only                Skip the system install layer.\n  --system-only              Skip the user install layer (rare; for admins).\n  --json                     Machine-readable output. Requires --dry-run OR -y.\n\nExit codes:\n  0  Uninstall succeeded (or no-op when nothing was installed)\n  1  Partial failure (see report) OR needs elevation for the system layer\n\nElevation:\n  The system install lives in dirs only writable by root/Admin. If detected,\n  ven prints a clear hint to re-run with `sudo ven uninstall` (Unix) or from\n  an elevated PowerShell (Windows). Use --user-only to skip the elevation\n  requirement when you only need to drop the per-user install."
+    )]
+    Uninstall {
+        /// Skip the confirmation prompt (CI / scripts)
+        #[arg(short = 'y', long)]
+        yes: bool,
+
+        /// Print the plan; touch nothing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Only touch the user-mode install + user-scope env state
+        #[arg(long, conflicts_with = "system_only")]
+        user_only: bool,
+
+        /// Only touch the system-mode install + system-scope env state
+        #[arg(long, conflicts_with = "user_only")]
+        system_only: bool,
+
+        /// Machine-readable output. Requires --dry-run OR -y / --yes.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Shell integration (internal — called by shell hook)
     #[command(hide = true)] // hides from --help
     Shell {
@@ -735,6 +780,13 @@ pub fn run(cli: Cli) -> Result<()> {
             json,
             reentry,
         } => update::cmd_update(check, version.as_deref(), yes, force, json, reentry),
+        Commands::Uninstall {
+            yes,
+            dry_run,
+            user_only,
+            system_only,
+            json,
+        } => uninstall::cmd_uninstall(yes, json, dry_run, user_only, system_only),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),
@@ -749,6 +801,7 @@ pub fn run(cli: Cli) -> Result<()> {
 // - src/cli/list.rs (+ list/helpers.rs, also reused by delete.rs)
 // - src/cli/delete.rs   ← removes an installed runtime, complement of `remove`
 // - src/cli/path.rs     ← `ven path show / set / reset` (storage relocation; v0.1.6+)
+// - src/cli/uninstall.rs ← `ven uninstall` full-nuke teardown (v0.1.7+)
 // - src/cli/status/
 // - src/cli/setup.rs
 // - src/cli/shell.rs
