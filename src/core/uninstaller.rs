@@ -458,12 +458,26 @@ fn candidate_rc_files() -> Vec<PathBuf> {
             v.push(home.join(name));
         }
         v.push(home.join(".config").join("fish").join("config.fish"));
-        // PowerShell user profile (cross-shell: there's no harm scanning it
-        // on Unix — the file simply won't exist).
+        // PowerShell user profiles (cross-shell: there's no harm scanning
+        // them on Unix — the files simply won't exist). The three paths
+        // mirror `shell::windows_powershell_profile_paths` so anything
+        // `ven shell install` could have written, this can clean up:
+        //   - PowerShell 7+ (the default `pwsh` profile)
+        //   - Cursor / VS Code's integrated terminal (loads
+        //     `Microsoft.VSCode_profile.ps1` instead of the host default)
+        //   - Windows PowerShell 5.1 (legacy `WindowsPowerShell` location)
+        // Missing any one of these has been observed to leave the broken
+        // `__ven_activate` function firing on every prompt — see the
+        // v0.1.7 follow-up that added the VSCode profile in particular.
         v.push(
             home.join("Documents")
                 .join("PowerShell")
                 .join("Microsoft.PowerShell_profile.ps1"),
+        );
+        v.push(
+            home.join("Documents")
+                .join("PowerShell")
+                .join("Microsoft.VSCode_profile.ps1"),
         );
         v.push(
             home.join("Documents")
@@ -483,6 +497,31 @@ const KNOWN_BLOCKS: &[(&str, &str)] = &[
     ("# >>> ven-setup PATH >>>", "# <<< ven-setup PATH <<<"),
     ("# >>> ven shell hook >>>", "# <<< ven shell hook <<<"),
 ];
+
+/// Head markers for the `ven shell install` hook block. Unlike the fenced
+/// `KNOWN_BLOCKS` pairs above, the installer in `src/cli/shell.rs` writes
+/// these without any closing marker — the hook is just appended to the
+/// end of the profile. So the scrubber's strategy is "trim from the
+/// earliest head-marker line to end-of-file".
+///
+/// Listing all three hook flavors AND the wrapper banner means we catch:
+///   - profiles touched by `ven shell install` (which prefixes the wrapper
+///     banner before the body), and
+///   - profiles a user wired up by piping `ven shell hook <shell>` >> rc
+///     (no banner, hook body starts directly).
+const HOOK_HEAD_MARKERS: &[&str] = &[
+    "# ven shell hook - Auto-loads on terminal start",
+    "# ven shell hook (bash/zsh)",
+    "# ven shell hook (fish)",
+    "# ven shell hook (PowerShell)",
+];
+
+/// Soft cap on how much trailing content the hook scrub is willing to
+/// drop. The hook itself is ~1–2 KB across all three shells; anything
+/// past this threshold almost certainly means the user appended their own
+/// content after the hook, so we'd rather leave the broken hook in place
+/// (and warn) than silently nuke their custom rc additions.
+const HOOK_TRIM_BUDGET: usize = 16 * 1024;
 
 /// Read `rc`, strip every ven-managed block AND any unmarked line
 /// containing `.ven/bin` (legacy installs that pre-date the fenced-block
@@ -529,6 +568,14 @@ fn scrub_rc_content(input: &str) -> String {
         }
     }
 
+    // Strip the unfenced `ven shell hook` block written by `ven shell
+    // install` (and by `ven shell hook <shell> >> ~/.bashrc`-style manual
+    // setups). Has to run AFTER the fenced-block pass so we don't
+    // double-trim — but BEFORE the orphan-line filter, which would
+    // otherwise spuriously strip `__VEN_BIN="…/.ven/bin/ven"` lines
+    // mid-hook and leave a broken body.
+    out = trim_shell_hook_block(&out);
+
     // Strip any orphan line that still references `.ven/bin` (legacy
     // installs whose PATH lines were never wrapped in a marker block, or
     // bare lines a user added by hand). Keep everything else.
@@ -545,6 +592,49 @@ fn scrub_rc_content(input: &str) -> String {
         result.push('\n');
     }
     result
+}
+
+/// If `content` contains any `# ven shell hook …` head marker, return
+/// `content` trimmed from the start of that line to end-of-file. The
+/// installer always appends the hook at EOF, so trim-to-EOF is the right
+/// inverse — and it's the only way to handle a block that has no closing
+/// fence.
+///
+/// Bails out (returns the input unchanged) when the trim would exceed
+/// [`HOOK_TRIM_BUDGET`]; that almost always means the user has appended
+/// their own content after the hook, and silently nuking it would be
+/// worse than leaving the dead hook in place for a follow-up `ven
+/// uninstall` to log a warning about.
+fn trim_shell_hook_block(content: &str) -> String {
+    let mut earliest: Option<usize> = None;
+    for m in HOOK_HEAD_MARKERS {
+        if let Some(i) = content.find(m) {
+            earliest = match earliest {
+                Some(prev) => Some(prev.min(i)),
+                None => Some(i),
+            };
+        }
+    }
+    let Some(mut start) = earliest else {
+        return content.to_string();
+    };
+    let bytes = content.as_bytes();
+    // Walk back to the start of the line that holds the marker so we
+    // don't leave a half-stripped line behind.
+    while start > 0 && bytes[start - 1] != b'\n' {
+        start -= 1;
+    }
+    // Also eat exactly one blank line immediately above — the installer
+    // prefixes `"\n"` before the wrapper banner, and leaving a trailing
+    // blank line in an otherwise-clean rc file is a common diff-noise
+    // complaint we've heard from users since v0.1.5.
+    if start >= 2 && &content[start - 2..start] == "\n\n" {
+        start -= 1;
+    }
+    if content.len() - start > HOOK_TRIM_BUDGET {
+        return content.to_string();
+    }
+    content[..start].to_string()
 }
 
 /// `true` for lines like `export PATH="$HOME/.ven/bin:$PATH"` that
@@ -996,6 +1086,77 @@ mod tests {
         assert!(!out.contains("ven env"));
         assert!(!out.contains("ven-setup PATH"));
         assert!(out.contains("# middle"));
+    }
+
+    #[test]
+    fn scrub_strips_powershell_hook_block_without_closing_marker() {
+        // Reproduces the v0.1.7 leak: `ven shell install` on Windows writes
+        // the hook with the `# ven shell hook (PowerShell)` marker and no
+        // closing fence. Pre-fix, the scrubber missed it entirely and the
+        // dead `__ven_activate` kept spamming `Write-Warning` on every
+        // PowerShell prompt after `ven uninstall`.
+        let prior = "Set-Alias g git\n$env:EDITOR = 'nvim'\n";
+        let hook = "\n# ven shell hook - Auto-loads on terminal start\n\
+                    \n# ven shell hook (PowerShell) - Auto-switches runtimes on cd / Set-Location\n\
+                    if (-not $global:VEN_ORIGINAL_PATH) { $global:VEN_ORIGINAL_PATH = $env:PATH }\n\
+                    $global:VEN_BIN = \"C:\\Users\\me\\.ven\\bin\\ven.exe\"\n\
+                    function global:__ven_activate { Write-Warning 'ven: gone' }\n\
+                    function global:prompt { __ven_activate; '> ' }\n";
+        let input = format!("{prior}{hook}");
+        let out = scrub_rc_content(&input);
+        assert!(out.contains("Set-Alias g git"), "user content preserved");
+        assert!(out.contains("EDITOR = 'nvim'"), "user content preserved");
+        assert!(
+            !out.contains("ven shell hook"),
+            "hook marker fully stripped"
+        );
+        assert!(
+            !out.contains("__ven_activate"),
+            "hook body fully stripped"
+        );
+        assert!(
+            !out.contains("VEN_ORIGINAL_PATH"),
+            "hook body fully stripped"
+        );
+    }
+
+    #[test]
+    fn scrub_strips_bash_hook_block_without_closing_marker() {
+        let prior = "alias ll='ls -lah'\nexport EDITOR=vim\n";
+        let hook = "\n# ven shell hook - Auto-loads on terminal start\n\
+                    \n# ven shell hook (bash/zsh) - Auto-switches runtimes on cd\n\
+                    __VEN_ORIGINAL_PATH=\"$PATH\"\n\
+                    __VEN_BIN=\"$HOME/.ven/bin/ven\"\n\
+                    __ven_activate() { :; }\n\
+                    cd() { builtin cd \"$@\" && __ven_activate; }\n\
+                    __ven_activate\n";
+        let input = format!("{prior}{hook}");
+        let out = scrub_rc_content(&input);
+        assert!(out.contains("alias ll='ls -lah'"));
+        assert!(out.contains("EDITOR=vim"));
+        assert!(!out.contains("ven shell hook"));
+        assert!(!out.contains("__ven_activate"));
+        assert!(
+            !out.contains("__VEN_BIN"),
+            "the embedded $HOME/.ven/bin reference must go with the hook"
+        );
+    }
+
+    #[test]
+    fn scrub_preserves_content_after_oversize_hook_match() {
+        // Defensive: if some plugin appends >16 KB after the hook marker
+        // we'd rather keep the broken hook around (and let a future
+        // uninstall pass log a warning) than silently nuke the user's
+        // custom content. Build a payload past the budget with a marker
+        // near the start, and confirm nothing was trimmed.
+        let mut input = String::from("# ven shell hook (bash/zsh)\nbody\n");
+        input.push_str(&"x".repeat(HOOK_TRIM_BUDGET + 16));
+        let out = scrub_rc_content(&input);
+        assert!(
+            out.contains("ven shell hook"),
+            "oversize trim must be a no-op so we don't shred custom content"
+        );
+        assert_eq!(out.len(), input.len(), "no bytes should have been removed");
     }
 
     #[test]

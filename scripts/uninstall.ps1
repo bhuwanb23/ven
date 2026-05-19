@@ -85,6 +85,59 @@ function _StripBlock([string]$path, [string]$name) {
     return $false
 }
 
+# Strip the *unfenced* `ven shell hook` block from a PowerShell profile.
+#
+# `ven shell install` appends the hook to the end of the profile using a
+# `# ven shell hook (PowerShell)` marker and NO closing fence — _StripBlock
+# can't catch it because there's no `# <<< … <<<` to match. So this helper
+# trims from the earliest hook head-marker line to end-of-file.
+#
+# Safety: caps the trim at 16 KB. The hook itself is ~1–2 KB; anything
+# bigger almost certainly means the user appended their own content after
+# the hook, and silently nuking it would be worse than leaving the broken
+# hook in place for the user to notice. Mirrors HOOK_TRIM_BUDGET in the
+# Rust uninstaller.
+function _StripHookBlock([string]$path) {
+    if (-not (Test-Path $path)) { return $false }
+    $content = Get-Content -Raw -Path $path -ErrorAction SilentlyContinue
+    if (-not $content) { return $false }
+
+    $markers = @(
+        '# ven shell hook - Auto-loads on terminal start',
+        '# ven shell hook (bash/zsh)',
+        '# ven shell hook (fish)',
+        '# ven shell hook (PowerShell)'
+    )
+    $earliest = -1
+    foreach ($m in $markers) {
+        $i = $content.IndexOf($m)
+        if ($i -ge 0 -and ($earliest -lt 0 -or $i -lt $earliest)) { $earliest = $i }
+    }
+    if ($earliest -lt 0) { return $false }
+
+    # Walk back to the start of the line that holds the marker so we don't
+    # leave a half-stripped line behind.
+    while ($earliest -gt 0 -and $content[$earliest - 1] -ne "`n") { $earliest-- }
+    # And eat exactly one preceding blank line if present — the installer
+    # prefixes "`n" before the wrapper banner.
+    if ($earliest -ge 2 -and $content.Substring($earliest - 2, 2) -eq "`n`n") {
+        $earliest--
+    }
+
+    $trimSize = $content.Length - $earliest
+    if ($trimSize -gt 16384) {
+        Write-Warning ("Skipping hook scrub of ${path}: trim would drop ${trimSize} bytes (>16 KB safety cap). Inspect the file and clear the '# ven shell hook' block by hand.")
+        return $false
+    }
+
+    $stripped = $content.Substring(0, $earliest)
+    if ($stripped -ne $content) {
+        if (-not $script:DryRun) { Set-Content -Path $path -Value $stripped -NoNewline }
+        return $true
+    }
+    return $false
+}
+
 function _IsAdmin {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     return ([Security.Principal.WindowsPrincipal]$id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -141,15 +194,27 @@ if (-not $script:SystemOnly) {
     }
 
     # 1d. PowerShell user profile — strip ven-managed blocks.
+    #
+    # The profile list mirrors `shell::windows_powershell_profile_paths`
+    # in the Rust source. `Microsoft.VSCode_profile.ps1` is the one Cursor
+    # / VS Code's integrated PowerShell loads instead of the host default
+    # — omitting it leaves the dead `__ven_activate` function spamming
+    # `Write-Warning` on every prompt in Cursor's terminal.
     foreach ($prof in @(
         (Join-Path (Split-Path $PROFILE -Parent) 'Microsoft.PowerShell_profile.ps1'),
         (Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'),
+        (Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.VSCode_profile.ps1'),
         (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1')
     )) {
-        $changedEnv  = _StripBlock $prof 'ven env'
-        $changedPath = _StripBlock $prof 'ven-setup PATH'
-        $changedHook = _StripBlock $prof 'ven shell hook'
-        if ($changedEnv -or $changedPath -or $changedHook) {
+        $changedEnv      = _StripBlock     $prof 'ven env'
+        $changedPath     = _StripBlock     $prof 'ven-setup PATH'
+        # Two-stage hook scrub: the fenced form (legacy / future) goes
+        # through _StripBlock, the unfenced form (what `ven shell install`
+        # actually writes today) goes through _StripHookBlock. Either is
+        # a no-op if its marker isn't present, so running both is safe.
+        $changedFenced   = _StripBlock     $prof 'ven shell hook'
+        $changedUnfenced = _StripHookBlock $prof
+        if ($changedEnv -or $changedPath -or $changedFenced -or $changedUnfenced) {
             Write-Host "${tag}Cleaned ven blocks from: $prof"
         }
     }

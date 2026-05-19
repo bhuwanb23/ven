@@ -86,6 +86,57 @@ strip_block() {
     say "stripped '$_name' block from: $_file"
 }
 
+# Strip the *unfenced* `ven shell hook` block from $1.
+#
+# `ven shell install` and `ven shell hook <shell> >> ~/.bashrc`-style setups
+# append the hook to EOF with one of the head markers below and NO closing
+# fence — strip_block can't handle that. So this trims from the earliest
+# head-marker line to end-of-file.
+#
+# Safety cap: 16 KB. The hook is ~1–2 KB across all three shells; anything
+# bigger almost certainly means user content after the hook, which we'd
+# rather leave intact (with a warning) than nuke. Mirrors HOOK_TRIM_BUDGET
+# in src/core/uninstaller.rs and the PowerShell fallback.
+strip_hook_block() {
+    _file="$1"
+    [ -f "$_file" ] || return 0
+    _start_line=$(awk '
+        /^# ven shell hook - Auto-loads on terminal start$/ { print NR; exit }
+        /^# ven shell hook \(bash\/zsh\)/                   { print NR; exit }
+        /^# ven shell hook \(fish\)/                        { print NR; exit }
+        /^# ven shell hook \(PowerShell\)/                  { print NR; exit }
+    ' "$_file" 2>/dev/null)
+    [ -n "$_start_line" ] || return 0
+    # Eat exactly one preceding blank line if present — the installer
+    # prefixes a leading blank line before the wrapper banner.
+    if [ "$_start_line" -gt 1 ]; then
+        _prev_line=$((_start_line - 1))
+        _prev_content=$(sed -n "${_prev_line}p" "$_file" 2>/dev/null)
+        if [ -z "$_prev_content" ]; then
+            _start_line=$_prev_line
+        fi
+    fi
+    # Tail of the file from the matched line — that's what we'd remove.
+    _trim_bytes=$(tail -n "+${_start_line}" "$_file" 2>/dev/null | wc -c | tr -d ' ')
+    if [ -n "$_trim_bytes" ] && [ "$_trim_bytes" -gt 16384 ]; then
+        say "WARN: skipping hook scrub of $_file: would drop ${_trim_bytes} bytes (>16 KB cap). Edit the file by hand to clear the '# ven shell hook' block."
+        return 0
+    fi
+    if [ -n "$VEN_UNINSTALL_DRY_RUN" ]; then
+        say "would strip 'ven shell hook' block from: $_file (line ${_start_line} to EOF)"
+        return 0
+    fi
+    _keep_lines=$((_start_line - 1))
+    _tmp="${_file}.ven-uninstall.tmp"
+    if [ "$_keep_lines" -gt 0 ]; then
+        head -n "$_keep_lines" "$_file" > "$_tmp" 2>/dev/null
+    else
+        : > "$_tmp"
+    fi
+    mv "$_tmp" "$_file"
+    say "stripped 'ven shell hook' block from: $_file"
+}
+
 say 'ven uninstall (POSIX fallback script)'
 if [ -n "$VEN_UNINSTALL_DRY_RUN" ]; then
     say '[i] Nothing will be removed; this is a plan-only run.'
@@ -101,13 +152,18 @@ if [ -z "$VEN_UNINSTALL_SYSTEM_ONLY" ]; then
         say "Removed user install: $HOME/.ven"
     fi
 
-    # 1b. Rc-file cleanup. Strip the fenced blocks first; then the orphan
-    #     line-based fallback for legacy installs that never used markers.
+    # 1b. Rc-file cleanup. Two-stage hook scrub: the fenced form (legacy
+    #     / future) goes through strip_block, the unfenced form (what
+    #     `ven shell install` actually writes today) goes through
+    #     strip_hook_block. Either is a no-op when its marker isn't
+    #     present, so running both is safe. Then the orphan-line fallback
+    #     mops up legacy installs that never used markers at all.
     for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bash_profile" "$HOME/.profile"; do
         if [ -f "$rc" ]; then
-            strip_block "$rc" 'ven env'
-            strip_block "$rc" 'ven-setup PATH'
-            strip_block "$rc" 'ven shell hook'
+            strip_block      "$rc" 'ven env'
+            strip_block      "$rc" 'ven-setup PATH'
+            strip_block      "$rc" 'ven shell hook'
+            strip_hook_block "$rc"
             if [ -z "$VEN_UNINSTALL_DRY_RUN" ]; then
                 ven_sed_inplace "$rc" '/\.ven\/bin/d'
             fi
@@ -118,9 +174,10 @@ if [ -z "$VEN_UNINSTALL_SYSTEM_ONLY" ]; then
     #     `ven shell hook` and the persisted-env writer).
     fish_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"
     if [ -f "$fish_cfg" ]; then
-        strip_block "$fish_cfg" 'ven env'
-        strip_block "$fish_cfg" 'ven-setup PATH'
-        strip_block "$fish_cfg" 'ven shell hook'
+        strip_block      "$fish_cfg" 'ven env'
+        strip_block      "$fish_cfg" 'ven-setup PATH'
+        strip_block      "$fish_cfg" 'ven shell hook'
+        strip_hook_block "$fish_cfg"
         if [ -z "$VEN_UNINSTALL_DRY_RUN" ]; then
             ven_sed_inplace "$fish_cfg" '/\.ven\/bin/d'
         fi
