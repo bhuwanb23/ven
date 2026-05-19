@@ -1110,10 +1110,7 @@ mod tests {
             !out.contains("ven shell hook"),
             "hook marker fully stripped"
         );
-        assert!(
-            !out.contains("__ven_activate"),
-            "hook body fully stripped"
-        );
+        assert!(!out.contains("__ven_activate"), "hook body fully stripped");
         assert!(
             !out.contains("VEN_ORIGINAL_PATH"),
             "hook body fully stripped"
