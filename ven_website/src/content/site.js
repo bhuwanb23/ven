@@ -30,19 +30,19 @@ export const INSTALL = {
     label: 'Windows',
     cmd: `irm ${INSTALL_PS1_URL} | iex`,
     note:
-      'PowerShell 5.1 or 7+. Installs to %USERPROFILE%\\.ven\\bin. Then run ven setup (once); upgrade ven anytime with ven update.',
+      'PowerShell 5.1 or 7+. Or download ven-setup-0.2.0-windows-x64.exe above. Installs to %USERPROFILE%\\.ven\\bin. Then ven shell install (once); upgrade with ven update.',
   },
   macos: {
     label: 'macOS',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note:
-      'Installs to ~/.ven/bin and adds PATH. Then ven setup (once); upgrade with ven update.',
+      'Or download ven-setup-0.2.0-macos-* above. Installs to ~/.ven/bin and adds PATH. Then ven shell install (once); upgrade with ven update.',
   },
   linux: {
     label: 'Linux',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note:
-      'Bash / Zsh / Fish. Then ven setup (once); upgrade with ven update.',
+      'Or download ven-setup-0.2.0-linux-* above (chmod +x, then run). Bash / Zsh / Fish. Then ven shell install (once); upgrade with ven update.',
   },
   source: {
     label: 'From source',

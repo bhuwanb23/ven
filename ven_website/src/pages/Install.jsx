@@ -30,7 +30,7 @@ const FAQ = [
   },
   {
     q: 'Is there a GUI?',
-    a: 'No — and there won\'t be. ven is CLI-first by design; every workflow is scriptable and CI-friendly. `ven status --json` is the structured surface for editor integrations.',
+    a: 'The day-to-day `ven` CLI stays terminal-first. Since v0.2.0, `ven-setup` ships a native GUI wizard (install mode, storage path, PATH/hook toggles, optional runtime pre-install). Use `ven-setup --cli` for SSH, CI, or headless servers.',
   },
   {
     q: 'How is it different from mise / asdf?',
@@ -78,7 +78,7 @@ const KIND_META = {
   },
 }
 
-const KIND_ORDER = ['combined', 'launcher', 'setup']
+const KIND_ORDER = ['setup', 'combined', 'launcher']
 
 // ---------------------------------------------------------------------------
 // Corporate / portable download card metadata.
@@ -104,6 +104,29 @@ function findLauncherAsset(data, os, arch) {
   if (!data) return null
   const file = `ven-launcher-${os}-${arch}.${os === 'windows' ? 'zip' : 'tar.gz'}`
   return data.assets.find((a) => a.kind === 'launcher' && a.file === file) ?? null
+}
+
+function findSetupAsset(data, os, arch) {
+  if (!data) return null
+  const file =
+    os === 'windows' ? `ven-setup-${os}-${arch}.exe` : `ven-setup-${os}-${arch}`
+  return data.assets.find((a) => a.kind === 'setup' && a.file === file) ?? null
+}
+
+/** Friendly label shown on the primary download button (Python-style naming). */
+function setupLabel(asset, data) {
+  if (asset?.displayName) return asset.displayName
+  if (!data) return 'ven-setup'
+  const v = String(data.version).replace(/^v/, '')
+  const os = asset?.file?.includes('windows')
+    ? 'windows'
+    : asset?.file?.includes('macos')
+      ? 'macos'
+      : 'linux'
+  const arch = asset?.file?.includes('arm64') ? 'arm64' : 'x64'
+  return os === 'windows'
+    ? `ven-setup-${v}-${os}-${arch}.exe`
+    : `ven-setup-${v}-${os}-${arch}`
 }
 
 // Lifted out of `DownloadsTable` so multiple sections (Corporate one-click
@@ -227,9 +250,10 @@ function DownloadsTable({ data, err }) {
                             href={d.url}
                             target="_blank"
                             rel="noreferrer"
+                            title={d.displayName && d.displayName !== d.file ? d.file : undefined}
                             className="hover:text-primary-fixed-dim underline-offset-4 hover:underline"
                           >
-                            {d.file}
+                            {d.displayName ?? d.file}
                           </a>
                         </td>
                         <td className="py-3 px-2 opacity-60 break-all">{d.sha256}</td>
@@ -249,6 +273,161 @@ function DownloadsTable({ data, err }) {
         scripts verify hashes automatically before extraction.
       </p>
     </>
+  )
+}
+
+// Primary installer download — Python / Node style OS picker + big button.
+function InstallerDownload({ data, err }) {
+  const [os, setOs] = useState(() => {
+    const detected = detectPlatform()
+    return OS_LABEL[detected] ? detected : 'windows'
+  })
+  const [arch, setArch] = useState(() => OS_DEFAULT_ARCH[os] ?? 'x64')
+
+  function pickOs(next) {
+    setOs(next)
+    setArch(OS_DEFAULT_ARCH[next] ?? 'x64')
+  }
+
+  const asset = findSetupAsset(data, os, arch)
+  const archesAvailable = ARCH_ORDER.filter((a) => findSetupAsset(data, os, a))
+  const label = setupLabel(asset, data)
+
+  return (
+    <div className="glass-surface p-8 border-l-4 border-primary-fixed-dim rounded-r-xl mb-8">
+      <div className="flex flex-col md:flex-row gap-8 items-start">
+        <div className="grow w-full">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-primary-fixed-dim bg-primary-fixed-dim/10 px-2 py-0.5 rounded">
+              v0.2.0 · GUI wizard
+            </span>
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant opacity-70">
+              recommended for most users
+            </span>
+          </div>
+          <h2 className="font-headline-md text-headline-md mb-2 text-primary-fixed-dim">
+            Download Ven Setup
+          </h2>
+          <p className="text-on-surface-variant text-body-base mb-6">
+            Double-click the installer for your platform. The wizard walks you through install
+            mode, where to store runtimes (<code className="text-on-surface">$VEN_HOME</code>),
+            PATH + shell hook options, and optional language pre-installs — no terminal required.
+          </p>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {OS_ORDER.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => pickOs(id)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-mono transition-colors border',
+                  os === id
+                    ? 'border-primary-fixed-dim text-primary-fixed-dim bg-primary-fixed-dim/10'
+                    : 'border-outline-variant/40 text-on-surface-variant hover:text-on-surface'
+                )}
+              >
+                <Icon name={OS_ICON[id]} className="text-base" />
+                {OS_LABEL[id]}
+              </button>
+            ))}
+          </div>
+
+          {archesAvailable.length > 1 && (
+            <div className="flex items-center gap-2 mb-5 text-xs">
+              <span className="text-on-surface-variant opacity-70 uppercase tracking-widest">
+                arch
+              </span>
+              {archesAvailable.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setArch(a)}
+                  className={clsx(
+                    'px-2.5 py-0.5 rounded-full font-mono uppercase tracking-widest border transition-colors',
+                    arch === a
+                      ? 'border-primary-fixed-dim text-primary-fixed-dim'
+                      : 'border-outline-variant/30 text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mb-6">
+            {err ? (
+              <p className="text-sm text-on-surface-variant opacity-70">
+                Releases manifest unavailable — see{' '}
+                <a className="text-primary-fixed-dim hover:underline" href={RELEASES_URL}>
+                  GitHub Releases
+                </a>
+                .
+              </p>
+            ) : !data ? (
+              <p className="text-sm text-on-surface-variant opacity-70">Loading installer…</p>
+            ) : !asset ? (
+              <p className="text-sm text-on-surface-variant opacity-70">
+                No installer for {OS_LABEL[os]} {arch} in v{data.version}.
+              </p>
+            ) : (
+              <a
+                href={asset.url}
+                className="group inline-flex items-center gap-3 px-6 py-4 rounded-xl bg-primary-fixed-dim text-on-primary-fixed font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
+                <Icon name="download" className="text-2xl" />
+                <span className="text-left">
+                  <span className="block text-base font-mono">
+                    Download {label}
+                  </span>
+                  <span className="block font-mono text-[11px] opacity-80">
+                    SHA-256 verified · {asset.size} · v{data.version}
+                  </span>
+                </span>
+                <Icon
+                  name="arrow_forward"
+                  className="ml-2 text-base transition-transform group-hover:translate-x-1"
+                />
+              </a>
+            )}
+          </div>
+
+          {asset && (
+            <p className="text-xs text-on-surface-variant opacity-80 font-mono break-all mb-4">
+              sha256: {asset.sha256}
+            </p>
+          )}
+
+          <ol className="space-y-3 text-sm text-on-surface-variant">
+            <li className="flex gap-3">
+              <span className="text-primary-fixed-dim font-bold">1.</span>
+              <span>
+                {os === 'windows'
+                  ? 'Run the downloaded .exe and approve the wizard (UAC only for System install).'
+                  : os === 'macos'
+                    ? 'Open the downloaded binary. First launch: right-click → Open if Gatekeeper blocks it.'
+                    : 'Save the file, then chmod +x and run it (e.g. chmod +x ven-setup-linux-x64 && ./ven-setup-linux-x64).'}
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="text-primary-fixed-dim font-bold">2.</span>
+              <span>Open a new terminal and run <code className="text-on-surface">ven --version</code>.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="text-primary-fixed-dim font-bold">3.</span>
+              <span>
+                Prefer scripts? Use the one-liner tabs below, or{' '}
+                <code className="text-on-surface">ven-setup --cli</code> on servers without a display.
+              </span>
+            </li>
+          </ol>
+        </div>
+        <div className="hidden md:flex w-48 aspect-square bg-surface-container-high rounded items-center justify-center border border-outline-variant/30">
+          <Icon name="desktop_windows" className="text-[64px] text-primary-fixed-dim" />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -510,8 +689,12 @@ export default function Install() {
       <Reveal as="header" className="text-center mb-16">
         <h1 className="font-display-lg text-display-lg mb-4 text-primary">Install ven</h1>
         <p className="text-on-surface-variant text-body-base max-w-md mx-auto">
-          Zero dependencies. Native binary. One command. SHA-256-verified end-to-end.
+          Download the GUI installer for your OS, or use a one-liner. SHA-256-verified end-to-end.
         </p>
+      </Reveal>
+
+      <Reveal as="section" className="mb-12">
+        <InstallerDownload data={releases} err={releasesErr} />
       </Reveal>
 
       <PlatformTabs active={active} onChange={setActive} />
@@ -654,7 +837,7 @@ export default function Install() {
           <header className="text-center mb-12">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-fixed-dim/10 text-primary-fixed-dim text-xs font-semibold tracking-wider uppercase mb-4">
               <Icon name="autorenew" size={14} />
-              v0.1.7+
+              v0.1.7+ (ven CLI)
             </span>
             <h2 className="font-headline-md text-headline-md mb-4">Upgrade ven</h2>
             <p className="text-on-surface-variant">
