@@ -14,6 +14,10 @@
 
 export const GITHUB_URL = 'https://github.com/bhuwanb23/ven'
 export const RELEASES_URL = `${GITHUB_URL}/releases`
+
+// Built with Vite `base` (/ven/ on GitHub Pages, / in dev). Must not use a
+// leading-slash absolute path or production fetch hits the domain root (404).
+export const RELEASES_MANIFEST_URL = `${import.meta.env.BASE_URL}releases-manifest.json`
 export const ISSUES_URL = `${GITHUB_URL}/issues`
 export const DISCUSSIONS_URL = `${GITHUB_URL}/discussions`
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`

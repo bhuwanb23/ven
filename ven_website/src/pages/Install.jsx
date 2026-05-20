@@ -12,6 +12,7 @@ import {
   UNINSTALL_ORDER,
   GITHUB_URL,
   RELEASES_URL,
+  RELEASES_MANIFEST_URL,
   detectPlatform,
 } from '../content/site.js'
 
@@ -137,7 +138,7 @@ function useReleasesManifest() {
   const [err, setErr] = useState(null)
   useEffect(() => {
     let cancelled = false
-    fetch('/releases-manifest.json')
+    fetch(RELEASES_MANIFEST_URL)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
@@ -299,7 +300,7 @@ function InstallerDownload({ data, err }) {
         <div className="grow w-full">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-[10px] uppercase tracking-widest font-bold text-primary-fixed-dim bg-primary-fixed-dim/10 px-2 py-0.5 rounded">
-              v0.2.0 · GUI wizard
+              {data ? `v${data.version} · GUI wizard` : 'GUI wizard'}
             </span>
             <span className="text-[10px] uppercase tracking-widest text-on-surface-variant opacity-70">
               recommended for most users
