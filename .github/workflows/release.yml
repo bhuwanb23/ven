@@ -102,6 +102,12 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install Linux GUI deps (ven-setup wizard / rfd)
+        if: matrix.os_label == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxkbcommon-x11-0
+
       - name: Install Linux arm64 cross-compiler
         if: matrix.os_label == 'linux' && matrix.arch == 'arm64'
         run: |

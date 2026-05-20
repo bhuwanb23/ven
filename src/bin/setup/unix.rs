@@ -1,10 +1,20 @@
-//! Unix-specific install logic for `ven-setup` (Linux / macOS).
+//! Unix-specific primitives for `ven-setup` (Linux / macOS).
 //!
-//! - **User**:   `~/.ven/bin`, PATH block appended to `~/.bashrc` / `~/.zshrc` (and
-//!   `~/.profile` as fallback). No sudo. The user must open a new shell (or `exec $SHELL -l`).
-//! - **System**: `/usr/local/bin`, PATH ensured via `/etc/profile.d/ven.sh`. Requires
-//!   `sudo` -- there is no UAC equivalent; we refuse to proceed unelevated and print
-//!   the exact re-invocation hint so the user can rerun under sudo.
+//! Through v0.1.x this module owned the install orchestration. v0.2 lifted
+//! the orchestration into [`crate::install_steps`] so the GUI wizard and
+//! the CLI share one pipeline; this file now exposes only the platform
+//! primitives:
+//!
+//! - [`is_root`] — sudo detection (avoids a `libc` dep by shelling to `id -u`).
+//! - [`ensure_user_rc_path`] — appends the `# >>> ven-setup PATH >>>` block
+//!   to `~/.bashrc` / `~/.zshrc`, falling back to creating `~/.profile`.
+//! - [`ensure_etc_profile_d_path`] — writes the system-wide
+//!   `/etc/profile.d/ven.sh` PATH guard.
+//! - [`verify_ven_version`] — child process with merged PATH for the
+//!   verify step.
+//! - [`run`] — the legacy CLI entry point. Builds an
+//!   [`InstallConfig`](crate::install_steps::InstallConfig) and drives the
+//!   shared pipeline.
 
 use anyhow::{anyhow, Context, Result};
 use std::fs;
@@ -12,120 +22,95 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::common::{
-    resolve_binary_bytes, run_ven_setup, write_bundled_binary, InstallMode, SetupCli,
-    LAUNCHER_EMBEDDED, VEN_EMBEDDED,
-};
+use crate::common::{InstallMode, SetupCli};
+use crate::install_steps::{self, CliSink, InstallConfig};
 
 const VEN_RC_BLOCK_START: &str = "# >>> ven-setup PATH >>>";
 const VEN_RC_BLOCK_END: &str = "# <<< ven-setup PATH <<<";
 
+// ---------------------------------------------------------------------------
+// CLI driver
+// ---------------------------------------------------------------------------
+
 pub fn run(cli: SetupCli, mode: InstallMode) -> Result<()> {
-    match mode {
-        InstallMode::User => install_user(cli.dry_run),
-        InstallMode::System => {
-            if !cli.dry_run && !is_root() {
-                let exe = std::env::current_exe()
-                    .map(|p| p.to_string_lossy().into_owned())
-                    .unwrap_or_else(|_| "ven-setup".to_string());
-                anyhow::bail!(
-                    "System install requires root. Re-run with:\n    sudo {} --mode system",
-                    exe
-                );
-            }
-            install_system(cli.dry_run)
-        }
+    // If the user is resuming from a sudo-relaunched parent, the previous
+    // process serialized their wizard / CLI choices into a TOML and passed
+    // `--resume <path>`. Honour that so a sudo re-invocation doesn't lose
+    // the storage path, runtime selection, etc.
+    let mut cfg = if let Some(resume) = cli.resume.as_deref() {
+        InstallConfig::load_from_file(resume).with_context(|| {
+            format!(
+                "Failed to load resume file at {} (the sudo relaunch handoff is broken)",
+                resume.display()
+            )
+        })?
+    } else {
+        build_config_from_cli(&cli, mode)
+    };
+
+    if cli.dry_run {
+        cfg.dry_run = true;
     }
-}
 
-// ---------------------------------------------------------------------------
-// Install flows
-// ---------------------------------------------------------------------------
+    if matches!(cfg.mode, InstallMode::System) && !cfg.dry_run && !is_root() {
+        let exe = std::env::current_exe()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| "ven-setup".to_string());
+        // Stash the config so a sudo re-invocation with --resume picks it
+        // up. We swallow the write error: even without the resume file
+        // the bare command works, just with default settings.
+        let resume_hint = match resume_file_path() {
+            Ok(p) => cfg.save_to_file(&p).ok().map(|_| p),
+            Err(_) => None,
+        };
+        let resume_arg = resume_hint
+            .as_ref()
+            .map(|p| format!(" --resume '{}'", p.display()))
+            .unwrap_or_default();
+        anyhow::bail!(
+            "System install requires root. Re-run with:\n    sudo {exe} --mode system{resume_arg}"
+        );
+    }
 
-fn install_user(dry_run: bool) -> Result<()> {
-    println!("ven-setup: User Install (no sudo)");
-    let install_dir = ven::core::ven_home::ven_home().join("bin");
-
-    println!("\n[1/4] Extracting and writing binaries");
-    let ven_bytes = resolve_binary_bytes("ven", VEN_EMBEDDED)?;
-    let launcher_bytes = resolve_binary_bytes("ven-launcher", LAUNCHER_EMBEDDED)?;
-    let ven_exe = write_bundled_binary(&install_dir, "ven", &ven_bytes, dry_run)?;
-    let _launcher = write_bundled_binary(&install_dir, "ven-launcher", &launcher_bytes, dry_run)?;
     println!(
-        "  [OK] Installed to {} (ven {} B + launcher {} B)",
-        install_dir.display(),
-        ven_bytes.len(),
-        launcher_bytes.len()
+        "ven-setup: {} Install ({})",
+        match cfg.mode {
+            InstallMode::User => "User",
+            InstallMode::System => "System",
+        },
+        if cfg.dry_run { "dry-run" } else { "live" }
     );
 
-    println!("\n[2/4] Appending PATH block to shell rc files");
-    if !dry_run {
-        ensure_user_rc_path(&install_dir)?;
-    }
-    println!("  [OK] PATH block present in ~/.bashrc / ~/.zshrc (or created ~/.profile)");
-
-    println!("\n[3/4] Installing shell hooks");
-    if !dry_run {
-        run_ven_setup(&ven_exe)?;
-    }
-    println!("  [OK] Shell hooks installed");
-
-    println!("\n[4/4] Verifying `ven --version` in a new process");
-    if !dry_run {
-        let ver = verify_ven_version(&install_dir)?;
-        println!("  [OK] {}", ver.trim());
-    } else {
-        println!("  [OK] dry-run");
-    }
-
-    println!("\nDone. Open a new terminal (or `exec $SHELL -l`) and run: ven --version");
-    Ok(())
+    let mut sink = CliSink;
+    install_steps::run(&cfg, &mut sink).map(|_| ())
 }
 
-fn install_system(dry_run: bool) -> Result<()> {
-    println!("ven-setup: System Install (root)");
-    let install_dir = PathBuf::from("/usr/local/bin");
-
-    println!("\n[1/4] Extracting and writing binaries");
-    let ven_bytes = resolve_binary_bytes("ven", VEN_EMBEDDED)?;
-    let launcher_bytes = resolve_binary_bytes("ven-launcher", LAUNCHER_EMBEDDED)?;
-    let ven_exe = write_bundled_binary(&install_dir, "ven", &ven_bytes, dry_run)?;
-    let _launcher = write_bundled_binary(&install_dir, "ven-launcher", &launcher_bytes, dry_run)?;
-    println!(
-        "  [OK] Installed to {} (ven {} B + launcher {} B)",
-        install_dir.display(),
-        ven_bytes.len(),
-        launcher_bytes.len()
-    );
-
-    println!("\n[2/4] Ensuring /usr/local/bin on system PATH (/etc/profile.d/ven.sh)");
-    if !dry_run {
-        ensure_etc_profile_d_path(&install_dir)?;
+fn build_config_from_cli(cli: &SetupCli, mode: InstallMode) -> InstallConfig {
+    let mut cfg = InstallConfig::default_for_mode(mode);
+    cfg.dry_run = cli.dry_run;
+    if cli.no_path {
+        cfg.add_to_path = false;
     }
-    println!("  [OK] /etc/profile.d/ven.sh present");
-
-    println!("\n[3/4] Skipping per-user shell hooks (system install)");
-    println!("  [HINT] Each user should run: ven setup");
-
-    println!("\n[4/4] Verifying `ven --version` in a new process");
-    if !dry_run {
-        let ver = verify_ven_version(&install_dir)?;
-        println!("  [OK] {}", ver.trim());
-    } else {
-        println!("  [OK] dry-run");
+    if cli.no_hook {
+        cfg.install_hook = false;
     }
-
-    println!("\nDone. Open a new terminal and run: ven --version");
-    let _ = ven_exe;
-    Ok(())
+    if let Some(p) = cli.storage_path.clone() {
+        cfg.storage_path = Some(p);
+    }
+    if !cli.with_runtimes.is_empty() {
+        cfg.runtimes_to_install = cli.with_runtimes.clone();
+    }
+    cfg
 }
 
 // ---------------------------------------------------------------------------
 // Elevation
 // ---------------------------------------------------------------------------
 
-/// Return true when running as root. Avoids a libc dep by shelling out to `id -u`.
-fn is_root() -> bool {
+/// `true` when the current process is running as root. Avoids a `libc`
+/// dependency by shelling out to `id -u` — same trick as
+/// `core::uninstaller::running_with_privileges` uses elsewhere.
+pub fn is_root() -> bool {
     Command::new("id")
         .arg("-u")
         .output()
@@ -135,11 +120,22 @@ fn is_root() -> bool {
         .unwrap_or(false)
 }
 
+/// Where the GUI wizard (and the CLI's "re-run with sudo" hint) stashes
+/// the TOML resume file. `$TMPDIR/ven-setup-resume.toml` so it survives
+/// across a sudo re-invocation in the same shell.
+pub fn resume_file_path() -> Result<PathBuf> {
+    Ok(std::env::temp_dir().join("ven-setup-resume.toml"))
+}
+
 // ---------------------------------------------------------------------------
-// PATH wiring
+// PATH wiring (exposed for install_steps to call into)
 // ---------------------------------------------------------------------------
 
-fn ensure_user_rc_path(install_dir: &Path) -> Result<()> {
+/// Append the `# >>> ven-setup PATH >>>` … `# <<< ven-setup PATH <<<`
+/// block to whichever of `~/.bashrc`, `~/.zshrc`, `~/.profile` exists.
+/// Creates `~/.profile` when none are present so a fresh shell still
+/// picks up the install dir.
+pub fn ensure_user_rc_path(install_dir: &Path) -> Result<()> {
     let home = dirs::home_dir().ok_or_else(|| anyhow!("Cannot resolve home"))?;
     let candidates = [
         home.join(".bashrc"),
@@ -188,7 +184,10 @@ fn append_block_if_missing(rc: &Path, block: &str) -> Result<()> {
     Ok(())
 }
 
-fn ensure_etc_profile_d_path(install_dir: &Path) -> Result<()> {
+/// Write `/etc/profile.d/ven.sh` so the install dir is on PATH for every
+/// login shell, system-wide. Idempotent: the script uses a `case` check
+/// so sourcing it twice doesn't duplicate the PATH entry.
+pub fn ensure_etc_profile_d_path(install_dir: &Path) -> Result<()> {
     let profile_d = Path::new("/etc/profile.d");
     fs::create_dir_all(profile_d).context("Failed to ensure /etc/profile.d exists")?;
     let script = profile_d.join("ven.sh");
@@ -214,7 +213,7 @@ fn ensure_etc_profile_d_path(install_dir: &Path) -> Result<()> {
 // Verification
 // ---------------------------------------------------------------------------
 
-fn verify_ven_version(install_dir: &Path) -> Result<String> {
+pub fn verify_ven_version(install_dir: &Path) -> Result<String> {
     let base = std::env::var("PATH").unwrap_or_default();
     let merged = format!("{}:{}", install_dir.display(), base);
     let output = Command::new("sh")

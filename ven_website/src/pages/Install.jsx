@@ -73,7 +73,7 @@ const KIND_META = {
   setup: {
     label: 'Standalone installer',
     tagline:
-      'Self-contained ven-setup binary that embeds ven + ven-launcher and installs hooks. UAC on Windows, sudo on Unix system installs.',
+      'Self-contained ven-setup opens an eight-screen GUI wizard (v0.2+): storage path, PATH/hook toggles, optional runtime pre-install, live progress. UAC on Windows, sudo on Unix. Use --cli for headless/SSH.',
     accent: 'text-tertiary-fixed-dim',
   },
 }
@@ -628,7 +628,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.1.7 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.2.0 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>

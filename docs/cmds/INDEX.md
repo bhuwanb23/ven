@@ -77,7 +77,7 @@ For the underlying threat model, caching strategy, and exit-code semantics, see 
 
 | Binary / Script | Description | Documentation |
 |-----------------|-------------|---------------|
-| `ven-setup` | Cross-platform installer (Windows User/System; Unix user/system) | [→ ven-setup.md](ven-setup.md) |
+| `ven-setup` | Cross-platform installer (GUI wizard v0.2+; CLI via `--cli`) | [→ ven-setup.md](ven-setup.md) · [GUI screens](ven-setup-gui.md) |
 | `install.ps1` / `install.sh` | One-liner install scripts that wrap `ven-setup` from a GitHub release | [→ ../install-scripts.md](../install-scripts.md) |
 
 ## 🔧 Internal Commands

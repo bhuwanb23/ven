@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -24,7 +25,8 @@ pub const LAUNCHER_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/v
 // CLI
 // ---------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum InstallMode {
     /// Per-user install. No admin / sudo required.
     User,
@@ -32,15 +34,17 @@ pub enum InstallMode {
     System,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(
     name = "ven-setup",
-    about = "Cross-platform installer for ven (Windows: User no-admin / System UAC; Unix: ~/.ven/bin / /usr/local/bin sudo)",
+    about = "Cross-platform installer for ven (GUI wizard by default; --cli for headless / SSH / CI)",
     long_about = "Installs `ven` and `ven-launcher` by extracting binaries embedded in this installer, \
-                  updates PATH (per-user or machine-wide), installs shell hooks, and verifies `ven --version`."
+                  updates PATH (per-user or machine-wide), installs shell hooks, optionally pre-installs \
+                  selected runtimes, and verifies `ven --version`. Opens a native GUI wizard by default; \
+                  falls back to the CLI flow with --cli, --no-input, or when no display server is reachable."
 )]
 pub struct SetupCli {
-    /// Install mode. Omit to choose interactively (1 = User, 2 = System).
+    /// Install mode. Omit to choose interactively (GUI wizard or CLI prompt).
     #[arg(long, value_enum)]
     pub mode: Option<InstallMode>,
 
@@ -50,8 +54,40 @@ pub struct SetupCli {
     pub dry_run: bool,
 
     /// Skip the interactive prompt; `--mode` must then be supplied. For CI / automation.
+    /// Implies `--cli`.
     #[arg(long)]
     pub no_input: bool,
+
+    /// Force the legacy CLI flow even when a graphical session is available.
+    /// Useful for SSH, CI, or anywhere a GUI window is undesirable.
+    #[arg(long)]
+    pub cli: bool,
+
+    /// Override the storage directory ($VEN_HOME) the install will configure.
+    /// When unset the default `~/.ven` (or relocated value from a prior `ven path set`) is kept.
+    #[arg(long, value_name = "PATH")]
+    pub storage_path: Option<PathBuf>,
+
+    /// Pre-install one or more language runtimes after the core install completes.
+    /// Comma-separated list of language slugs (e.g. `node,python,go`).
+    #[arg(long, value_name = "LANGS", value_delimiter = ',')]
+    pub with_runtimes: Vec<String>,
+
+    /// Disable the shell-hook install step (no auto-activation on cd / new terminals).
+    #[arg(long)]
+    pub no_hook: bool,
+
+    /// Disable the PATH update step (the user takes responsibility for putting
+    /// the install dir on PATH themselves).
+    #[arg(long)]
+    pub no_path: bool,
+
+    /// Resume an install from a TOML config file written by the parent process.
+    /// Used by the Windows UAC relaunch / Unix sudo re-invocation flows so the
+    /// elevated child preserves the choices the user made in the GUI wizard.
+    /// Combined with `--elevated-child` it bypasses the GUI entirely.
+    #[arg(long, value_name = "PATH", hide = true)]
+    pub resume: Option<PathBuf>,
 
     /// Internal flag set on the elevated child after a Windows UAC relaunch (loop guard).
     #[arg(long, hide = true)]

@@ -1,62 +1,116 @@
-//! Windows-specific install logic for `ven-setup`.
+//! Windows-specific primitives for `ven-setup`.
 //!
-//! - **User**:   `%USERPROFILE%\.ven\bin`, HKCU `Path`, no UAC.
-//! - **System**: `%ProgramFiles%\ven\bin`, HKLM Machine `Path`, requires elevation;
-//!   the non-elevated parent relaunches itself via `Start-Process -Verb RunAs` and exits.
+//! Through v0.1.x this module also owned the install orchestration. In v0.2
+//! the orchestration moved to [`crate::install_steps`] so the GUI wizard and
+//! the CLI share one pipeline; this file now only exposes the *platform*
+//! primitives that pipeline calls into:
+//!
+//! - [`PathScope`] / [`ensure_path_contains`] — HKCU vs HKLM PATH editing
+//!   via PowerShell `[Environment]::SetEnvironmentVariable` (correct
+//!   `REG_EXPAND_SZ` handling) + `WM_SETTINGCHANGE` broadcast.
+//! - [`verify_ven_version`] — child process with merged PATH for the
+//!   verify step.
+//! - [`is_elevated`] / [`relaunch_elevated_system`] — UAC detection and
+//!   the `Start-Process -Verb RunAs` relaunch. v0.2 extends the relaunch
+//!   so the GUI can hand the elevated child a TOML resume file with the
+//!   user's prior choices.
+//! - [`run`] — the legacy CLI entry point. Builds an
+//!   [`InstallConfig`](crate::install_steps::InstallConfig) and drives the
+//!   shared pipeline with a [`CliSink`](crate::install_steps::CliSink).
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::common::{
-    resolve_binary_bytes, run_ven_setup, write_bundled_binary, InstallMode, SetupCli,
-    LAUNCHER_EMBEDDED, VEN_EMBEDDED,
-};
+use crate::common::{InstallMode, SetupCli};
+use crate::install_steps::{self, CliSink, InstallConfig};
 
+// ---------------------------------------------------------------------------
+// CLI driver (legacy + auto-fallback)
+// ---------------------------------------------------------------------------
+
+/// CLI entry point: builds an [`InstallConfig`] from `cli` + `mode`, handles
+/// the UAC relaunch if needed, then drives the shared install pipeline.
 pub fn run(cli: SetupCli, mode: InstallMode) -> Result<()> {
-    match mode {
-        InstallMode::User => install_user(cli.dry_run),
-        InstallMode::System => {
-            // Real system installs require admin; dry-runs intentionally skip elevation.
-            if !cli.dry_run && !cli.elevated_child && !is_elevated()? {
-                return relaunch_elevated_system();
-            }
-            let result = install_system(cli.dry_run);
-            if cli.elevated_child {
-                pause_for_user();
-            }
-            result
-        }
+    // Resume-file path: the GUI wrote a TOML with the user's choices and
+    // re-spawned us elevated. Load the saved config instead of reading
+    // CLI flags so the choices survive UAC.
+    let mut cfg = if let Some(resume) = cli.resume.as_deref() {
+        InstallConfig::load_from_file(resume).with_context(|| {
+            format!(
+                "Failed to load resume file at {} (the elevated relaunch handoff is broken)",
+                resume.display()
+            )
+        })?
+    } else {
+        build_config_from_cli(&cli, mode)
+    };
+
+    // Honour explicit CLI overrides even when resuming (e.g. --dry-run).
+    if cli.dry_run {
+        cfg.dry_run = true;
     }
+
+    if matches!(cfg.mode, InstallMode::System)
+        && !cfg.dry_run
+        && !cli.elevated_child
+        && !is_elevated()?
+    {
+        relaunch_elevated_system(&cfg)?;
+        return Ok(());
+    }
+
+    let result = drive_install(&cfg);
+
+    if cli.elevated_child {
+        pause_for_user();
+    }
+    result
+}
+
+fn build_config_from_cli(cli: &SetupCli, mode: InstallMode) -> InstallConfig {
+    let mut cfg = InstallConfig::default_for_mode(mode);
+    cfg.dry_run = cli.dry_run;
+    if cli.no_path {
+        cfg.add_to_path = false;
+    }
+    if cli.no_hook {
+        cfg.install_hook = false;
+    }
+    if let Some(p) = cli.storage_path.clone() {
+        cfg.storage_path = Some(p);
+    }
+    if !cli.with_runtimes.is_empty() {
+        cfg.runtimes_to_install = cli.with_runtimes.clone();
+    }
+    cfg
+}
+
+fn drive_install(cfg: &InstallConfig) -> Result<()> {
+    println!(
+        "ven-setup: {} Install ({})",
+        match cfg.mode {
+            InstallMode::User => "User",
+            InstallMode::System => "System",
+        },
+        if cfg.dry_run { "dry-run" } else { "live" }
+    );
+    let mut sink = CliSink;
+    install_steps::run(cfg, &mut sink).map(|_| ())
 }
 
 // ---------------------------------------------------------------------------
-// Install flows
+// PATH wiring (exposed so install_steps + the GUI elevation code can call in)
 // ---------------------------------------------------------------------------
-
-fn install_user(dry_run: bool) -> Result<()> {
-    println!("ven-setup: User Install (no admin)");
-    let install_dir = ven::core::ven_home::ven_home().join("bin");
-    do_install(&install_dir, PathScope::User, dry_run)
-}
-
-fn install_system(dry_run: bool) -> Result<()> {
-    println!("ven-setup: System Install (admin)");
-    let program_files = std::env::var_os("ProgramFiles")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(r"C:\Program Files"));
-    let install_dir = program_files.join("ven").join("bin");
-    do_install(&install_dir, PathScope::Machine, dry_run)
-}
 
 #[derive(Clone, Copy, Debug)]
-enum PathScope {
+pub enum PathScope {
     User,
     Machine,
 }
 
 impl PathScope {
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             PathScope::User => "User",
             PathScope::Machine => "Machine",
@@ -64,59 +118,15 @@ impl PathScope {
     }
 }
 
-fn do_install(install_dir: &Path, scope: PathScope, dry_run: bool) -> Result<()> {
-    println!("\n[1/4] Extracting and writing binaries");
-    let ven_bytes = resolve_binary_bytes("ven.exe", VEN_EMBEDDED)?;
-    let launcher_bytes = resolve_binary_bytes("ven-launcher.exe", LAUNCHER_EMBEDDED)?;
-    let ven_exe = write_bundled_binary(install_dir, "ven.exe", &ven_bytes, dry_run)?;
-    let _launcher_exe =
-        write_bundled_binary(install_dir, "ven-launcher.exe", &launcher_bytes, dry_run)?;
-    println!(
-        "  [OK] Installed to {} (ven {} B + launcher {} B)",
-        install_dir.display(),
-        ven_bytes.len(),
-        launcher_bytes.len()
-    );
-
-    println!("\n[2/4] Updating {} PATH", scope.label());
-    if !dry_run {
-        ensure_path_contains(install_dir, scope)?;
-    }
-    println!(
-        "  [OK] {} PATH contains {}",
-        scope.label(),
-        install_dir.display()
-    );
-
-    println!("\n[3/4] Installing shell hooks");
-    if !dry_run {
-        run_ven_setup(&ven_exe)?;
-    }
-    println!("  [OK] Shell hook setup executed");
-
-    println!("\n[4/4] Verifying `ven --version` in a new process");
-    if !dry_run {
-        let ver = verify_ven_version(install_dir)?;
-        println!("  [OK] {}", ver.trim());
-    } else {
-        println!("  [OK] dry-run");
-    }
-
-    println!("\nDone. Open a new terminal and run: ven --version");
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// PATH + broadcast
-// ---------------------------------------------------------------------------
-
-/// Append `path_entry` to the given PATH scope (HKCU or HKLM Machine) if missing,
-/// then broadcast `WM_SETTINGCHANGE` so already-running shells pick up the change.
+/// Append `path_entry` to the given PATH scope (HKCU or HKLM Machine) if
+/// missing, then broadcast `WM_SETTINGCHANGE` so already-running shells
+/// pick up the change.
 ///
-/// We delegate the registry write to PowerShell's `[Environment]::SetEnvironmentVariable`
-/// because it correctly handles the `REG_EXPAND_SZ` vs `REG_SZ` distinction; manual
-/// `RegSetValueEx` calls can corrupt the system `Path` if the value type is wrong.
-fn ensure_path_contains(path_entry: &Path, scope: PathScope) -> Result<()> {
+/// We delegate to PowerShell's `[Environment]::SetEnvironmentVariable`
+/// because it handles the `REG_EXPAND_SZ` vs `REG_SZ` distinction
+/// correctly — manual `RegSetValueEx` writes have historically corrupted
+/// the system PATH on locked-down hosts.
+pub fn ensure_path_contains(path_entry: &Path, scope: PathScope) -> Result<()> {
     let entry = path_entry.to_string_lossy().to_string();
     let entry_ps = entry.replace('\'', "''");
     let scope_ps = scope.label();
@@ -172,9 +182,10 @@ $WM_SETTINGCHANGE = 0x001A
 // Verification
 // ---------------------------------------------------------------------------
 
-/// Spawn `cmd /C ven --version` with `PATH = {install_dir};{current_PATH}` so the
-/// check matches a brand-new terminal even before the broadcast reaches this tree.
-fn verify_ven_version(install_dir: &Path) -> Result<String> {
+/// Spawn `cmd /C ven --version` with `PATH = {install_dir};{current_PATH}`
+/// so the check matches a brand-new terminal even before the broadcast
+/// reaches this process tree.
+pub fn verify_ven_version(install_dir: &Path) -> Result<String> {
     let base = std::env::var("PATH").unwrap_or_default();
     let merged = format!("{};{}", install_dir.to_string_lossy(), base);
 
@@ -195,7 +206,10 @@ fn verify_ven_version(install_dir: &Path) -> Result<String> {
 // Elevation (UAC)
 // ---------------------------------------------------------------------------
 
-fn is_elevated() -> Result<bool> {
+/// Return `Ok(true)` when the current process is running with administrator
+/// privileges. Probes via PowerShell's `WindowsPrincipal` to avoid pulling
+/// in `winapi` / `windows-rs` just for this check.
+pub fn is_elevated() -> Result<bool> {
     let script = r#"([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"#;
     let output = Command::new("powershell.exe")
         .args([
@@ -217,18 +231,26 @@ fn is_elevated() -> Result<bool> {
     Ok(stdout.trim().eq_ignore_ascii_case("True"))
 }
 
-/// Re-spawn `ven-setup.exe` with `Start-Process -Verb RunAs`, passing
-/// `--mode system --elevated-child` so the elevated child skips prompting
-/// and cannot recurse into another UAC relaunch.
-fn relaunch_elevated_system() -> Result<()> {
+/// Re-spawn `ven-setup.exe` with `Start-Process -Verb RunAs`. The elevated
+/// child receives `--elevated-child --resume <path>` where `<path>` is a
+/// TOML file containing every choice the user made in the wizard (or the
+/// CLI flags they passed) — so UAC doesn't lose state.
+pub fn relaunch_elevated_system(cfg: &InstallConfig) -> Result<()> {
     let exe = std::env::current_exe().context("Cannot resolve current executable path")?;
+
+    let resume_path = resume_file_path()?;
+    cfg.save_to_file(&resume_path)
+        .with_context(|| format!("Failed to write resume file {}", resume_path.display()))?;
+
     let exe_ps = exe.to_string_lossy().replace('\'', "''");
+    let resume_ps = resume_path.to_string_lossy().replace('\'', "''");
 
     println!("\nSystem install requires administrator privileges.");
     println!("Approve the UAC prompt to continue. A new elevated window will open.");
+    println!("  Resume file: {}", resume_path.display());
 
     let script = format!(
-        r#"Start-Process -FilePath '{exe_ps}' -ArgumentList '--mode','system','--elevated-child' -Verb RunAs"#,
+        r#"Start-Process -FilePath '{exe_ps}' -ArgumentList '--mode','system','--elevated-child','--resume','{resume_ps}' -Verb RunAs"#,
     );
 
     let status = Command::new("powershell.exe")
@@ -248,6 +270,13 @@ fn relaunch_elevated_system() -> Result<()> {
 
     println!("\nElevated installer launched. You can close this window.");
     Ok(())
+}
+
+/// Where the parent stashes the TOML resume file so the elevated child can
+/// pick it up. `%TEMP%\ven-setup-resume.toml` — overwritten on every run.
+pub fn resume_file_path() -> Result<PathBuf> {
+    let dir = std::env::temp_dir();
+    Ok(dir.join("ven-setup-resume.toml"))
 }
 
 fn pause_for_user() {

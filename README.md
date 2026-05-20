@@ -246,14 +246,14 @@ $env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/
 
 **Windows (offline / corporate — bundled installer)**
 
-Download the release zip, extract, and run `ven-setup.exe`. Two modes are available:
+Download the release zip, extract, and run `ven-setup.exe`. **v0.2+** opens a native GUI wizard (install mode, storage path, PATH/hook toggles, optional runtime pre-install, live progress). Use `ven-setup --cli` for the terminal flow.
 
 | Mode | Install dir | Admin? |
 |------|-------------|--------|
-| `--mode user` *(default prompt)* | `%USERPROFILE%\.ven\bin` | No |
-| `--mode system`                  | `%ProgramFiles%\ven\bin` | Yes (UAC) |
+| User *(wizard default)* | `%USERPROFILE%\.ven\bin` | No |
+| System | `%ProgramFiles%\ven\bin` | Yes (UAC) |
 
-`ven-setup` copies the binaries, updates the appropriate `PATH` scope (HKCU or HKLM Machine), broadcasts `WM_SETTINGCHANGE`, installs shell hooks, and verifies `ven --version`. Run with `--dry-run` to preview every step. See [docs/cmds/ven-setup.md](docs/cmds/ven-setup.md).
+See [docs/cmds/ven-setup.md](docs/cmds/ven-setup.md) and [docs/cmds/ven-setup-gui.md](docs/cmds/ven-setup-gui.md).
 
 **macOS / Linux**
 ```bash

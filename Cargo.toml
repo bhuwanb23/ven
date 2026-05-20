@@ -1,6 +1,6 @@
 [package]
 name = "ven"
-version = "0.1.7"
+version = "0.2.0"
 edition = "2021"
 description = "Any-first intelligent version and dependency manager"
 license = "MIT"
@@ -88,9 +88,46 @@ termimad = "0.31"
 # Regex-based source parsing
 regex = "1"
 
+# ── ven-setup v0.2 GUI wizard ────────────────────────────────────────────────
+# All optional and gated behind the `gui` feature so a CI matrix that only
+# wants the headless CLI installer (`cargo build --no-default-features
+# --bin ven-setup`) skips the ~25 MB GUI surface entirely.
+#
+# Renderer feature picks:
+#   - `default_fonts` so eframe's bundled Inter / DejaVu work cross-platform
+#     without us shipping a font file.
+#   - Both `glow` (OpenGL) and `wgpu` (Vulkan/Metal/DX12) backends are
+#     enabled; eframe picks at runtime. On old Linux VMs with broken
+#     Vulkan loaders, glow keeps the wizard alive.
+#   - `wayland` + `x11` so the same Linux build runs in either session.
+#   - `accesskit` for screen reader / a11y plumbing on Win/macOS.
+eframe = { version = "0.28", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "wgpu",
+    "wayland",
+    "x11",
+    "accesskit",
+], optional = true }
+egui = { version = "0.28", optional = true }
+egui_extras = { version = "0.28", features = ["image"], optional = true }
+# PNG decoding for the embedded Ven logo on the Welcome screen.
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+# Native file picker dialogs for the Storage screen's "Browse..." button.
+rfd = { version = "0.15", optional = true }
+
 [dev-dependencies]
 # HTTP mocks for OSV / EOL / registry tests
 mockito = "1"
+
+# ── Features ─────────────────────────────────────────────────────────────────
+# `gui` is on by default so a vanilla `cargo build` produces a wizard-capable
+# `ven-setup`. CI builds that only need the CLI installer can opt out with
+# `cargo build --no-default-features --bin ven-setup`, which drops the eframe
+# / wgpu / glow / rfd graph and shrinks the binary by ~20 MB.
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:egui", "dep:egui_extras", "dep:image", "dep:rfd"]
 
 [profile.release]
 opt-level = 3

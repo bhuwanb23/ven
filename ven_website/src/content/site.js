@@ -224,7 +224,7 @@ const UNINSTALL_ADVANCED = {
 // (--user-only / --system-only), and idempotent — re-running a partial
 // uninstall converges to a clean state. See docs/cmds/uninstall.md.
 const UNINSTALL_SIMPLE = {
-  label: 'ven 0.1.7+',
+  label: 'ven 0.2.0+',
   prompt: '$',
   note:
     'Native command. Prints a dry-run plan, prompts before nuking, removes everything (binary + every runtime + cache + state + persisted VEN_HOME + pointer file + PATH entries). Use `--dry-run` first to see exactly what would be removed; `-y` skips the prompt for CI.',

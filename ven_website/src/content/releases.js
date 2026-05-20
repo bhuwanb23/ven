@@ -3,6 +3,31 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.0',
+    date: 'May 20, 2026',
+    tag: 'minor',
+    summary:
+      '`ven-setup` becomes a real desktop installer: an eight-screen native GUI wizard (Welcome through Done) built with eframe/egui — choose install mode, storage path ($VEN_HOME), PATH + shell hook toggles, optional runtime pre-install (Node, Python, Go, Rust, Java, Deno, Bun, Ruby), then watch live progress. The legacy CLI flow remains behind `--cli` / `--no-input` and auto-falls back when no display server is available. System installs serialize choices to a TOML resume file for UAC/sudo relaunch. Install logic is unified in `install_steps` so GUI, CLI, and elevated child share one pipeline.',
+    sections: {
+      new: [
+        'Native GUI wizard for `ven-setup` (default on desktop): Welcome, Install mode, Storage location with folder picker, Shell integration (PATH + hook toggles), Runtimes grid, Review, Progress with streamed logs, Done with Open docs / Open terminal.',
+        'Shared `install_steps` module: six-step pipeline (extract, storage, PATH, hook, runtimes, verify) with `ProgressSink` for GUI and CLI drivers.',
+        '`--cli`, `--storage-path`, `--with-runtimes`, `--no-hook`, `--no-path` flags for automation and UAC resume handoff.',
+        'Windows UAC relaunch writes `%TEMP%\\ven-setup-resume.toml` and passes `--elevated-child --resume` so wizard choices survive elevation.',
+        'New doc page [docs/cmds/ven-setup-gui.md](https://github.com/bhuwanb23/ven/blob/main/docs/cmds/ven-setup-gui.md).',
+        '`gui` Cargo feature (default on): `cargo build --no-default-features --bin ven-setup` for headless CI-only installer builds.',
+      ],
+      improved: [
+        '`ven-setup` docs and Install page updated for the wizard-first flow.',
+        'CI/release Linux runners install `libgtk-3-dev` and `libxkbcommon-x11-0` for the file picker and egui on Wayland/X11.',
+        'Uninstaller now strips unfenced `# ven shell hook (PowerShell)` blocks and `Microsoft.VSCode_profile.ps1` (Cursor/VS Code terminal).',
+      ],
+      fixed: [
+        'After `ven uninstall`, PowerShell could spam `ven: could not activate` on every prompt because the shell hook in `$PROFILE` survived — scrubber now removes installer-style hook blocks without closing markers.',
+      ],
+    },
+  },
+  {
     version: 'v0.1.7',
     date: 'May 19, 2026',
     tag: 'minor',
