@@ -3,13 +3,11 @@
 use std::sync::mpsc::{self, Sender};
 use std::thread;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::common::InstallMode;
-use crate::install_steps::{
-    default_storage_path, InstallConfig, ProgressEvent, ProgressSink,
-};
 use crate::gui::state::WizardState;
+use crate::install_steps::{default_storage_path, InstallConfig, ProgressEvent, ProgressSink};
 
 /// Forward install events to the GUI thread.
 pub struct ChannelSink(pub Sender<ProgressEvent>);

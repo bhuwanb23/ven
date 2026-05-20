@@ -536,9 +536,12 @@ fn step_preinstall_runtimes(
         // and continue. The Done screen surfaces any per-runtime errors
         // so the user can finish the core install and retry individual
         // runtimes via `ven install <lang>` from a terminal.
-        if let Err(e) =
-            spawn_streaming(ven_exe, &["install", runtime, "latest"], &cfg.install_dir, sink)
-        {
+        if let Err(e) = spawn_streaming(
+            ven_exe,
+            &["install", runtime, "latest"],
+            &cfg.install_dir,
+            sink,
+        ) {
             sink.emit(ProgressEvent::StepLog {
                 line: format!(
                     "[WARN] {runtime} pre-install failed: {e}. Re-run `ven install {runtime}` manually."
@@ -563,18 +566,16 @@ fn step_verify(cfg: &InstallConfig, sink: &mut dyn ProgressSink) -> Result<Strin
     {
         crate::windows::verify_ven_version(&cfg.install_dir)
             .map(|s| s.trim().to_string())
-            .map(|s| {
+            .inspect(|s| {
                 sink.emit(ProgressEvent::StepLog { line: s.clone() });
-                s
             })
     }
     #[cfg(unix)]
     {
         crate::unix::verify_ven_version(&cfg.install_dir)
             .map(|s| s.trim().to_string())
-            .map(|s| {
+            .inspect(|s| {
                 sink.emit(ProgressEvent::StepLog { line: s.clone() });
-                s
             })
     }
     #[cfg(not(any(windows, unix)))]

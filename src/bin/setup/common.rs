@@ -198,6 +198,12 @@ pub fn write_bundled_binary(
 }
 
 /// Spawn the freshly-installed `ven` and ask it to install shell hooks.
+///
+/// Currently unused — `install_steps::step_install_hook` invokes the new
+/// `ven` binary directly. Kept as a small wrapper for any caller that
+/// wants to re-run `ven setup` post-install (e.g. the GUI's "Install
+/// shell hook only" repair path) without duplicating the spawn boilerplate.
+#[allow(dead_code)]
 pub fn run_ven_setup(ven_exe: &Path) -> Result<()> {
     let status = std::process::Command::new(ven_exe)
         .arg("setup")

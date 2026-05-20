@@ -75,6 +75,11 @@ fn main() -> Result<()> {
 /// - The `gui` feature is compiled out.
 /// - Unix and neither `$DISPLAY` nor `$WAYLAND_DISPLAY` are set (e.g. SSH
 ///   without X forwarding); the GUI couldn't open a window anyway.
+// When the `gui` feature is off the early-`return true;` below makes the
+// trailing `false` unreachable. That's intentional — the function still
+// type-checks and behaves correctly — so we silence the lint just for that
+// build configuration.
+#[cfg_attr(not(feature = "gui"), allow(unreachable_code))]
 fn should_use_cli(cli: &common::SetupCli) -> bool {
     if cli.cli || cli.no_input || cli.elevated_child {
         return true;
@@ -85,8 +90,8 @@ fn should_use_cli(cli: &common::SetupCli) -> bool {
     }
     #[cfg(all(unix, feature = "gui"))]
     {
-        let has_display = std::env::var_os("DISPLAY").is_some()
-            || std::env::var_os("WAYLAND_DISPLAY").is_some();
+        let has_display =
+            std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some();
         if !has_display {
             return true;
         }

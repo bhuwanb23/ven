@@ -3,8 +3,10 @@
 use egui::{Color32, RichText, Ui, Vec2};
 
 use crate::common::InstallMode;
+use crate::gui::state::{
+    ProgressState, RuntimeOption, Screen, StepStatus, WizardState, RUNTIME_OPTIONS,
+};
 use crate::install_steps::{default_install_dir, default_storage_path, TOTAL_STEPS};
-use crate::gui::state::{ProgressState, RuntimeOption, Screen, StepStatus, WizardState, RUNTIME_OPTIONS};
 
 // Brand palette (aligned with ven website dark theme).
 const ACCENT: Color32 = Color32::from_rgb(99, 102, 241);
@@ -105,13 +107,19 @@ pub fn draw_nav(ui: &mut Ui, state: &mut WizardState, ctx: &egui::Context) -> Na
                 _ => true,
             };
             if ui
-                .add_enabled(can_next, egui::Button::new(RichText::new(next_label).strong()))
+                .add_enabled(
+                    can_next,
+                    egui::Button::new(RichText::new(next_label).strong()),
+                )
                 .clicked()
             {
                 if state.screen == Screen::Storage {
                     state.validate_storage();
                     if !state.can_advance_from_storage() {
-                        return action;
+                        // Returning from this `with_layout` closure (which
+                        // is `FnOnce(&mut Ui)`); the outer `draw_nav` fn
+                        // still returns the current `action` value below.
+                        return;
                     }
                 }
                 action = if on_review {
@@ -178,7 +186,10 @@ fn mode(ui: &mut Ui, state: &mut WizardState) {
     card(ui, |ui| {
         let user_selected = matches!(state.install_mode, InstallMode::User);
         if ui
-            .radio(user_selected, RichText::new("User install (recommended)").strong())
+            .radio(
+                user_selected,
+                RichText::new("User install (recommended)").strong(),
+            )
             .clicked()
         {
             state.install_mode = InstallMode::User;
@@ -231,7 +242,10 @@ fn storage(ui: &mut Ui, state: &mut WizardState) {
                 .add(egui::TextEdit::singleline(&mut path_str).desired_width(360.0))
                 .changed()
             {
-                state.storage_path = path_str.into();
+                // PathBuf::from(&str) clones the bytes — keeps `path_str`
+                // alive for the second horizontal closure below where the
+                // "Use default" button might re-assign it.
+                state.storage_path = std::path::PathBuf::from(path_str.as_str());
                 state.validate_storage();
             }
         });
@@ -278,11 +292,9 @@ fn hook_path(ui: &mut Ui, state: &mut WizardState) {
             RichText::new("Add ven to PATH").strong(),
         );
         ui.label(
-            RichText::new(
-                "Lets you run `ven` from any terminal without a full path. Recommended.",
-            )
-            .color(MUTED)
-            .small(),
+            RichText::new("Lets you run `ven` from any terminal without a full path. Recommended.")
+                .color(MUTED)
+                .small(),
         );
         ui.add_space(12.0);
         ui.checkbox(
@@ -308,16 +320,18 @@ fn runtimes(ui: &mut Ui, state: &mut WizardState) {
     );
     ui.add_space(8.0);
 
-    egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-        egui::Grid::new("runtimes_grid")
-            .num_columns(2)
-            .spacing([12.0, 8.0])
-            .show(ui, |ui| {
-                for (i, rt) in RUNTIME_OPTIONS.iter().enumerate() {
-                    runtime_card(ui, rt, &mut state.runtime_selected[i]);
-                }
-            });
-    });
+    egui::ScrollArea::vertical()
+        .max_height(280.0)
+        .show(ui, |ui| {
+            egui::Grid::new("runtimes_grid")
+                .num_columns(2)
+                .spacing([12.0, 8.0])
+                .show(ui, |ui| {
+                    for (i, rt) in RUNTIME_OPTIONS.iter().enumerate() {
+                        runtime_card(ui, rt, &mut state.runtime_selected[i]);
+                    }
+                });
+        });
 }
 
 fn runtime_card(ui: &mut Ui, rt: &RuntimeOption, selected: &mut bool) {
@@ -350,16 +364,28 @@ fn review(ui: &mut Ui, state: &WizardState) {
         };
         summary_row(ui, "Install mode", mode_label.into());
         summary_row(ui, "Binaries", install_dir.display().to_string());
-        summary_row(ui, "Storage ($VEN_HOME)", state.storage_path.display().to_string());
+        summary_row(
+            ui,
+            "Storage ($VEN_HOME)",
+            state.storage_path.display().to_string(),
+        );
         summary_row(
             ui,
             "PATH",
-            if state.add_to_path { "Yes" } else { "No" },
+            if state.add_to_path {
+                "Yes".into()
+            } else {
+                "No".into()
+            },
         );
         summary_row(
             ui,
             "Shell hook",
-            if state.install_hook { "Yes" } else { "No" },
+            if state.install_hook {
+                "Yes".into()
+            } else {
+                "No".into()
+            },
         );
         let runtimes = state.selected_runtimes();
         summary_row(
@@ -396,36 +422,43 @@ fn progress(ui: &mut Ui, progress: &ProgressState) {
     );
     ui.add_space(12.0);
 
-    egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
-        for (i, step) in progress.steps.iter().enumerate() {
-            let icon = match step.status {
-                StepStatus::Pending => "○",
-                StepStatus::Running => "◐",
-                StepStatus::Done => "✓",
-                StepStatus::Skipped => "—",
-                StepStatus::Failed => "✗",
-            };
-            let color = match step.status {
-                StepStatus::Done => SUCCESS,
-                StepStatus::Failed => ERROR,
-                StepStatus::Running => ACCENT,
-                _ => MUTED,
-            };
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(icon).color(color));
-                ui.vertical(|ui| {
-                    ui.label(RichText::new(format!("{}/{} {}", i + 1, TOTAL_STEPS, step.label)));
-                    if !step.detail.is_empty() {
-                        ui.label(RichText::new(&step.detail).small().color(MUTED));
-                    }
-                    for line in step.log_lines.iter().rev().take(5).rev() {
-                        ui.label(RichText::new(line).small().monospace().color(MUTED));
-                    }
+    egui::ScrollArea::vertical()
+        .max_height(320.0)
+        .show(ui, |ui| {
+            for (i, step) in progress.steps.iter().enumerate() {
+                let icon = match step.status {
+                    StepStatus::Pending => "○",
+                    StepStatus::Running => "◐",
+                    StepStatus::Done => "✓",
+                    StepStatus::Skipped => "—",
+                    StepStatus::Failed => "✗",
+                };
+                let color = match step.status {
+                    StepStatus::Done => SUCCESS,
+                    StepStatus::Failed => ERROR,
+                    StepStatus::Running => ACCENT,
+                    _ => MUTED,
+                };
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(icon).color(color));
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new(format!(
+                            "{}/{} {}",
+                            i + 1,
+                            TOTAL_STEPS,
+                            step.label
+                        )));
+                        if !step.detail.is_empty() {
+                            ui.label(RichText::new(&step.detail).small().color(MUTED));
+                        }
+                        for line in step.log_lines.iter().rev().take(5).rev() {
+                            ui.label(RichText::new(line).small().monospace().color(MUTED));
+                        }
+                    });
                 });
-            });
-            ui.add_space(6.0);
-        }
-    });
+                ui.add_space(6.0);
+            }
+        });
 
     if progress.finished && !progress.success {
         if let Some(err) = &progress.error {
@@ -439,9 +472,17 @@ fn done(ui: &mut Ui, state: &WizardState) {
     ui.vertical_centered(|ui| {
         ui.add_space(24.0);
         if success {
-            ui.heading(RichText::new("Installation complete").color(SUCCESS).size(22.0));
+            ui.heading(
+                RichText::new("Installation complete")
+                    .color(SUCCESS)
+                    .size(22.0),
+            );
         } else {
-            ui.heading(RichText::new("Installation incomplete").color(ERROR).size(22.0));
+            ui.heading(
+                RichText::new("Installation incomplete")
+                    .color(ERROR)
+                    .size(22.0),
+            );
         }
         ui.add_space(12.0);
         if let Some(msg) = &state.done_message {
@@ -490,8 +531,12 @@ fn open_terminal() {
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        for term in ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal"]
-        {
+        for term in [
+            "x-terminal-emulator",
+            "gnome-terminal",
+            "konsole",
+            "xfce4-terminal",
+        ] {
             if std::process::Command::new(term).spawn().is_ok() {
                 break;
             }

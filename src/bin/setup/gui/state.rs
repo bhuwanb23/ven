@@ -33,6 +33,11 @@ impl Screen {
         }
     }
 
+    /// Human-readable title for the screen — surfaced by the window title
+    /// bar on platforms that show one. Currently unused (the wizard window
+    /// keeps a fixed "ven setup" title), kept around for future per-screen
+    /// titles in the platform window decoration.
+    #[allow(dead_code)]
     pub fn title(self) -> &'static str {
         match self {
             Screen::Welcome => "Welcome",
@@ -125,8 +130,9 @@ pub const RUNTIME_OPTIONS: [RuntimeOption; 8] = [
 ];
 
 /// Per-step status on the Progress screen.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum StepStatus {
+    #[default]
     Pending,
     Running,
     Done,
@@ -151,8 +157,14 @@ pub struct ProgressState {
     pub success: bool,
     pub ven_version: Option<String>,
     pub error: Option<String>,
-    /// Set when UAC/sudo relaunch was triggered instead of in-process install.
+    /// Set when UAC/sudo relaunch was triggered instead of in-process
+    /// install. Currently scaffolding — the worker writes these so the
+    /// Done/Progress screens can render an "elevation in progress" banner
+    /// in a follow-up patch. Marked `dead_code` until the GUI starts
+    /// reading them so CI's `-D warnings` stays green.
+    #[allow(dead_code)]
     pub elevation_launched: bool,
+    #[allow(dead_code)]
     pub elevation_message: Option<String>,
 }
 
@@ -187,17 +199,22 @@ impl ProgressState {
                     s.detail.clear();
                     s.status = StepStatus::Running;
                 }
-                self.overall_percent =
-                    ((i as f32) / TOTAL_STEPS as f32).min(1.0);
+                self.overall_percent = ((i as f32) / TOTAL_STEPS as f32).min(1.0);
             }
             ProgressEvent::StepDetail { sub_label } => {
-                if let Some(s) = self.steps.iter_mut().find(|s| s.status == StepStatus::Running)
+                if let Some(s) = self
+                    .steps
+                    .iter_mut()
+                    .find(|s| s.status == StepStatus::Running)
                 {
                     s.detail = sub_label.clone();
                 }
             }
             ProgressEvent::StepLog { line } => {
-                if let Some(s) = self.steps.iter_mut().find(|s| s.status == StepStatus::Running)
+                if let Some(s) = self
+                    .steps
+                    .iter_mut()
+                    .find(|s| s.status == StepStatus::Running)
                 {
                     s.log_lines.push(line.clone());
                     if s.log_lines.len() > 200 {
@@ -208,7 +225,9 @@ impl ProgressState {
             ProgressEvent::StepCompleted { index, skipped } => {
                 let i = index.saturating_sub(1);
                 if let Some(s) = self.steps.get_mut(i) {
-                    s.status = if skipped {
+                    // `skipped` is `&bool` here because `apply_event` takes
+                    // `event: &ProgressEvent` and we destructure by reference.
+                    s.status = if *skipped {
                         StepStatus::Skipped
                     } else {
                         StepStatus::Done
@@ -231,7 +250,10 @@ impl ProgressState {
                 self.finished = true;
                 self.success = false;
                 self.error = Some(error.clone());
-                if let Some(s) = self.steps.iter_mut().find(|s| s.status == StepStatus::Running)
+                if let Some(s) = self
+                    .steps
+                    .iter_mut()
+                    .find(|s| s.status == StepStatus::Running)
                 {
                     s.status = StepStatus::Failed;
                 }
@@ -297,8 +319,7 @@ impl WizardState {
         if let Some(parent) = p.parent() {
             if !parent.exists() {
                 if let Err(e) = std::fs::create_dir_all(parent) {
-                    self.storage_error =
-                        Some(format!("Cannot create parent directory: {e}"));
+                    self.storage_error = Some(format!("Cannot create parent directory: {e}"));
                     return;
                 }
             }

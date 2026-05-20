@@ -9,7 +9,7 @@ pub use state::Screen;
 use eframe::egui;
 
 use crate::common::SetupCli;
-use crate::gui::screens::{draw_nav, draw_screen, apply_theme, NavAction};
+use crate::gui::screens::{apply_theme, draw_nav, draw_screen, NavAction};
 use crate::gui::state::WizardState;
 use crate::install_steps::ProgressEvent;
 
@@ -63,13 +63,8 @@ impl VenSetupApp {
             let rgba = img.to_rgba8();
             let size = [rgba.width() as usize, rgba.height() as usize];
             let pixels = rgba.as_flat_samples();
-            let color_image =
-                egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
-            let tex = ctx.load_texture(
-                "ven_logo",
-                color_image,
-                egui::TextureOptions::LINEAR,
-            );
+            let color_image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
+            let tex = ctx.load_texture("ven_logo", color_image, egui::TextureOptions::LINEAR);
             self.state.logo_texture = Some(tex);
         }
     }
