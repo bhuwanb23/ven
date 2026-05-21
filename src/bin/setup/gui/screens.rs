@@ -1,6 +1,11 @@
-//! All wizard screen UIs (Welcome through Done).
+//! All wizard screen UIs (Welcome through Done) + the bottom navigation row.
+//!
+//! Every screen here is a pure render-and-respond function: state mutations
+//! happen through `WizardState`, navigation through the [`NavAction`] return
+//! value of `draw_nav`. The visual chrome lives in [`super::theme`] and
+//! [`super::widgets`]; this file should never paint a raw `Color32`.
 
-use egui::{Color32, RichText, Ui, Vec2};
+use eframe::egui::{self, Align, FontId, Layout, RichText, Stroke, Ui, Vec2};
 
 use crate::common::InstallMode;
 use crate::gui::state::{
@@ -8,18 +13,17 @@ use crate::gui::state::{
 };
 use crate::install_steps::{default_install_dir, default_storage_path, TOTAL_STEPS};
 
-// Brand palette (aligned with ven website dark theme).
-const ACCENT: Color32 = Color32::from_rgb(99, 102, 241);
-const ACCENT_DIM: Color32 = Color32::from_rgb(67, 56, 202);
-const SURFACE: Color32 = Color32::from_rgb(24, 24, 27);
-const CARD: Color32 = Color32::from_rgb(39, 39, 42);
-const TEXT: Color32 = Color32::from_rgb(250, 250, 250);
-const MUTED: Color32 = Color32::from_rgb(161, 161, 170);
-const SUCCESS: Color32 = Color32::from_rgb(34, 197, 94);
-const ERROR: Color32 = Color32::from_rgb(239, 68, 68);
+use super::theme;
+use super::widgets;
+use super::widgets::ValidKind;
 
-pub fn draw_screen(ui: &mut Ui, state: &mut WizardState) {
-    ui.visuals_mut().widgets.noninteractive.fg_stroke.color = TEXT;
+// ---------------------------------------------------------------------------
+// Central panel dispatcher.
+// ---------------------------------------------------------------------------
+
+/// Render the per-screen content. Called by `mod.rs::update` from inside a
+/// [`egui::CentralPanel`] with a 32 px inner margin already applied.
+pub fn draw_central(ui: &mut Ui, state: &mut WizardState) {
     match state.screen {
         Screen::Welcome => welcome(ui, state),
         Screen::Mode => mode(ui, state),
@@ -32,50 +36,55 @@ pub fn draw_screen(ui: &mut Ui, state: &mut WizardState) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Footer / navigation.
+// ---------------------------------------------------------------------------
+
+/// Outcome of the footer interaction. Mapped to side-effects in
+/// `mod.rs::update`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum NavAction {
+    None,
+    StartInstall,
+    Quit,
+}
+
+/// Render the cancel-confirm modal *and* the bottom button row, returning
+/// whatever action the user triggered this frame.
 pub fn draw_nav(ui: &mut Ui, state: &mut WizardState, ctx: &egui::Context) -> NavAction {
     let mut action = NavAction::None;
+
     if state.show_cancel_confirm {
-        egui::Window::new("Cancel setup?")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label("Exit the installer without making changes?");
-                ui.horizontal(|ui| {
-                    if ui.button("Stay").clicked() {
-                        state.show_cancel_confirm = false;
-                    }
-                    if ui.button(RichText::new("Exit").color(ERROR)).clicked() {
-                        action = NavAction::Quit;
-                    }
-                });
-            });
-        return action;
+        action = draw_cancel_modal(ctx, state);
+        if action != NavAction::None {
+            return action;
+        }
     }
 
     ui.add_space(8.0);
-    ui.separator();
-    ui.add_space(4.0);
 
+    let on_progress = state.screen == Screen::Progress;
+    let on_done = state.screen == Screen::Done;
+    let on_review = state.screen == Screen::Review;
+    let on_welcome = state.screen == Screen::Welcome;
+
+    // Single horizontal closure so the borrow checker doesn't see the
+    // two slot closures as overlapping mutable captures of `state`.
     ui.horizontal(|ui| {
-        let on_progress = state.screen == Screen::Progress;
-        let on_done = state.screen == Screen::Done;
-        let on_review = state.screen == Screen::Review;
-
         if !on_progress && !on_done {
-            if ui
-                .add_enabled(state.screen.prev().is_some(), egui::Button::new("Back"))
-                .clicked()
-            {
-                if let Some(prev) = state.screen.prev() {
-                    state.screen = prev;
+            let has_prev = state.screen.prev().is_some();
+            ui.add_enabled_ui(has_prev, |ui| {
+                if widgets::text_button(ui, "Back").clicked() {
+                    if let Some(prev) = state.screen.prev() {
+                        state.screen = prev;
+                    }
                 }
-            }
+            });
         }
 
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if on_done {
-                if ui.button(RichText::new("Finish").strong()).clicked() {
+                if widgets::primary_button(ui, "Finish").clicked() {
                     action = NavAction::Quit;
                 }
                 return;
@@ -88,88 +97,149 @@ pub fn draw_nav(ui: &mut Ui, state: &mut WizardState, ctx: &egui::Context) -> Na
                         .steps
                         .iter()
                         .all(|s| s.status != StepStatus::Running);
-                if ui
-                    .add_enabled(between_steps, egui::Button::new("Cancel"))
-                    .clicked()
-                {
-                    state.show_cancel_confirm = true;
-                }
+                ui.add_enabled_ui(between_steps, |ui| {
+                    if widgets::text_button(ui, "Cancel").clicked() {
+                        state.show_cancel_confirm = true;
+                    }
+                });
                 return;
             }
 
-            if ui.button(RichText::new("Cancel").color(MUTED)).clicked() {
-                state.show_cancel_confirm = true;
-            }
+            // Standard wizard footer: Cancel (text) then primary CTA.
+            // The right-to-left layout means we draw primary first.
+            let next_label = if on_review {
+                "Install"
+            } else if on_welcome {
+                "Get started"
+            } else {
+                "Next"
+            };
 
-            let next_label = if on_review { "Install" } else { "Next" };
             let can_next = match state.screen {
                 Screen::Storage => state.can_advance_from_storage(),
                 _ => true,
             };
-            if ui
-                .add_enabled(
-                    can_next,
-                    egui::Button::new(RichText::new(next_label).strong()),
-                )
-                .clicked()
-            {
+
+            let mut clicked_next = false;
+            ui.add_enabled_ui(can_next, |ui| {
+                if widgets::primary_button(ui, next_label).clicked() {
+                    clicked_next = true;
+                }
+            });
+
+            if clicked_next {
                 if state.screen == Screen::Storage {
                     state.validate_storage();
                     if !state.can_advance_from_storage() {
-                        // Returning from this `with_layout` closure (which
-                        // is `FnOnce(&mut Ui)`); the outer `draw_nav` fn
-                        // still returns the current `action` value below.
                         return;
                     }
                 }
-                action = if on_review {
-                    NavAction::StartInstall
+                if on_review {
+                    action = NavAction::StartInstall;
                 } else if let Some(next) = state.screen.next() {
                     state.screen = next;
-                    NavAction::None
-                } else {
-                    NavAction::None
-                };
+                }
+            }
+
+            if !on_welcome && widgets::text_button(ui, "Cancel").clicked() {
+                state.show_cancel_confirm = true;
             }
         });
     });
+    ui.add_space(4.0);
+
     action
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum NavAction {
-    None,
-    StartInstall,
-    Quit,
+fn draw_cancel_modal(ctx: &egui::Context, state: &mut WizardState) -> NavAction {
+    let mut action = NavAction::None;
+    egui::Window::new("Cancel setup?")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .frame(
+            egui::Frame::window(&ctx.style())
+                .fill(theme::CARD)
+                .stroke(Stroke::new(1.0, theme::BORDER))
+                .rounding(theme::RADIUS_CARD)
+                .inner_margin(20.0),
+        )
+        .show(ctx, |ui| {
+            ui.set_min_width(360.0);
+            ui.label(theme::subheading("Cancel setup?"));
+            ui.add_space(8.0);
+            ui.label(theme::muted_body(
+                "Exit the installer without making changes? Any partial files will be cleaned up.",
+            ));
+            ui.add_space(16.0);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if widgets::destructive_button(ui, "Exit").clicked() {
+                    action = NavAction::Quit;
+                }
+                if widgets::primary_button(ui, "Stay").clicked() {
+                    state.show_cancel_confirm = false;
+                }
+            });
+        });
+    action
 }
 
+// ---------------------------------------------------------------------------
+// Welcome — hero layout with logo, headline, subtitle, primary CTA hint.
+// (The primary "Get started" button lives in the footer, not the body, so
+// the user always knows where to click next.)
+// ---------------------------------------------------------------------------
+
 fn welcome(ui: &mut Ui, state: &mut WizardState) {
+    ui.add_space(48.0);
+    widgets::hero_logo(ui, state.logo_texture.as_ref(), 96.0);
+    ui.add_space(20.0);
     ui.vertical_centered(|ui| {
-        ui.add_space(24.0);
-        if let Some(tex) = &state.logo_texture {
-            ui.image((tex.id(), Vec2::new(96.0, 96.0)));
-        } else {
-            ui.heading(RichText::new("ven").size(48.0).color(ACCENT));
-        }
-        ui.add_space(12.0);
-        ui.heading(RichText::new("Welcome to Ven Setup").color(TEXT).size(24.0));
+        ui.label(theme::display("Welcome to Ven"));
         ui.add_space(8.0);
+        ui.label(theme::muted_body(format!(
+            "Setup wizard v{}",
+            env!("CARGO_PKG_VERSION")
+        )));
+        ui.add_space(20.0);
         ui.label(
-            RichText::new(format!("Version {}", env!("CARGO_PKG_VERSION")))
-                .color(MUTED)
-                .size(14.0),
-        );
-        ui.add_space(16.0);
-        ui.label(
-            RichText::new(
-                "This wizard installs ven and ven-launcher, configures your storage root, \
-                 and optionally pre-installs language runtimes.",
+            theme::body(
+                "This wizard installs ven and ven-launcher, configures your\nstorage root, and optionally pre-installs language runtimes.",
             )
-            .color(MUTED),
+            .color(theme::MUTED),
         );
-        ui.add_space(12.0);
+        ui.add_space(28.0);
+
+        // Three-column "what you'll set up" hint row.
+        ui.horizontal(|ui| {
+            ui.add_space((ui.available_width() - 540.0).max(0.0) * 0.5);
+            for (icon, label) in [
+                ("◆", "Install ven"),
+                ("◇", "Pick storage root"),
+                ("◈", "Pre-install runtimes"),
+            ] {
+                ui.allocate_ui(Vec2::new(180.0, 48.0), |ui| {
+                    widgets::card(ui, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.label(
+                                RichText::new(icon)
+                                    .size(20.0)
+                                    .color(theme::ACCENT),
+                            );
+                            ui.label(theme::caption(label));
+                        });
+                    });
+                });
+            }
+        });
+
+        ui.add_space(16.0);
         if ui
-            .link(RichText::new("Licensed under MIT — ven documentation").color(ACCENT))
+            .link(
+                RichText::new("Licensed under MIT — view documentation")
+                    .size(theme::SIZE_CAPTION)
+                    .color(theme::ACCENT),
+            )
             .clicked()
         {
             let _ = webbrowser::open("https://github.com/bhuwanb23/ven");
@@ -177,86 +247,78 @@ fn welcome(ui: &mut Ui, state: &mut WizardState) {
     });
 }
 
-fn mode(ui: &mut Ui, state: &mut WizardState) {
-    ui.heading("Choose install mode");
-    ui.add_space(8.0);
-    ui.label(RichText::new("Who should be able to use this ven install?").color(MUTED));
-    ui.add_space(12.0);
+// ---------------------------------------------------------------------------
+// Mode — 2 option_cards (User / System).
+// ---------------------------------------------------------------------------
 
-    card(ui, |ui| {
-        let user_selected = matches!(state.install_mode, InstallMode::User);
-        if ui
-            .radio(
-                user_selected,
-                RichText::new("User install (recommended)").strong(),
-            )
-            .clicked()
-        {
-            state.install_mode = InstallMode::User;
-        }
-        ui.label(
-            RichText::new("Installs to your home directory. No administrator or sudo required.")
-                .color(MUTED)
-                .small(),
-        );
-        ui.add_space(12.0);
-        let sys_selected = matches!(state.install_mode, InstallMode::System);
-        if ui
-            .radio(sys_selected, RichText::new("System install").strong())
-            .clicked()
-        {
-            state.install_mode = InstallMode::System;
-        }
-        ui.label(
-            RichText::new(
-                "Installs for all users on this machine. Requires administrator (Windows UAC) or sudo (Unix).",
-            )
-            .color(MUTED)
-            .small(),
-        );
-    });
+fn mode(ui: &mut Ui, state: &mut WizardState) {
+    widgets::section_heading(
+        ui,
+        "Choose install mode",
+        Some("Who should be able to use this ven install?"),
+    );
+
+    if widgets::option_card(
+        ui,
+        matches!(state.install_mode, InstallMode::User),
+        "User install (recommended)",
+        "Installs to your home directory. No administrator or sudo required.",
+        Some("No admin needed · ~/.ven on Unix · %USERPROFILE%\\.ven on Windows"),
+    )
+    .clicked()
+    {
+        state.install_mode = InstallMode::User;
+    }
+    ui.add_space(12.0);
+    if widgets::option_card(
+        ui,
+        matches!(state.install_mode, InstallMode::System),
+        "System install",
+        "Installs for all users on this machine.",
+        Some("Requires UAC on Windows · sudo on Unix · /usr/local or C:\\Program Files"),
+    )
+    .clicked()
+    {
+        state.install_mode = InstallMode::System;
+    }
 
     if matches!(state.install_mode, InstallMode::System) {
-        ui.add_space(12.0);
-        ui.colored_label(
-            ACCENT,
-            "Note: On Windows you will see a UAC prompt. On Linux/macOS you may need to re-run with sudo.",
+        ui.add_space(theme::SECTION_GAP);
+        widgets::validation_line(
+            ui,
+            ValidKind::Warn,
+            "On Windows you will see a UAC prompt; on Linux/macOS you may need to re-run with sudo.",
         );
     }
 }
 
-fn storage(ui: &mut Ui, state: &mut WizardState) {
-    ui.heading("Storage location");
-    ui.add_space(8.0);
-    ui.label(
-        RichText::new("Where should ven store runtimes, cache, and project data ($VEN_HOME)?")
-            .color(MUTED),
-    );
-    ui.add_space(12.0);
+// ---------------------------------------------------------------------------
+// Storage — path input + Browse + Use default + validation_line.
+// ---------------------------------------------------------------------------
 
-    card(ui, |ui| {
+fn storage(ui: &mut Ui, state: &mut WizardState) {
+    widgets::section_heading(
+        ui,
+        "Storage location",
+        Some("Where should ven store runtimes, cache, and project data ($VEN_HOME)?"),
+    );
+
+    widgets::card(ui, |ui| {
         let mut path_str = state.storage_path.display().to_string();
+        ui.label(theme::caption("VEN_HOME"));
+        ui.add_space(4.0);
         ui.horizontal(|ui| {
-            ui.label("Path:");
-            if ui
-                .add(egui::TextEdit::singleline(&mut path_str).desired_width(360.0))
-                .changed()
-            {
-                // PathBuf::from(&str) clones the bytes — keeps `path_str`
-                // alive for the second horizontal closure below where the
-                // "Use default" button might re-assign it.
+            // Wider text input than stock — feels less like a form field
+            // and more like a desktop installer.
+            let edit = egui::TextEdit::singleline(&mut path_str)
+                .desired_width(ui.available_width() - 200.0)
+                .font(FontId::new(theme::SIZE_BODY, egui::FontFamily::Monospace));
+            if ui.add(edit).changed() {
                 state.storage_path = std::path::PathBuf::from(path_str.as_str());
                 state.validate_storage();
             }
-        });
-        ui.horizontal(|ui| {
-            if ui.button("Browse…").clicked() {
+            if widgets::secondary_button(ui, "Browse…").clicked() {
                 state.pending_browse = true;
-            }
-            if ui.button("Use default").clicked() {
-                state.storage_path = default_storage_path();
-                state.validate_storage();
-                path_str = state.storage_path.display().to_string();
             }
         });
 
@@ -269,251 +331,395 @@ fn storage(ui: &mut Ui, state: &mut WizardState) {
         }
 
         ui.add_space(8.0);
-        ui.label(
-            RichText::new(format!("Default: {}", default_storage_path().display()))
-                .small()
-                .color(MUTED),
-        );
+        ui.horizontal(|ui| {
+            if widgets::text_button(ui, "Use default").clicked() {
+                state.storage_path = default_storage_path();
+                state.validate_storage();
+            }
+            ui.add_space(8.0);
+            ui.label(theme::caption(format!(
+                "Default: {}",
+                default_storage_path().display()
+            )));
+        });
 
+        ui.add_space(12.0);
         if let Some(err) = &state.storage_error {
-            ui.colored_label(ERROR, err);
+            widgets::validation_line(ui, ValidKind::Error, err);
         } else {
-            ui.colored_label(SUCCESS, "Path is writable");
+            widgets::validation_line(ui, ValidKind::Ok, "Path is writable.");
         }
     });
+
+    ui.add_space(theme::SECTION_GAP);
+    ui.label(
+        theme::caption(
+            "Tip: pick a directory on a fast drive — runtimes download here. The wizard will create it for you if it doesn't exist.",
+        ),
+    );
 }
+
+// ---------------------------------------------------------------------------
+// Hook / PATH — 2 option_card toggles.
+// ---------------------------------------------------------------------------
 
 fn hook_path(ui: &mut Ui, state: &mut WizardState) {
-    ui.heading("Shell integration");
-    ui.add_space(8.0);
-    card(ui, |ui| {
-        ui.checkbox(
-            &mut state.add_to_path,
-            RichText::new("Add ven to PATH").strong(),
+    widgets::section_heading(
+        ui,
+        "Shell integration",
+        Some("Choose what ven wires up in your shells. Both are recommended."),
+    );
+
+    if widgets::option_card(
+        ui,
+        state.add_to_path,
+        "Add ven to PATH",
+        "Lets you run `ven` from any terminal without a full path.",
+        Some("Edits HKCU\\Environment\\Path on Windows · ~/.ven/env on Unix"),
+    )
+    .clicked()
+    {
+        state.add_to_path = !state.add_to_path;
+    }
+    ui.add_space(12.0);
+    if widgets::option_card(
+        ui,
+        state.install_hook,
+        "Install shell hook for auto-activation",
+        "Automatically applies ven.toml when you cd into a project.",
+        Some("Supports PowerShell, bash, zsh, fish · idempotent · removable with `ven uninstall`"),
+    )
+    .clicked()
+    {
+        state.install_hook = !state.install_hook;
+    }
+
+    if !state.add_to_path {
+        ui.add_space(theme::SECTION_GAP);
+        widgets::validation_line(
+            ui,
+            ValidKind::Warn,
+            "Without PATH, you'll have to invoke ven by full path until you add it manually.",
         );
-        ui.label(
-            RichText::new("Lets you run `ven` from any terminal without a full path. Recommended.")
-                .color(MUTED)
-                .small(),
-        );
-        ui.add_space(12.0);
-        ui.checkbox(
-            &mut state.install_hook,
-            RichText::new("Install shell hook for auto-activation").strong(),
-        );
-        ui.label(
-            RichText::new(
-                "Automatically applies ven.toml when you cd into a project (PowerShell, bash, zsh, fish).",
-            )
-            .color(MUTED)
-            .small(),
-        );
-    });
+    }
 }
 
-fn runtimes(ui: &mut Ui, state: &mut WizardState) {
-    ui.heading("Pre-install runtimes (optional)");
-    ui.add_space(4.0);
-    ui.label(
-        RichText::new("Select languages to install with `ven install <lang> latest` after setup.")
-            .color(MUTED),
-    );
-    ui.add_space(8.0);
+// ---------------------------------------------------------------------------
+// Runtimes — 8 option_cards in a 2-column grid.
+// ---------------------------------------------------------------------------
 
-    egui::ScrollArea::vertical()
-        .max_height(280.0)
+fn runtimes(ui: &mut Ui, state: &mut WizardState) {
+    widgets::section_heading(
+        ui,
+        "Pre-install runtimes (optional)",
+        Some(
+            "Select languages to install with `ven install <lang> latest` after the main install.",
+        ),
+    );
+
+    let avail = ui.available_width();
+    let col_w = ((avail - 16.0) * 0.5).max(280.0);
+    egui::Grid::new("runtimes_grid")
+        .num_columns(2)
+        .spacing([16.0, 12.0])
         .show(ui, |ui| {
-            egui::Grid::new("runtimes_grid")
-                .num_columns(2)
-                .spacing([12.0, 8.0])
-                .show(ui, |ui| {
-                    for (i, rt) in RUNTIME_OPTIONS.iter().enumerate() {
-                        runtime_card(ui, rt, &mut state.runtime_selected[i]);
-                    }
+            for (i, rt) in RUNTIME_OPTIONS.iter().enumerate() {
+                ui.allocate_ui(Vec2::new(col_w, 96.0), |ui| {
+                    runtime_card(ui, rt, &mut state.runtime_selected[i]);
                 });
+                if i % 2 == 1 {
+                    ui.end_row();
+                }
+            }
         });
+
+    let count = state.runtime_selected.iter().filter(|x| **x).count();
+    ui.add_space(theme::SECTION_GAP);
+    if count == 0 {
+        widgets::validation_line(
+            ui,
+            ValidKind::Warn,
+            "No runtimes selected — that's fine, you can install them later with `ven install`.",
+        );
+    } else {
+        widgets::validation_line(
+            ui,
+            ValidKind::Ok,
+            &format!(
+                "{count} runtime{} will be installed after the wizard finishes.",
+                if count == 1 { "" } else { "s" }
+            ),
+        );
+    }
 }
 
 fn runtime_card(ui: &mut Ui, rt: &RuntimeOption, selected: &mut bool) {
-    let frame = egui::Frame::none()
-        .fill(CARD)
-        .inner_margin(12.0)
-        .rounding(8.0);
-    frame.show(ui, |ui| {
-        ui.set_min_width(200.0);
-        ui.checkbox(selected, RichText::new(rt.label).strong());
-        ui.label(RichText::new(rt.description).small().color(MUTED));
-        ui.label(
-            RichText::new(format!("ven install {} latest", rt.slug))
-                .small()
-                .color(ACCENT_DIM),
-        );
-    });
+    let response = widgets::option_card(
+        ui,
+        *selected,
+        rt.label,
+        rt.description,
+        Some(&format!("ven install {} latest", rt.slug)),
+    );
+    if response.clicked() {
+        *selected = !*selected;
+    }
 }
+
+// ---------------------------------------------------------------------------
+// Review — 6-row summary table inside a single card + dry-run banner.
+// ---------------------------------------------------------------------------
 
 fn review(ui: &mut Ui, state: &WizardState) {
-    ui.heading("Review your choices");
-    ui.add_space(8.0);
+    widgets::section_heading(
+        ui,
+        "Review your choices",
+        Some("Last chance to change anything. The Install button kicks off the worker."),
+    );
+
     let cfg_mode = state.install_mode;
     let install_dir = default_install_dir(cfg_mode);
+    let mode_label = match cfg_mode {
+        InstallMode::User => "User (per-account)",
+        InstallMode::System => "System (all users)",
+    };
 
-    card(ui, |ui| {
-        let mode_label = match cfg_mode {
-            InstallMode::User => "User (per-account)",
-            InstallMode::System => "System (all users)",
-        };
-        summary_row(ui, "Install mode", mode_label.into());
-        summary_row(ui, "Binaries", install_dir.display().to_string());
-        summary_row(
+    let runtimes_value = {
+        let r = state.selected_runtimes();
+        if r.is_empty() {
+            "None".to_string()
+        } else {
+            r.join(", ")
+        }
+    };
+
+    widgets::card(ui, |ui| {
+        widgets::summary_row(ui, "Install mode", mode_label);
+        widgets::summary_row(ui, "Binaries", &install_dir.display().to_string());
+        widgets::summary_row(
             ui,
             "Storage ($VEN_HOME)",
-            state.storage_path.display().to_string(),
+            &state.storage_path.display().to_string(),
         );
-        summary_row(
+        widgets::summary_row(
             ui,
-            "PATH",
-            if state.add_to_path {
-                "Yes".into()
-            } else {
-                "No".into()
-            },
+            "Add to PATH",
+            if state.add_to_path { "Yes" } else { "No" },
         );
-        summary_row(
+        widgets::summary_row(
             ui,
             "Shell hook",
-            if state.install_hook {
-                "Yes".into()
-            } else {
-                "No".into()
-            },
+            if state.install_hook { "Yes" } else { "No" },
         );
-        let runtimes = state.selected_runtimes();
-        summary_row(
-            ui,
-            "Pre-install",
-            if runtimes.is_empty() {
-                "None".into()
-            } else {
-                runtimes.join(", ")
-            },
-        );
-        if state.dry_run {
-            ui.colored_label(ACCENT, "Dry-run: no files will be modified.");
-        }
+        widgets::summary_row(ui, "Pre-install runtimes", &runtimes_value);
     });
+
+    if state.dry_run {
+        ui.add_space(theme::SECTION_GAP);
+        widgets::validation_line(
+            ui,
+            ValidKind::Warn,
+            "Dry-run mode: no files will be modified.",
+        );
+    }
 }
 
-fn summary_row(ui: &mut Ui, label: &str, value: String) {
-    ui.horizontal(|ui| {
-        ui.label(RichText::new(label).color(MUTED));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(RichText::new(value).strong());
-        });
-    });
-    ui.add_space(4.0);
-}
+// ---------------------------------------------------------------------------
+// Progress — big progress bar + 6 step rows + JetBrains-Mono log tail.
+// ---------------------------------------------------------------------------
 
 fn progress(ui: &mut Ui, progress: &ProgressState) {
-    ui.heading("Installing ven…");
-    ui.add_space(8.0);
-    ui.add(
-        egui::ProgressBar::new(progress.overall_percent)
-            .text(format!("{:.0}%", progress.overall_percent * 100.0)),
+    widgets::section_heading(
+        ui,
+        "Installing ven…",
+        Some("This usually takes 30–90 seconds. Keep this window open."),
     );
-    ui.add_space(12.0);
+
+    // Big progress bar with percent overlay painted in the middle.
+    let bar_rect = widgets::big_progress_bar(ui, progress.overall_percent, 24.0);
+    ui.painter().text(
+        bar_rect.center(),
+        egui::Align2::CENTER_CENTER,
+        format!("{:.0}%", progress.overall_percent * 100.0),
+        FontId::new(theme::SIZE_CAPTION, egui::FontFamily::Proportional),
+        theme::TEXT,
+    );
+    ui.add_space(theme::SECTION_GAP);
 
     egui::ScrollArea::vertical()
-        .max_height(320.0)
+        .auto_shrink([false; 2])
         .show(ui, |ui| {
             for (i, step) in progress.steps.iter().enumerate() {
-                let icon = match step.status {
-                    StepStatus::Pending => "○",
-                    StepStatus::Running => "◐",
-                    StepStatus::Done => "✓",
-                    StepStatus::Skipped => "—",
-                    StepStatus::Failed => "✗",
-                };
-                let color = match step.status {
-                    StepStatus::Done => SUCCESS,
-                    StepStatus::Failed => ERROR,
-                    StepStatus::Running => ACCENT,
-                    _ => MUTED,
-                };
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(icon).color(color));
-                    ui.vertical(|ui| {
-                        ui.label(RichText::new(format!(
-                            "{}/{} {}",
-                            i + 1,
-                            TOTAL_STEPS,
-                            step.label
-                        )));
-                        if !step.detail.is_empty() {
-                            ui.label(RichText::new(&step.detail).small().color(MUTED));
-                        }
-                        for line in step.log_lines.iter().rev().take(5).rev() {
-                            ui.label(RichText::new(line).small().monospace().color(MUTED));
-                        }
-                    });
-                });
-                ui.add_space(6.0);
+                progress_row(
+                    ui,
+                    i + 1,
+                    step.status.clone(),
+                    &step.label,
+                    &step.detail,
+                    &step.log_lines,
+                );
+                ui.add_space(8.0);
             }
         });
 
     if progress.finished && !progress.success {
         if let Some(err) = &progress.error {
-            ui.colored_label(ERROR, err);
+            ui.add_space(theme::SECTION_GAP);
+            widgets::validation_line(ui, ValidKind::Error, err);
         }
     }
 }
 
-fn done(ui: &mut Ui, state: &WizardState) {
-    let success = state.progress.success;
-    ui.vertical_centered(|ui| {
-        ui.add_space(24.0);
-        if success {
-            ui.heading(
-                RichText::new("Installation complete")
-                    .color(SUCCESS)
-                    .size(22.0),
-            );
-        } else {
-            ui.heading(
-                RichText::new("Installation incomplete")
-                    .color(ERROR)
-                    .size(22.0),
-            );
-        }
-        ui.add_space(12.0);
-        if let Some(msg) = &state.done_message {
-            ui.label(msg);
-        } else if let Some(v) = &state.progress.ven_version {
-            ui.label(RichText::new(v).strong());
-        }
-        ui.add_space(16.0);
-        ui.horizontal_wrapped(|ui| {
-            if ui.button("Open documentation").clicked() {
-                let _ = webbrowser::open("https://github.com/bhuwanb23/ven");
-            }
-            if ui.button("Open new terminal").clicked() {
-                open_terminal();
-            }
+fn progress_row(
+    ui: &mut Ui,
+    idx: usize,
+    status: StepStatus,
+    label: &str,
+    detail: &str,
+    log_lines: &[String],
+) {
+    widgets::card(ui, |ui| {
+        ui.horizontal(|ui| {
+            // Status icon column — fixed 32 px so labels align.
+            ui.allocate_ui(Vec2::new(32.0, 24.0), |ui| {
+                draw_step_icon(ui, &status);
+            });
+            ui.add_space(8.0);
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label(theme::body(format!("{idx}/{TOTAL_STEPS}")).color(theme::MUTED));
+                    ui.add_space(6.0);
+                    ui.label(theme::subheading(label));
+                });
+                if !detail.is_empty() {
+                    ui.add_space(2.0);
+                    ui.label(theme::muted_body(detail));
+                }
+                if !log_lines.is_empty() {
+                    ui.add_space(4.0);
+                    for line in log_lines.iter().rev().take(5).rev() {
+                        ui.label(
+                            RichText::new(line)
+                                .size(theme::SIZE_CAPTION)
+                                .family(egui::FontFamily::Monospace)
+                                .color(theme::MUTED),
+                        );
+                    }
+                }
+            });
         });
-        ui.add_space(8.0);
-        ui.label(
-            RichText::new("Open a new terminal and run: ven --version")
-                .color(MUTED)
-                .small(),
-        );
     });
 }
 
-fn card(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
-    egui::Frame::none()
-        .fill(CARD)
-        .inner_margin(16.0)
-        .rounding(8.0)
-        .show(ui, add_contents);
+fn draw_step_icon(ui: &mut Ui, status: &StepStatus) {
+    let center = ui.cursor().min + Vec2::new(12.0, 12.0);
+    let painter = ui.painter();
+    match status {
+        StepStatus::Pending => {
+            painter.circle_stroke(center, 9.0, Stroke::new(1.5, theme::BORDER));
+        }
+        StepStatus::Running => {
+            // Real spinner — paint over the same 18×18 cell.
+            ui.allocate_ui(Vec2::splat(24.0), |ui| {
+                ui.add(egui::Spinner::new().size(18.0).color(theme::ACCENT));
+            });
+            return;
+        }
+        StepStatus::Done => {
+            painter.circle_filled(center, 9.0, theme::SUCCESS);
+            paint_check_glyph(painter, center, 4.5, egui::Color32::BLACK);
+        }
+        StepStatus::Skipped => {
+            painter.circle_filled(center, 9.0, theme::MUTED);
+            painter.text(
+                center,
+                egui::Align2::CENTER_CENTER,
+                "—",
+                FontId::new(theme::SIZE_CAPTION, egui::FontFamily::Proportional),
+                egui::Color32::BLACK,
+            );
+        }
+        StepStatus::Failed => {
+            painter.circle_filled(center, 9.0, theme::ERROR);
+            paint_x_glyph(painter, center, 4.5, egui::Color32::WHITE);
+        }
+    }
+    ui.allocate_exact_size(Vec2::splat(24.0), egui::Sense::hover());
+}
+
+fn paint_check_glyph(
+    painter: &egui::Painter,
+    center: egui::Pos2,
+    scale: f32,
+    color: egui::Color32,
+) {
+    let p1 = center + Vec2::new(-scale * 0.7, scale * 0.1);
+    let p2 = center + Vec2::new(-scale * 0.2, scale * 0.6);
+    let p3 = center + Vec2::new(scale * 0.7, -scale * 0.5);
+    painter.line_segment([p1, p2], Stroke::new(1.5, color));
+    painter.line_segment([p2, p3], Stroke::new(1.5, color));
+}
+
+fn paint_x_glyph(painter: &egui::Painter, center: egui::Pos2, scale: f32, color: egui::Color32) {
+    let p1a = center + Vec2::new(-scale, -scale);
+    let p1b = center + Vec2::new(scale, scale);
+    let p2a = center + Vec2::new(-scale, scale);
+    let p2b = center + Vec2::new(scale, -scale);
+    painter.line_segment([p1a, p1b], Stroke::new(1.5, color));
+    painter.line_segment([p2a, p2b], Stroke::new(1.5, color));
+}
+
+// ---------------------------------------------------------------------------
+// Done — hero layout with success / failure check_circle, headline,
+// version line, two big buttons.
+// ---------------------------------------------------------------------------
+
+fn done(ui: &mut Ui, state: &WizardState) {
+    let success = state.progress.success;
+    ui.add_space(48.0);
+
+    ui.vertical_centered(|ui| {
+        widgets::check_circle(ui, success, 96.0);
+        ui.add_space(20.0);
+        if success {
+            ui.label(theme::display("Installation complete"));
+        } else {
+            ui.label(theme::display("Installation incomplete"));
+        }
+        ui.add_space(8.0);
+        if let Some(msg) = &state.done_message {
+            ui.label(theme::muted_body(msg));
+        } else if let Some(v) = &state.progress.ven_version {
+            ui.label(theme::body(v));
+        } else if !success {
+            if let Some(err) = &state.progress.error {
+                ui.label(theme::muted_body(err));
+            }
+        }
+        ui.add_space(28.0);
+
+        ui.horizontal(|ui| {
+            // Center the two-button row by padding the leading horizontal
+            // space with the spare width.
+            let row_w = 360.0;
+            let pad = ((ui.available_width() - row_w) * 0.5).max(0.0);
+            ui.add_space(pad);
+            if widgets::secondary_button(ui, "Open documentation").clicked() {
+                let _ = webbrowser::open("https://github.com/bhuwanb23/ven");
+            }
+            ui.add_space(12.0);
+            if widgets::primary_button_sized(ui, "Open new terminal", Vec2::new(180.0, 36.0))
+                .clicked()
+            {
+                open_terminal();
+            }
+        });
+
+        ui.add_space(16.0);
+        ui.label(theme::caption(
+            "Open a new terminal and run `ven --version` to confirm.",
+        ));
+    });
 }
 
 fn open_terminal() {
@@ -542,18 +748,4 @@ fn open_terminal() {
             }
         }
     }
-}
-
-pub fn apply_theme(ctx: &egui::Context) {
-    let mut visuals = egui::Visuals::dark();
-    visuals.panel_fill = SURFACE;
-    visuals.window_fill = SURFACE;
-    visuals.extreme_bg_color = SURFACE;
-    visuals.faint_bg_color = CARD;
-    visuals.widgets.noninteractive.bg_fill = CARD;
-    visuals.widgets.inactive.bg_fill = CARD;
-    visuals.widgets.hovered.bg_fill = ACCENT_DIM;
-    visuals.widgets.active.bg_fill = ACCENT;
-    visuals.selection.bg_fill = ACCENT;
-    ctx.set_visuals(visuals);
 }

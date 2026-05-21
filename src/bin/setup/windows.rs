@@ -21,9 +21,56 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::common::{InstallMode, SetupCli};
 use crate::install_steps::{self, CliSink, InstallConfig};
+
+// ---------------------------------------------------------------------------
+// Console reattachment (companion to `windows_subsystem = "windows"`)
+// ---------------------------------------------------------------------------
+
+/// Attach this process to the parent terminal's console so `println!`
+/// output reaches the PowerShell / cmd window the user launched us from.
+///
+/// A `windows_subsystem = "windows"` binary is started without a console;
+/// without this, every `print!` and `eprint!` is silently dropped when
+/// the user runs `ven-setup --cli ...` from a terminal. We call
+/// `AttachConsole(ATTACH_PARENT_PROCESS)`, which:
+///
+/// 1. Inherits the parent shell's console for the lifetime of the
+///    process, and
+/// 2. For a freshly-spawned windows-subsystem child whose std handles
+///    were not pre-redirected, transparently re-points
+///    `STD_{INPUT,OUTPUT,ERROR}_HANDLE` at `CONIN$` / `CONOUT$`.
+///
+/// That covers the common case of double-clicking from Explorer (no
+/// parent console, no-op) and launching from PowerShell / cmd
+/// (parent console adopted, banner + step output flow through).
+///
+/// We deliberately don't `freopen` or `SetStdHandle` ourselves: every
+/// extra knob is a chance to break the rare cases where the parent
+/// already piped stdio (e.g. `ven-setup --cli | tee log.txt`), and
+/// AttachConsole alone is the pattern used by `pwsh.exe`,
+/// `git.exe` 2.x, and the Python launcher.
+///
+/// Idempotent: a second call is a no-op. Best-effort: if AttachConsole
+/// fails (no parent console at all) we leave the streams untouched,
+/// which is the GUI default behaviour.
+pub fn attach_parent_console() {
+    static ATTACHED: AtomicBool = AtomicBool::new(false);
+    if ATTACHED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    // Safety: AttachConsole is a thread-safe Win32 entry point that
+    // tolerates "no parent console" as a clean failure (return 0 + last
+    // error = ERROR_INVALID_HANDLE). We only call it once per process
+    // thanks to the AtomicBool above.
+    unsafe {
+        use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
+        let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+}
 
 // ---------------------------------------------------------------------------
 // CLI driver (legacy + auto-fallback)

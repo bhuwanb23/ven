@@ -1,6 +1,6 @@
 [package]
 name = "ven"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Any-first intelligent version and dependency manager"
 license = "MIT"
@@ -115,6 +115,19 @@ egui_extras = { version = "0.28", features = ["image"], optional = true }
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 # Native file picker dialogs for the Storage screen's "Browse..." button.
 rfd = { version = "0.15", optional = true }
+
+# ── Windows console reattach ─────────────────────────────────────────────────
+# `ven-setup.exe` ships under the *windows* subsystem (no console flash on
+# double-click) but still needs to print to the parent terminal when invoked
+# as `ven-setup.exe --cli ...` from PowerShell. We pull just the
+# `Win32_System_Console` slice of `windows-sys` so we can call
+# `AttachConsole(ATTACH_PARENT_PROCESS)`. The dependency is already in the
+# transitive graph via `winit`, so the marginal cost is zero.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+] }
 
 [dev-dependencies]
 # HTTP mocks for OSV / EOL / registry tests

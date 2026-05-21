@@ -12,6 +12,19 @@
 //!
 //! Both front-ends ultimately call into [`install_steps::run`], so the
 //! actual install logic exists exactly once.
+//!
+//! ## Windows subsystem
+//!
+//! In release builds we link `ven-setup.exe` against the Windows
+//! *windows* subsystem (no console allocation) so a double-click does not
+//! flash a stray `cmd.exe` window next to the wizard. When the user picks
+//! the CLI flow (`--cli`, `--no-input`, or auto-detect on a headless host)
+//! we call `windows::attach_parent_console()` *before* any println so
+//! `irm | iex`-style invocations still print into the parent PowerShell.
+//! Debug builds keep the default console subsystem so `cargo run` and
+//! step-through debugging stay ergonomic.
+
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 use anyhow::Result;
 use clap::Parser;
@@ -28,6 +41,15 @@ mod gui;
 
 fn main() -> Result<()> {
     let cli = common::SetupCli::parse();
+
+    // Hook up the parent terminal early so any clap parse error or panic
+    // before we reach `dispatch_cli` still surfaces in the launching shell.
+    // Idempotent: a second `AttachConsole` call inside `dispatch_cli` is a
+    // no-op since this process is already attached.
+    #[cfg(windows)]
+    if cli.cli || cli.no_input || cli.elevated_child {
+        windows::attach_parent_console();
+    }
 
     // Resume / elevated-child paths never show UI — they were spawned by
     // a parent that already knows the user's choices.
@@ -102,6 +124,12 @@ fn should_use_cli(cli: &common::SetupCli) -> bool {
 fn dispatch_cli(cli: common::SetupCli, mode: common::InstallMode) -> Result<()> {
     #[cfg(windows)]
     {
+        // Re-attach to the parent console so banner / progress lines print
+        // into the PowerShell or cmd window the user spawned us from. This
+        // is the counterpart to `windows_subsystem = "windows"` above —
+        // without it, `ven-setup.exe --cli ...` would silently swallow
+        // stdout. No-op when there is no parent console (no harm done).
+        windows::attach_parent_console();
         windows::run(cli, mode)
     }
     #[cfg(unix)]

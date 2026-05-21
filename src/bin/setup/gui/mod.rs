@@ -1,7 +1,30 @@
 //! Native GUI wizard for `ven-setup` (eframe / egui).
+//!
+//! v0.2.1 layout:
+//!
+//! ```text
+//! ┌────────────────────────────────────────────────────────────┐
+//! │ [logo] Ven Setup                                  v0.2.1   │   <- top header (64 px)
+//! ├──────────────┬─────────────────────────────────────────────┤
+//! │ 1 Welcome ✓  │                                             │
+//! │ 2 Mode ●     │   Central content (scrollable, 32 px pad)   │
+//! │ 3 Storage    │                                             │
+//! │ 4 Hook/PATH  │                                             │
+//! │ 5 Runtimes   │                                             │
+//! │ 6 Review     │                                             │
+//! │ 7 Install    │                                             │
+//! ├──────────────┴─────────────────────────────────────────────┤
+//! │ Back                          Cancel    Next / Install     │   <- footer (56 px)
+//! └────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! The left rail is hidden on `Screen::Welcome` and `Screen::Done`
+//! (both hero layouts that own the full canvas).
 
 mod screens;
 mod state;
+mod theme;
+mod widgets;
 mod worker;
 
 pub use state::Screen;
@@ -9,7 +32,7 @@ pub use state::Screen;
 use eframe::egui;
 
 use crate::common::SetupCli;
-use crate::gui::screens::{apply_theme, draw_nav, draw_screen, NavAction};
+use crate::gui::screens::{draw_central, draw_nav, NavAction};
 use crate::gui::state::WizardState;
 use crate::install_steps::ProgressEvent;
 
@@ -17,15 +40,26 @@ use crate::install_steps::ProgressEvent;
 #[derive(Debug)]
 pub struct GuiUnavailable;
 
+/// Embedded Ven logo PNG, included at compile time so the binary is
+/// self-contained.
+const LOGO_PNG: &[u8] = include_bytes!("../../../../assets/Ven_logo.png");
+
 /// Launch the installer wizard. On failure to create a window, returns
 /// [`GuiUnavailable`] so `main` can fall back to the CLI flow.
 pub fn run(cli: SetupCli) -> std::result::Result<(), GuiUnavailable> {
     let dry_run = cli.dry_run;
+
+    let icon = decode_icon();
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([920.0, 640.0])
+        .with_min_inner_size([720.0, 540.0])
+        .with_title(format!("Ven Setup v{}", env!("CARGO_PKG_VERSION")));
+    if let Some(icon) = icon {
+        viewport = viewport.with_icon(icon);
+    }
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([720.0, 520.0])
-            .with_min_inner_size([640.0, 480.0])
-            .with_title(format!("Ven Setup {}", env!("CARGO_PKG_VERSION"))),
+        viewport,
         ..Default::default()
     };
 
@@ -33,13 +67,28 @@ pub fn run(cli: SetupCli) -> std::result::Result<(), GuiUnavailable> {
         "Ven Setup",
         options,
         Box::new(move |cc| {
-            apply_theme(&cc.egui_ctx);
+            theme::apply(&cc.egui_ctx);
             Ok(Box::new(VenSetupApp::new(dry_run)))
         }),
     )
     .map_err(|e| {
         eprintln!("ven-setup: GUI failed to start: {e}");
         GuiUnavailable
+    })
+}
+
+/// Decode the embedded logo into an `IconData` so the OS title bar /
+/// taskbar / Alt-Tab show our brand icon instead of eframe's default
+/// gear. Returns `None` if the PNG is corrupted (build-time guard
+/// would have caught it; this is just the runtime fallback).
+fn decode_icon() -> Option<egui::IconData> {
+    let img = image::load_from_memory(LOGO_PNG).ok()?;
+    let rgba = img.into_rgba8();
+    let (width, height) = rgba.dimensions();
+    Some(egui::IconData {
+        rgba: rgba.into_raw(),
+        width,
+        height,
     })
 }
 
@@ -54,12 +103,13 @@ impl VenSetupApp {
         }
     }
 
+    /// Build the in-process `egui::TextureHandle` for the logo on the
+    /// first frame. Subsequent calls are a no-op.
     fn ensure_logo(&mut self, ctx: &egui::Context) {
         if self.state.logo_texture.is_some() {
             return;
         }
-        const LOGO: &[u8] = include_bytes!("../../../../assets/Ven_logo.png");
-        if let Ok(img) = image::load_from_memory(LOGO) {
+        if let Ok(img) = image::load_from_memory(LOGO_PNG) {
             let rgba = img.to_rgba8();
             let size = [rgba.width() as usize, rgba.height() as usize];
             let pixels = rgba.as_flat_samples();
@@ -96,6 +146,16 @@ impl VenSetupApp {
         self.state.progress_rx = Some(worker::spawn_install(&self.state));
         self.state.screen = Screen::Progress;
     }
+
+    fn show_step_rail(&self) -> bool {
+        // Welcome and Done are hero layouts — they own the canvas.
+        !matches!(self.state.screen, Screen::Welcome | Screen::Done)
+    }
+
+    fn show_header(&self) -> bool {
+        // Hide the chrome on the hero screens for the same reason.
+        !matches!(self.state.screen, Screen::Welcome | Screen::Done)
+    }
 }
 
 impl eframe::App for VenSetupApp {
@@ -103,43 +163,120 @@ impl eframe::App for VenSetupApp {
         self.ensure_logo(ctx);
         if self.state.screen == Screen::Progress {
             self.poll_progress();
-            ctx.request_repaint();
+            // 50 ms repaint keeps the spinner smooth without burning
+            // CPU on screens that don't animate.
+            ctx.request_repaint_after(std::time::Duration::from_millis(50));
         }
 
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
-            ui.add_space(8.0);
+        if self.show_header() {
+            draw_header(ctx, &self.state);
+        }
+
+        if self.show_step_rail() {
+            draw_step_rail(ctx, &self.state);
+        }
+
+        let nav_action = std::cell::Cell::new(NavAction::None);
+        egui::TopBottomPanel::bottom("nav")
+            .resizable(false)
+            .min_height(64.0)
+            .show(ctx, |ui| {
+                let action = draw_nav(ui, &mut self.state, ctx);
+                nav_action.set(action);
+            });
+
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::none()
+                    .fill(theme::BG)
+                    .inner_margin(egui::Margin::symmetric(32.0, 24.0)),
+            )
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false; 2])
+                    .show(ui, |ui| {
+                        draw_central(ui, &mut self.state);
+                    });
+            });
+
+        match nav_action.get() {
+            NavAction::None => {}
+            NavAction::StartInstall => self.start_install(),
+            NavAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Top header — logo + "Ven Setup" + version pill + step indicator.
+// ---------------------------------------------------------------------------
+
+fn draw_header(ctx: &egui::Context, state: &WizardState) {
+    egui::TopBottomPanel::top("header")
+        .resizable(false)
+        .min_height(64.0)
+        .frame(
+            egui::Frame::none()
+                .fill(theme::PANEL)
+                .inner_margin(egui::Margin::symmetric(20.0, 12.0)),
+        )
+        .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(
-                    egui::RichText::new("Ven Setup")
-                        .strong()
-                        .color(egui::Color32::from_rgb(99, 102, 241)),
-                );
-                ui.label(
-                    egui::RichText::new(format!("v{}", env!("CARGO_PKG_VERSION")))
-                        .small()
-                        .color(egui::Color32::GRAY),
-                );
+                if let Some(tex) = &state.logo_texture {
+                    ui.image((tex.id(), egui::vec2(28.0, 28.0)));
+                    ui.add_space(8.0);
+                }
+                ui.label(theme::subheading("Ven Setup"));
+                ui.add_space(8.0);
+                widgets::version_pill(ui, env!("CARGO_PKG_VERSION"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if self.state.screen != Screen::Welcome && self.state.screen != Screen::Done {
-                        let step = self.state.screen.index();
-                        ui.label(format!("Step {}/7", step));
-                    }
+                    let step_idx = state.screen.index();
+                    ui.label(theme::caption(format!("Step {step_idx} of 7")));
                 });
             });
+        });
+}
+
+// ---------------------------------------------------------------------------
+// Left step rail — vertical list of all wizard steps with status dots.
+// ---------------------------------------------------------------------------
+
+fn draw_step_rail(ctx: &egui::Context, state: &WizardState) {
+    egui::SidePanel::left("steps")
+        .resizable(false)
+        .exact_width(220.0)
+        .frame(
+            egui::Frame::none()
+                .fill(theme::PANEL)
+                .inner_margin(egui::Margin::symmetric(12.0, 16.0)),
+        )
+        .show(ctx, |ui| {
             ui.add_space(4.0);
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.label(theme::caption("INSTALLATION"));
             ui.add_space(8.0);
-            draw_screen(ui, &mut self.state);
-        });
 
-        egui::TopBottomPanel::bottom("nav").show(ctx, |ui| {
-            match draw_nav(ui, &mut self.state, ctx) {
-                NavAction::None => {}
-                NavAction::StartInstall => self.start_install(),
-                NavAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            const STEPS: [(usize, Screen, &str); 7] = [
+                (1, Screen::Welcome, "Welcome"),
+                (2, Screen::Mode, "Install mode"),
+                (3, Screen::Storage, "Storage"),
+                (4, Screen::HookPath, "Shell integration"),
+                (5, Screen::Runtimes, "Runtimes"),
+                (6, Screen::Review, "Review"),
+                (7, Screen::Progress, "Install"),
+            ];
+
+            let current = state.screen.index();
+            for (idx, screen, label) in STEPS {
+                let s_idx = screen.index();
+                let status = if s_idx < current {
+                    widgets::StepRailStatus::Done
+                } else if s_idx == current {
+                    widgets::StepRailStatus::Active
+                } else {
+                    widgets::StepRailStatus::Upcoming
+                };
+                widgets::step_rail_row(ui, idx, status, label);
+                ui.add_space(2.0);
             }
         });
-    }
 }
