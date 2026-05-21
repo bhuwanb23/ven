@@ -14,6 +14,10 @@
 
 export const GITHUB_URL = 'https://github.com/bhuwanb23/ven'
 export const RELEASES_URL = `${GITHUB_URL}/releases`
+
+// Built with Vite `base` (/ven/ on GitHub Pages, / in dev). Must not use a
+// leading-slash absolute path or production fetch hits the domain root (404).
+export const RELEASES_MANIFEST_URL = `${import.meta.env.BASE_URL}releases-manifest.json`
 export const ISSUES_URL = `${GITHUB_URL}/issues`
 export const DISCUSSIONS_URL = `${GITHUB_URL}/discussions`
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`
@@ -30,19 +34,19 @@ export const INSTALL = {
     label: 'Windows',
     cmd: `irm ${INSTALL_PS1_URL} | iex`,
     note:
-      'PowerShell 5.1 or 7+. Installs to %USERPROFILE%\\.ven\\bin. Then run ven setup (once); upgrade ven anytime with ven update.',
+      'PowerShell 5.1 or 7+. Or download ven-setup-0.2.0-windows-x64.exe above. Installs to %USERPROFILE%\\.ven\\bin. Then ven shell install (once); upgrade with ven update.',
   },
   macos: {
     label: 'macOS',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note:
-      'Installs to ~/.ven/bin and adds PATH. Then ven setup (once); upgrade with ven update.',
+      'Or download ven-setup-0.2.0-macos-* above. Installs to ~/.ven/bin and adds PATH. Then ven shell install (once); upgrade with ven update.',
   },
   linux: {
     label: 'Linux',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note:
-      'Bash / Zsh / Fish. Then ven setup (once); upgrade with ven update.',
+      'Or download ven-setup-0.2.0-linux-* above (chmod +x, then run). Bash / Zsh / Fish. Then ven shell install (once); upgrade with ven update.',
   },
   source: {
     label: 'From source',
