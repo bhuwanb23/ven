@@ -30,7 +30,11 @@
 
 ---
 
-![ven demo](assets/ven-demo.gif)
+<video src="ven_promo/ven-promo.mp4" width="920" controls autoplay loop muted playsinline>
+  <a href="ven_promo/ven-promo.mp4">Download the ven demo video</a>
+</video>
+
+<p><sub>38s product tour · <a href="ven_promo/ven-promo.mp4">ven-promo.mp4</a></sub></p>
 
 </div>
 
