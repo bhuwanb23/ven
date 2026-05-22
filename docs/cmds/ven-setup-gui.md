@@ -2,6 +2,8 @@
 
 Since **v0.2.0**, double-clicking `ven-setup` (or running it with no flags on a machine with a display) opens a native **eight-screen wizard** built with [eframe](https://github.com/emilk/egui) / egui. The CLI flow remains available via `--cli`.
 
+**v0.2.1** is a full visual redesign: website-aligned cyan-on-dark theme, bundled Inter / JetBrains Mono fonts, a left step rail, clickable option cards (replacing stock radios/checkboxes), hero Welcome/Done screens, a real progress spinner, and a 920×640 viewport with the Ven logo as the window icon. On Windows, release builds link the *windows* subsystem so double-clicking does not flash a cmd window; `--cli` re-attaches to the parent console so scripted installs still print normally.
+
 ## Screens
 
 | # | Screen | What you choose |
