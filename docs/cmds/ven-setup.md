@@ -2,7 +2,7 @@
 
 `ven-setup` is a **single self-contained installer**. `ven` and `ven-launcher` are **embedded as bytes** inside `ven-setup` at build time; the installer extracts them, updates `PATH`, optionally configures `$VEN_HOME`, installs shell hooks, optionally pre-installs runtimes, and verifies `ven --version`.
 
-> **v0.2+**: Running `ven-setup` with no flags opens a **native GUI wizard** (Welcome → Done). See [`ven-setup-gui.md`](ven-setup-gui.md). Use `--cli` for the legacy terminal flow (SSH, CI, headless).
+> **v0.2+** (redesigned in **v0.2.1**): Running `ven-setup` with no flags opens a **native GUI wizard** (Welcome → Done). See [`ven-setup-gui.md`](ven-setup-gui.md). Use `--cli` for the legacy terminal flow (SSH, CI, headless).
 
 The installer also falls back to **sibling files on disk** when an embedded payload is empty, so development builds and `cargo run --bin ven-setup` still work.
 

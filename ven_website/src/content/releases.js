@@ -3,6 +3,31 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.1',
+    date: 'May 21, 2026',
+    tag: 'patch',
+    summary:
+      'ven-setup GUI polish: a full visual redesign aligned with the ven.dev brand — cyan-on-dark theme, bundled Inter and JetBrains Mono fonts, left step rail, clickable option cards, hero Welcome/Done screens, live progress spinner, and a redesigned footer. Windows release builds no longer flash a stray cmd window (`windows_subsystem = "windows"`); CLI mode re-attaches to the parent console via `AttachConsole` so `ven-setup --cli` still prints into PowerShell.',
+    sections: {
+      new: [
+        'Branded GUI theme module (`gui/theme.rs`) with website-aligned palette tokens and typography scale.',
+        'Reusable widget library (`gui/widgets.rs`): primary/secondary/text buttons, option cards, step rail rows, validation lines, hero logo, painted check circle.',
+        'Bundled fonts under `assets/fonts/` (Inter Regular/SemiBold, JetBrains Mono Regular) with SIL OFL attribution.',
+        'Window icon from `assets/Ven_logo.png`; default viewport bumped to 920×640 with header + left rail + central + footer layout.',
+        'Windows `attach_parent_console()` helper so `--cli` / `--no-input` invocations print into the launching terminal despite the GUI binary linking the windows subsystem.',
+      ],
+      improved: [
+        'All eight wizard screens rebuilt on the new design system (Welcome hero, Mode/Runtimes option cards, Storage validation line, HookPath toggles, Review summary table, Progress spinner + mono log tail, Done hero checkmark).',
+        'Cancel modal restyled with shadowed window and destructive Exit button.',
+        'Install page, docs sidebar badge, and landing demo updated to v0.2.1.',
+        '`releases-manifest.json` SHA256 digests refreshed for all 18 release assets.',
+      ],
+      fixed: [
+        'Double-clicking `ven-setup.exe` on Windows no longer opens a console window alongside the wizard.',
+      ],
+    },
+  },
+  {
     version: 'v0.2.0',
     date: 'May 20, 2026',
     tag: 'minor',
