@@ -15,17 +15,20 @@
         font-family: "Geist", system-ui, sans-serif;
         color: #e5e2e1;
       }
-
       .scene {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
         overflow: hidden;
       }
+      .scene-content {
+        display: flex; flex-direction: column;
+        width: 100%; height: 100%;
+        padding: 80px 120px; gap: 24px;
+        box-sizing: border-box;
+      }
 
-      /* ── Shared ═══════════════════════════════════════════ */
+      /* ── Shared Terminal Chrome ── */
       .terminal-chrome {
         background: #0e0e0e;
         border: 2px solid #3a494b;
@@ -34,9 +37,7 @@
         box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
       }
       .term-bar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        display: flex; align-items: center; gap: 8px;
         padding: 14px 20px;
         background: #201f1f;
         border-bottom: 2px solid #3a494b;
@@ -47,15 +48,12 @@
       .dot-g { background: #28c840; }
       .term-title {
         font-family: "JetBrains Mono", monospace;
-        font-size: 18px;
-        color: #f5fafa;
-        margin-left: 8px;
+        font-size: 18px; color: #f5fafa; margin-left: 8px;
       }
       .term-body {
         padding: 28px 32px;
         font-family: "JetBrains Mono", monospace;
-        font-size: 24px;
-        line-height: 1.65;
+        font-size: 24px; line-height: 1.65;
       }
       .cmd { color: #00e639; }
       .out { color: #b9cacb; }
@@ -65,7 +63,7 @@
       .cyan-text { color: #00dbe7; }
       .muted-text { color: #849495; }
 
-      /* ── Decorative Shared Elements ══════════════════════ */
+      /* ── Decorative Shared ── */
       body::after {
         content: ''; position: fixed; inset: 0;
         opacity: 0.025; pointer-events: none; z-index: 999;
@@ -90,12 +88,24 @@
         transform: rotate(45deg); opacity: 0.15;
         position: absolute; pointer-events: none;
       }
+      .diamond-red {
+        width: 10px; height: 10px; background: #ff3b30;
+        transform: rotate(45deg); opacity: 0.2;
+        position: absolute; pointer-events: none;
+      }
+      .diamond-green {
+        width: 10px; height: 10px; background: #00e639;
+        transform: rotate(45deg); opacity: 0.2;
+        position: absolute; pointer-events: none;
+      }
       .particle-dot {
         position: absolute; width: 8px; height: 8px;
         border-radius: 50%; pointer-events: none;
       }
       .particle-dot.cyan { background: #00dbe7; }
       .particle-dot.green { background: #00e639; }
+      .particle-dot.red { background: #ff3b30; }
+      .particle-dot.white { background: #e1fdff; }
       .version-chip {
         display: inline-flex; align-items: center;
         font-family: "JetBrains Mono", monospace; font-size: 16px;
@@ -126,11 +136,15 @@
         display: flex; align-items: center; justify-content: center;
         width: 48px; height: 48px;
         border: 2px solid #00e639; border-radius: 50%;
-        color: #00e639; font-size: 24px; position: absolute;
+        color: #00e639; font-size: 24px;
       }
       .network-node {
-        position: absolute; width: 8px; height: 8px;
+        position: absolute; width: 10px; height: 10px;
         border-radius: 50%; background: #00dbe7; pointer-events: none;
+      }
+      .network-node-sm {
+        position: absolute; width: 6px; height: 6px;
+        border-radius: 50%; background: rgba(0,219,231,0.4); pointer-events: none;
       }
       .network-line {
         position: absolute; height: 1px;
@@ -147,10 +161,6 @@
         padding: 2px 8px; border-radius: 3px;
       }
       .cve-badge.safe { background: rgba(0,230,57,0.1); color: #00e639; border: 1px solid rgba(0,230,57,0.2); }
-      .star-particle {
-        position: absolute; width: 4px; height: 4px;
-        background: #00dbe7; border-radius: 50%; pointer-events: none;
-      }
       .ghost-bar-chart {
         display: flex; gap: 8px; align-items: flex-end;
         height: 50px; margin: 12px 0;
@@ -162,8 +172,54 @@
       .ghost-bar.g2 { background: #ff8a80; }
       .ghost-bar.g3 { background: #ff5252; }
       .ghost-bar.g4 { background: #ff1744; }
+      .glow-ring {
+        position: absolute; border-radius: 50%;
+        border: 2px solid rgba(0,219,231,0.1);
+        pointer-events: none;
+      }
 
-      /* ── Scene 1: Chaos ────────────────────────────────── */
+      /* ── Glitch text effect ── */
+      .glitch-text {
+        position: relative;
+      }
+      .glitch-text::before,
+      .glitch-text::after {
+        content: attr(data-text);
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+      }
+      .glitch-text::before {
+        color: #00dbe7;
+        clip-path: inset(0 0 60% 0);
+        transform: translate(-2px, 0);
+      }
+      .glitch-text::after {
+        color: #ff3b30;
+        clip-path: inset(60% 0 0 0);
+        transform: translate(2px, 0);
+      }
+
+      /* ── Spotlight effect ── */
+      .spotlight {
+        position: absolute; inset: 0;
+        pointer-events: none;
+        background: radial-gradient(ellipse 600px 500px at 50% 50%, rgba(0,219,231,0.08) 0%, transparent 70%);
+        opacity: 0;
+      }
+
+      /* ── Scan lines overlay ── */
+      .scan-lines {
+        position: absolute; inset: 0;
+        opacity: 0.04;
+        background: repeating-linear-gradient(
+          0deg, transparent, transparent 3px, rgba(0, 219, 231, 0.15) 3px, rgba(0, 219, 231, 0.15) 4px
+        );
+        pointer-events: none;
+      }
+
+      /* ── Scene 1: Chaos ── */
       #scene1 { z-index: 1; background: #131313; }
       #scene1 .dot-grid {
         position: absolute; inset: 0;
@@ -178,8 +234,19 @@
         border-radius: 6px;
         background: rgba(14, 14, 14, 0.5);
       }
-      #scene1 .gt1 { top: 80px; right: 60px; transform: rotate(3deg); }
-      #scene1 .gt2 { bottom: 100px; left: 80px; transform: rotate(-2deg); }
+      #scene1 .gt1 { top: 60px; right: 40px; transform: rotate(3deg); }
+      #scene1 .gt2 { bottom: 80px; left: 60px; transform: rotate(-2deg); }
+      #scene1 .s1-ghost-extra {
+        position: absolute; width: 320px; height: 180px;
+        border: 1px solid rgba(0,219,231,0.06);
+        border-radius: 6px;
+        background: rgba(14,14,14,0.4);
+        pointer-events: none;
+      }
+      #scene1 .s1-ghost-extra.gt3 { bottom: 100px; right: 160px; transform: rotate(5deg); }
+      #scene1 .s1-ghost-extra.gt4 { top: 180px; left: 30px; transform: rotate(-4deg); }
+      #scene1 .s1-ghost-extra.gt5 { top: 300px; right: 200px; transform: rotate(6deg); width: 280px; height: 150px; }
+      #scene1 .s1-ghost-extra.gt6 { bottom: 250px; left: 300px; transform: rotate(-3deg); width: 240px; height: 140px; }
       #scene1 .scene-content {
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
@@ -215,30 +282,20 @@
         color: #8aa8a9;
         letter-spacing: 0.08em;
       }
-      #scene1 .warning-badge { position: absolute; top: 30px; right: 30px; }
       #scene1 .err-counter {
         position: absolute; bottom: 30px; right: 30px;
         font-family: "JetBrains Mono", monospace; font-size: 16px;
         color: #ffb4ab; opacity: 0.5;
       }
-      #scene1 .s1-ghost-extra {
-        position: absolute; width: 320px; height: 180px;
-        border: 1px solid rgba(0,219,231,0.06);
-        border-radius: 6px;
-        background: rgba(14,14,14,0.4);
-        pointer-events: none;
-      }
-      #scene1 .s1-ghost-extra.gt3 { bottom: 120px; right: 180px; transform: rotate(5deg); }
-      #scene1 .s1-ghost-extra.gt4 { top: 200px; left: 40px; transform: rotate(-4deg); }
-      #scene1 .diamond-s1 {
-        position: absolute;
-        width: 8px; height: 8px;
-        background: rgba(255,59,48,0.15);
-        transform: rotate(45deg);
-        pointer-events: none;
+      #scene1 .s1-scanline-overlay {
+        position: absolute; inset: 0;
+        background: repeating-linear-gradient(
+          0deg, transparent, transparent 2px, rgba(0, 219, 231, 0.06) 2px, rgba(0, 219, 231, 0.06) 4px
+        );
+        pointer-events: none; opacity: 0;
       }
 
-      /* ── Scene 2: Problem ──────────────────────────────── */
+      /* ── Scene 2: Problem ── */
       #scene2 { z-index: 2; background: #131313; opacity: 0; }
       #scene2 .accent-line {
         position: absolute; top: 0; left: 0;
@@ -254,18 +311,15 @@
         transform: translateY(-50%) rotate(-6deg);
         white-space: nowrap;
         pointer-events: none;
+        overflow: visible;
       }
       #scene2 .s2-progress-wrap {
         position: absolute; bottom: 40px; left: 140px; right: 120px;
+        opacity: 0;
       }
       #scene2 .s2-versions {
-        position: absolute; top: 60px; right: 40px;
+        position: absolute; top: 40px; right: 40px;
         display: flex; gap: 12px;
-      }
-      #scene2 .s2-diamond {
-        position: absolute; width: 8px; height: 8px;
-        background: rgba(0,219,231,0.12);
-        transform: rotate(45deg); pointer-events: none;
       }
       #scene2 .scene-content {
         display: flex; flex-direction: row;
@@ -301,13 +355,8 @@
         overflow: hidden;
         box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
       }
-      #scene2 .term-body-sc2 {
-        padding: 28px 32px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 24px; line-height: 1.65;
-      }
 
-      /* ── Scene 3: Meet ven ─────────────────────────────── */
+      /* ── Scene 3: Meet ven ── */
       #scene3 { z-index: 3; background: #131313; opacity: 0; }
       #scene3 .glow {
         position: absolute;
@@ -336,6 +385,17 @@
         transform: translate(-50%,-50%) scale(1);
         pointer-events: none;
       }
+      #scene3 .ring-expand {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid rgba(0,219,231,0.08);
+        top: 50%; left: 50%;
+        transform: translate(-50%,-50%);
+        pointer-events: none;
+      }
+      #scene3 .ring-expand.re1 { width: 300px; height: 300px; }
+      #scene3 .ring-expand.re2 { width: 500px; height: 500px; }
+      #scene3 .ring-expand.re3 { width: 700px; height: 700px; }
       #scene3 .s3-version-meta {
         font-family: "JetBrains Mono", monospace;
         font-size: 18px; color: #849495;
@@ -379,7 +439,7 @@
       #scene3 .split-panel {
         display: flex; gap: 48px;
         margin-top: 8px;
-        height: 400px;
+        height: 500px;
       }
       #scene3 .file-tree {
         flex: 0 0 340px;
@@ -391,16 +451,9 @@
         font-size: 20px;
         line-height: 2;
       }
-      #scene3 .ft-header {
-        color: #849495;
-        border-bottom: 1px solid #3a494b;
-        padding-bottom: 12px;
-        margin-bottom: 12px;
-      }
+      #scene3 .ft-header { color: #849495; border-bottom: 1px solid #3a494b; padding-bottom: 12px; margin-bottom: 12px; }
       #scene3 .ft-item { color: #b9cacb; }
-      #scene3 .ft-active {
-        color: #00dbe7; font-weight: 600;
-      }
+      #scene3 .ft-active { color: #00dbe7; font-weight: 600; }
       #scene3 .term-panel {
         flex: 1;
         background: #0e0e0e;
@@ -414,7 +467,7 @@
         font-size: 22px; line-height: 1.7;
       }
 
-      /* ── Scene 4: Languages ────────────────────────────── */
+      /* ── Scene 4: Languages ── */
       #scene4 { z-index: 4; background: #131313; opacity: 0; }
       #scene4 .bg-grid {
         position: absolute; inset: 0;
@@ -422,6 +475,17 @@
         background-image: radial-gradient(circle, #00dbe7 1px, transparent 1px);
         background-size: 48px 48px;
       }
+      #scene4 .floating-icon {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 80px; font-weight: 700;
+        color: rgba(0,219,231,0.04);
+        pointer-events: none;
+      }
+      #scene4 .fi-1 { top: 80px; left: 60px; transform: rotate(-8deg); }
+      #scene4 .fi-2 { bottom: 60px; right: 80px; transform: rotate(5deg); }
+      #scene4 .fi-3 { top: 400px; right: 60px; transform: rotate(-3deg); font-size: 60px; }
+      #scene4 .fi-4 { bottom: 200px; left: 80px; transform: rotate(6deg); font-size: 60px; }
       #scene4 .scene-content {
         display: flex; flex-direction: column;
         width: 100%; height: 100%;
@@ -431,9 +495,7 @@
         font-size: 72px; font-weight: 700;
         color: #e1fdff;
       }
-      #scene4 .sub {
-        font-size: 28px; color: #b9cacb;
-      }
+      #scene4 .sub { font-size: 28px; color: #b9cacb; }
       #scene4 .grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -447,33 +509,20 @@
         padding: 24px 20px;
         display: flex; flex-direction: column;
         gap: 6px;
+        position: relative;
+        overflow: hidden;
       }
-      #scene4 .lang-name {
-        font-size: 30px; font-weight: 600;
-        color: #e5e2e1;
-      }
-      #scene4 .lang-cmd {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 18px; color: #00a3ad;
-      }
-      #scene4 .s4-ghost-term {
-        position: absolute; top: 60px; right: 30px;
-        width: 260px; height: 80px;
-        border: 1px solid rgba(0,219,231,0.08);
-        border-radius: 6px;
-        background: rgba(14,14,14,0.4);
-        display: flex; align-items: center; justify-content: center;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 16px; color: rgba(0,219,231,0.3);
+      #scene4 .lang-card::after {
+        content: '';
+        position: absolute; top: 0; left: -100%;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(0,219,231,0.06), transparent);
         pointer-events: none;
       }
-      #scene4 .s4-diamond {
-        position: absolute; width: 8px; height: 8px;
-        background: rgba(0,219,231,0.1);
-        transform: rotate(45deg); pointer-events: none;
-      }
+      #scene4 .lang-name { font-size: 30px; font-weight: 600; color: #e5e2e1; }
+      #scene4 .lang-cmd { font-family: "JetBrains Mono", monospace; font-size: 18px; color: #00a3ad; }
 
-      /* ── Scene 5: Ghost Scan ───────────────────────────── */
+      /* ── Scene 5: Ghost Scan ── */
       #scene5 { z-index: 5; background: #131313; opacity: 0; }
       #scene5 .scan-lines {
         position: absolute; inset: 0;
@@ -498,13 +547,8 @@
         width: 100%; height: 100%;
         padding: 60px 100px; gap: 28px;
       }
-      #scene5 .headline {
-        font-size: 64px; font-weight: 700;
-        color: #e1fdff;
-      }
-      #scene5 .sub {
-        font-size: 28px; color: #b9cacb;
-      }
+      #scene5 .headline { font-size: 64px; font-weight: 700; color: #e1fdff; }
+      #scene5 .sub { font-size: 28px; color: #b9cacb; }
       #scene5 .split {
         display: flex; gap: 40px;
         flex: 1;
@@ -550,16 +594,12 @@
         background: #201f1f;
         border: 2px solid #3a494b;
         border-radius: 6px;
-        margin-top: auto;
       }
-      #scene5 .stat-item {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 20px; color: #849495;
-      }
+      #scene5 .stat-item { font-family: "JetBrains Mono", monospace; font-size: 20px; color: #849495; }
       #scene5 .stat-val { color: #b9cacb; font-weight: 600; }
       #scene5 .stat-ok { color: #00e639; }
 
-      /* ── Scene 6: Security ─────────────────────────────── */
+      /* ── Scene 6: Security ── */
       #scene6 { z-index: 6; background: #1a1a1a; opacity: 0; }
       #scene6 .mesh-bg {
         position: absolute; inset: 0;
@@ -573,13 +613,8 @@
         width: 100%; height: 100%;
         padding: 70px 100px; gap: 24px;
       }
-      #scene6 .headline {
-        font-size: 64px; font-weight: 700;
-        color: #e1fdff;
-      }
-      #scene6 .sub {
-        font-size: 28px; color: #b9cacb;
-      }
+      #scene6 .headline { font-size: 64px; font-weight: 700; color: #e1fdff; }
+      #scene6 .sub { font-size: 28px; color: #b9cacb; }
       #scene6 .panels {
         display: flex; gap: 32px;
         flex: 1;
@@ -591,11 +626,7 @@
         border-radius: 8px;
         overflow: hidden;
       }
-      #scene6 .p-body {
-        padding: 20px 24px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 20px; line-height: 1.7;
-      }
+      #scene6 .p-body { padding: 20px 24px; font-family: "JetBrains Mono", monospace; font-size: 20px; line-height: 1.7; }
       #scene6 .bar-chart {
         display: flex; gap: 12px;
         align-items: flex-end; height: 60px;
@@ -611,14 +642,8 @@
         display: flex; flex-direction: column; align-items: center;
         gap: 4px; flex: 1;
       }
-      #scene6 .bar-label {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 12px; color: #849495;
-      }
-      #scene6 .badge-row {
-        display: flex; gap: 16px;
-        margin-top: auto;
-      }
+      #scene6 .bar-label { font-family: "JetBrains Mono", monospace; font-size: 12px; color: #849495; }
+      #scene6 .badge-row { display: flex; gap: 16px; margin-top: auto; }
       #scene6 .badge {
         display: flex; align-items: center; gap: 8px;
         padding: 10px 20px;
@@ -626,18 +651,10 @@
         font-family: "JetBrains Mono", monospace;
         font-size: 20px;
       }
-      #scene6 .badge-green {
-        background: rgba(0, 230, 57, 0.1);
-        border: 2px solid #00e639;
-        color: #00e639;
-      }
-      #scene6 .badge-cyan {
-        background: rgba(0, 219, 231, 0.1);
-        border: 2px solid #00dbe7;
-        color: #00dbe7;
-      }
+      #scene6 .badge-green { background: rgba(0, 230, 57, 0.1); border: 2px solid #00e639; color: #00e639; }
+      #scene6 .badge-cyan { background: rgba(0, 219, 231, 0.1); border: 2px solid #00dbe7; color: #00dbe7; }
 
-      /* ── Scene 7: CTA ──────────────────────────────────── */
+      /* ── Scene 7: CTA ── */
       #scene7 { z-index: 7; background: #131313; opacity: 0; }
       #scene7 .glow {
         position: absolute;
@@ -657,6 +674,16 @@
         transform: translate(-50%, -50%);
         pointer-events: none;
       }
+      #scene7 .ring-expand-cta {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid rgba(0,219,231,0.06);
+        top: 50%; left: 50%;
+        transform: translate(-50%,-50%);
+        pointer-events: none;
+      }
+      #scene7 .ring-expand-cta.rc1 { width: 600px; height: 600px; }
+      #scene7 .ring-expand-cta.rc2 { width: 800px; height: 800px; }
       #scene7 .scene-content {
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
@@ -685,17 +712,69 @@
         padding: 24px 48px;
         box-shadow: 0 0 40px rgba(0, 219, 231, 0.1);
       }
-      #scene7 .platforms {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 28px; color: #00dbe7;
+      #scene7 .platforms { font-family: "JetBrains Mono", monospace; font-size: 28px; color: #00dbe7; }
+      #scene7 .tagline { font-size: 32px; color: #b9cacb; max-width: 800px; }
+      #scene7 .footnote { font-family: "JetBrains Mono", monospace; font-size: 22px; color: #849495; }
+      #scene7 .star-particle {
+        position: absolute; width: 4px; height: 4px;
+        background: #00dbe7; border-radius: 50%; pointer-events: none;
       }
-      #scene7 .tagline {
-        font-size: 32px; color: #b9cacb;
-        max-width: 800px;
+      /* ── CSS Keyframe Animations (continuous decorative motion) ── */
+      @keyframes float-drift {
+        0% { transform: translate(0,0) rotate(0deg); }
+        25% { transform: translate(8px,-12px) rotate(3deg); }
+        50% { transform: translate(-6px,10px) rotate(-2deg); }
+        75% { transform: translate(10px,6px) rotate(4deg); }
+        100% { transform: translate(0,0) rotate(0deg); }
       }
-      #scene7 .footnote {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 22px; color: #849495;
+      @keyframes particle-drift {
+        0% { transform: translate(0,0); }
+        33% { transform: translate(12px,-18px); }
+        66% { transform: translate(-8px,14px); }
+        100% { transform: translate(0,0); }
+      }
+      @keyframes glitch-pulse {
+        0%, 100% { opacity: 1; }
+        10% { opacity: 0.4; transform: translate(-3px,0); }
+        20% { opacity: 0.8; transform: translate(2px,0); }
+        30% { opacity: 0.5; transform: translate(-1px,0); }
+        40% { opacity: 1; transform: translate(0,0); }
+      }
+      @keyframes scanline-sweep {
+        0% { top: -5%; }
+        100% { top: 105%; }
+      }
+      @keyframes ring-pulse {
+        0% { transform: translate(-50%,-50%) scale(0.8); opacity: 0.3; }
+        50% { transform: translate(-50%,-50%) scale(1.2); opacity: 0.1; }
+        100% { transform: translate(-50%,-50%) scale(0.8); opacity: 0.3; }
+      }
+      @keyframes star-pulse {
+        0%, 100% { opacity: 0.15; transform: scale(0.8); }
+        50% { opacity: 0.6; transform: scale(1.3); }
+      }
+      @keyframes badge-flash {
+        0%, 100% { box-shadow: 0 0 0 rgba(0,219,231,0); }
+        50% { box-shadow: 0 0 12px rgba(0,219,231,0.3); }
+      }
+      /* Apply continuous decorative animations via CSS */
+      #scene1 .diamond, #scene1 .diamond-red, #scene1 .diamond-green {
+        animation: float-drift 8s ease-in-out infinite;
+      }
+      #scene1 .particle-dot.red {
+        animation: particle-drift 6s ease-in-out infinite;
+      }
+      #scene1 .err-block.glitch-text {
+        animation: glitch-pulse 3s ease-in-out infinite;
+      }
+      #scene3 .pulse-ring {
+        animation: ring-pulse 4s ease-in-out infinite;
+      }
+      #scene7 .star-particle {
+        animation: star-pulse 2.5s ease-in-out infinite;
+      }
+      #scene3 .glow, #scene7 .glow {
+        animation: ring-pulse 6s ease-in-out infinite;
       }
     </style>
   </head>
@@ -713,13 +792,33 @@
       <div id="scene1" class="scene">
         <div class="dot-grid" id="s1-grid"></div>
         <div class="stripe-overlay" id="s1-stripe"></div>
+        <div class="s1-scanline-overlay" id="s1-scanlines"></div>
         <div class="ghost-term gt1" id="s1-gt1"></div>
         <div class="ghost-term gt2" id="s1-gt2"></div>
         <div class="s1-ghost-extra gt3" id="s1-gt3"></div>
         <div class="s1-ghost-extra gt4" id="s1-gt4"></div>
-        <div class="diamond-s1" style="top:120px; left:100px;" id="s1-d1"></div>
-        <div class="diamond-s1" style="top:200px; left:140px;" id="s1-d2"></div>
-        <div class="warning-badge" id="s1-warn"><span>⚠</span><span>4 unresolved conflicts</span></div>
+        <div class="s1-ghost-extra gt5" id="s1-gt5"></div>
+        <div class="s1-ghost-extra gt6" id="s1-gt6"></div>
+
+        <!-- Particle diamonds — scattered chaos -->
+        <div class="diamond-red" style="top:80px; left:80px;" id="s1-d1"></div>
+        <div class="diamond-red" style="top:160px; left:120px;" id="s1-d2"></div>
+        <div class="diamond" style="top:120px; left:160px;" id="s1-d3"></div>
+        <div class="diamond-red" style="top:200px; right:140px;" id="s1-d4"></div>
+        <div class="diamond" style="top:140px; right:180px;" id="s1-d5"></div>
+        <div class="diamond-red" style="bottom:180px; right:100px;" id="s1-d6"></div>
+        <div class="diamond" style="bottom:140px; right:140px;" id="s1-d7"></div>
+        <div class="diamond-red" style="bottom:120px; left:140px;" id="s1-d8"></div>
+
+        <!-- Floating error particles (red dots) -->
+        <div class="particle-dot red" style="top:25%; left:15%;" id="s1-p0"></div>
+        <div class="particle-dot red" style="top:35%; left:85%;" id="s1-p1"></div>
+        <div class="particle-dot red" style="top:60%; left:10%;" id="s1-p2"></div>
+        <div class="particle-dot red" style="top:70%; left:80%;" id="s1-p3"></div>
+        <div class="particle-dot red" style="top:45%; left:20%;" id="s1-p4"></div>
+        <div class="particle-dot red" style="top:55%; left:75%;" id="s1-p5"></div>
+
+        <div class="warning-badge" id="s1-warn" style="position:absolute; top:30px; right:30px;"><span>⚠</span><span>4 unresolved conflicts</span></div>
         <div class="err-counter" id="s1-err-count">✗ ERRORS: 3</div>
         <div class="scene-content">
           <div class="main-term" id="s1-terminal">
@@ -731,103 +830,94 @@
             </div>
             <div class="term-body-sc1">
               <div class="cmd" id="s1-c1">$ npm install express</div>
-              <div class="err" id="s1-e1"><span class="err-block">✗ ERESOLVE — peer dependency conflict</span></div>
+              <div class="err" id="s1-e1"><span class="err-block glitch-text" data-text="✗ ERESOLVE — peer dependency conflict">✗ ERESOLVE — peer dependency conflict</span></div>
               <div class="cmd" id="s1-c2">$ pip install django</div>
-              <div class="err" id="s1-e2"><span class="err-block">✗ django 5.0 requires python >=3.10, have 3.8</span></div>
+              <div class="err" id="s1-e2"><span class="err-block glitch-text" data-text="✗ django 5.0 requires python >=3.10, have 3.8">✗ django 5.0 requires python >=3.10, have 3.8</span></div>
               <div class="cmd" id="s1-c3">$ nvm use 18</div>
-              <div class="err" id="s1-e3"><span class="err-block">✗ version 18 not installed</span></div>
+              <div class="err" id="s1-e3"><span class="err-block glitch-text" data-text="✗ version 18 not installed">✗ version 18 not installed</span></div>
               <div class="cmd" id="s1-c4">$ npx create-react-app</div>
               <div class="out" id="s1-o4">(node:1234) UnhandledPromiseRejectionWarning</div>
             </div>
           </div>
-          <div class="elapsed" id="s1-elapsed">⏱ 2 hours debugging · 3 tools · 0 answers</div>
+          <div class="elapsed" id="s1-elapsed" style="position:relative;">
+            <span id="s1-time-counter" style="color:#ffb4ab;">00:00:00</span>
+            <span> wasted debugging</span>
+          </div>
         </div>
       </div>
 
-      <!-- ═══ Scene 2: Problem ═══ -->
+      <!-- ═══ Scene 2: Problem (15s – 30s) ═══ -->
       <div id="scene2" class="scene">
-        <div class="accent-line" id="s2-line"></div>
-        <div class="stripe-overlay" id="s2-stripe"></div>
-        <div class="ghost-bg" id="s2-ghost" data-layout-ignore data-layout-allow-overflow>npm install</div>
+        <div class="accent-line" id="s2-accent"></div>
+        <div class="ghost-bg" id="s2-ghost-text" data-layout-allow-overflow>version hell</div>
         <div class="s2-versions" id="s2-versions">
-          <span class="version-chip">npm 10.8</span>
-          <span class="version-chip" style="border-color:rgba(255,180,171,0.3); color:#ffb4ab;">pip 24.0 ✗</span>
-        </div>
-        <div class="s2-diamond" style="top:180px; right:180px;" id="s2-d1"></div>
-        <div class="s2-diamond" style="top:220px; right:220px;" id="s2-d2"></div>
-        <div class="s2-progress-wrap" id="s2-progress-wrap">
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#6a8a8b;">debug progress</span>
-            <span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#6a8a8b;">62%</span>
-          </div>
-          <div class="progress-bar"><div class="progress-bar-fill" id="s2-progress" style="width:62%;"></div></div>
+          <div class="version-chip">node 14</div>
+          <div class="version-chip">node 16</div>
+          <div class="version-chip">node 18</div>
+          <div class="version-chip">node 20</div>
         </div>
         <div class="scene-content">
           <div class="copy">
-            <div class="eyebrow" id="s2-eyebrow">The problem</div>
-            <h2 class="headline" id="s2-headline">
-              Every tool installs first.<br />Breaks second.
-            </h2>
-            <p class="body" id="s2-body">
-              npm, pip, nvm — reactive managers that never explain why things
-              break. ven analyzes your entire graph before touching your environment.
-            </p>
+            <div class="eyebrow" id="s2-eyebrow">The Problem</div>
+            <div class="headline" id="s2-headline">Version hell<br/>is real.</div>
+            <div class="body" id="s2-body">Every project needs a different toolchain. Different Node, Python, Rust. Different package managers. Different everything.</div>
           </div>
           <div class="terminal" id="s2-terminal">
             <div class="term-bar">
               <span class="dot dot-r"></span>
               <span class="dot dot-y"></span>
               <span class="dot dot-g"></span>
-              <span class="term-title">~/projects/api</span>
+              <span class="term-title">versions — bash</span>
             </div>
-            <div class="term-body-sc2">
-              <div class="cmd" id="s2-c1">$ npm install axios</div>
-              <div class="out" id="s2-o1">✓ added 1 package</div>
-              <div class="cmd" id="s2-c2">$ npm install express</div>
-              <div class="conflict" id="s2-o2">
-                ✗ ERESOLVE — peer dependency conflict
-              </div>
-              <div class="err" id="s2-o3">→ spend 2 hours debugging</div>
+            <div class="term-body" style="font-size:20px;">
+              <div><span class="cmd">$ </span><span class="out">node --version</span></div>
+              <div><span class="out">v14.17.0</span></div>
+              <div><span class="cmd">$ </span><span class="out">cd ../project-b &amp;&amp; node --version</span></div>
+              <div><span class="err">v20.11.0 — nvm use 18</span></div>
+              <div><span class="cmd">$ </span><span class="out">python --version</span></div>
+              <div><span class="err">Python 2.7.18?!</span></div>
+              <div><span class="cmd">$ </span><span class="out">rustc --version</span></div>
+              <div><span class="out">rustc 1.65.0 — (wait, that's <span class="err">two years old</span>)</span></div>
             </div>
+          </div>
+        </div>
+        <div class="s2-progress-wrap" id="s2-progress">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-family:'JetBrains Mono',monospace; font-size:16px; color:#849495;">
+            <span>Projects misconfigured</span>
+            <span id="s2-progress-label">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-bar-fill" id="s2-progress-fill" style="width:0%;"></div>
           </div>
         </div>
       </div>
 
-      <!-- ═══ Scene 3: Meet ven + Auto-Switch ═══ -->
+      <!-- ═══ Scene 3: Meet ven (30s – 50s) ═══ -->
       <div id="scene3" class="scene">
         <div class="glow" id="s3-glow"></div>
-        <div class="ghost-ring" id="s3-ring"></div>
+        <div class="ghost-ring" id="s3-ghost-ring"></div>
         <div class="pulse-ring" id="s3-pulse-ring"></div>
+        <div class="ring-expand re1" id="s3-re1"></div>
+        <div class="ring-expand re2" id="s3-re2"></div>
+        <div class="ring-expand re3" id="s3-re3"></div>
         <div class="logo-frame" id="s3-logo-frame"></div>
-        <div class="particle-dot cyan" style="top:43%; left:44%;" id="s3-p0"></div>
-        <div class="particle-dot cyan" style="top:40%; left:52%;" id="s3-p1"></div>
-        <div class="particle-dot green" style="top:48%; left:56%;" id="s3-p2"></div>
-        <div class="particle-dot cyan" style="top:56%; left:52%;" id="s3-p3"></div>
-        <div class="particle-dot green" style="top:54%; left:44%;" id="s3-p4"></div>
-        <div class="particle-dot cyan" style="top:46%; left:40%;" id="s3-p5"></div>
         <div class="scene-content">
-          <div class="logo-row" id="s3-logo-row">
-            <img class="logo" id="s3-logo" src="assets/Ven_logo.png" alt="ven" crossorigin="anonymous" data-hf-skip-duplicate-check />
-            <span class="logo-text" id="s3-logo-text">ven</span>
+          <div class="logo-row">
+            <img class="logo" src="assets/Ven_logo.png" alt="ven" id="s3-logo-img" />
+            <div class="logo-text" id="s3-logo-text">ven</div>
           </div>
-          <h1 class="subtitle" id="s3-subtitle" style="margin-bottom:4px;">
-            The Intelligent Version &amp; Dependency Manager
-          </h1>
-          <div class="s3-version-meta" id="s3-version-meta">v0.2.1 · Rust · MIT</div>
-
-          <!-- Auto-switch demo panel (appears after logo reveal fades) -->
-          <div class="split-panel" id="s3-split">
+          <div class="s3-version-meta" id="s3-version-meta">v0.4.2 — universal version manager</div>
+          <div class="subtitle" id="s3-subtitle">One tool to switch, install, and manage <span class="cyan-text">any language</span> version — across every project.</div>
+          <div class="split-panel">
             <div class="file-tree" id="s3-tree">
-              <div class="ft-header">~/projects /</div>
-              <div class="ft-item">├── frontend/</div>
-              <div class="ft-active" id="s3-tree-active">│   └── <span class="cyan-text">◉ node 20.20.2</span></div>
-              <div class="ft-item">├── backend/</div>
-              <div class="ft-item">│   ├── node 22.11.0</div>
-              <div class="ft-item">│   └── python 3.11.5</div>
-              <div class="ft-item">└── systems/</div>
-              <div class="ft-item">    └── rust 1.75.0</div>
+              <div class="ft-header">📁 projects/</div>
+              <div class="ft-item" id="s3-ft1">├── web-app/ <span class="muted-text">→ node 18</span></div>
+              <div class="ft-item ft-active" id="s3-ft2">├── api-gateway/ <span class="muted-text">→ node 20</span></div>
+              <div class="ft-item" id="s3-ft3">├── data-pipe/ <span class="muted-text">→ python 3.12</span></div>
+              <div class="ft-item" id="s3-ft4">├── compiler/ <span class="muted-text">→ rust 1.77</span></div>
+              <div class="ft-item" id="s3-ft5">└── mobile-app/ <span class="muted-text">→ java 21</span></div>
             </div>
-            <div class="term-panel" id="s3-term">
+            <div class="term-panel" id="s3-switch-term">
               <div class="term-bar">
                 <span class="dot dot-r"></span>
                 <span class="dot dot-y"></span>
@@ -835,484 +925,425 @@
                 <span class="term-title">ven — auto-switch</span>
               </div>
               <div class="sw-term-body">
-                <div class="cmd" id="s3-sw-c1">$ cd ~/projects/frontend</div>
-                <div class="success" id="s3-sw-o1">✓ node v20.20.2 · activated</div>
-                <div class="cmd" id="s3-sw-c2">$ cd ~/projects/backend</div>
-                <div class="success" id="s3-sw-o2">✓ node v22.11.0 · python 3.11.5 · activated</div>
-                <div class="muted-text" id="s3-sw-info">↳ zero commands · zero config · auto-switch</div>
+                <div id="s3-sw1"><span class="cmd">$ </span><span class="out">cd api-gateway</span></div>
+                <div id="s3-sw2"><span class="success">✓ auto-switched to node 20</span></div>
+                <div id="s3-sw3"><span class="cmd">$ </span><span class="out">node --version</span></div>
+                <div id="s3-sw4"><span class="success">v20.11.0</span></div>
+                <div id="s3-sw5" style="margin-top:12px;"><span class="muted-text"># .ven.toml detected — seamless</span></div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ═══ Scene 4: Languages ═══ -->
+      <!-- ═══ Scene 4: Languages (50s – 67s) ═══ -->
       <div id="scene4" class="scene">
-        <div class="bg-grid" id="s4-grid-bg"></div>
-        <div class="s4-ghost-term" id="s4-term-badge" data-layout-ignore>◉ 8/8 runtimes ready</div>
-        <div class="s4-diamond" style="top:160px; left:80px;" id="s4-d1"></div>
-        <div class="s4-diamond" style="top:180px; right:100px;" id="s4-d2"></div>
+        <div class="bg-grid" id="s4-bg-grid"></div>
+        <div class="floating-icon fi-1" id="s4-fi1">JS</div>
+        <div class="floating-icon fi-2" id="s4-fi2">PY</div>
+        <div class="floating-icon fi-3" id="s4-fi3">RS</div>
+        <div class="floating-icon fi-4" id="s4-fi4">GO</div>
         <div class="scene-content">
-          <h2 class="headline" id="s4-headline">8 languages. One interface.</h2>
-          <p class="sub" id="s4-sub">Same command, same mental model — every runtime you need.</p>
-          <div class="grid" id="s4-grid">
-            <div class="lang-card" id="s4-c0">
-              <div class="lang-name"><span class="color-dot active"></span>Node.js</div>
-              <div class="lang-cmd">ven install node 22 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">22.11</span></div>
+          <div class="headline" id="s4-headline">Every language.<br/>One interface.</div>
+          <div class="sub" id="s4-sub">ven normalizes version management across ecosystems</div>
+          <div class="grid" id="s4-lang-grid">
+            <div class="lang-card" id="s4-card1">
+              <div class="lang-name">Node.js</div>
+              <div class="lang-cmd">ven use node 20</div>
+              <div class="lang-cmd">ven install node 18</div>
             </div>
-            <div class="lang-card" id="s4-c1">
-              <div class="lang-name"><span class="color-dot active"></span>Python</div>
-              <div class="lang-cmd">ven install python 3.11 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">3.11.5</span></div>
+            <div class="lang-card" id="s4-card2">
+              <div class="lang-name">Python</div>
+              <div class="lang-cmd">ven use python 3.12</div>
+              <div class="lang-cmd">ven install python 3.10</div>
             </div>
-            <div class="lang-card" id="s4-c2">
-              <div class="lang-name"><span class="color-dot active"></span>Go</div>
-              <div class="lang-cmd">ven install go 1.21 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">1.21.0</span></div>
+            <div class="lang-card" id="s4-card3">
+              <div class="lang-name">Rust</div>
+              <div class="lang-cmd">ven use rust 1.77</div>
+              <div class="lang-cmd">ven install rust 1.65</div>
             </div>
-            <div class="lang-card" id="s4-c3">
-              <div class="lang-name"><span class="color-dot active"></span>Rust</div>
-              <div class="lang-cmd">ven install rust 1.75 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">1.75.0</span></div>
-            </div>
-            <div class="lang-card" id="s4-c4">
-              <div class="lang-name"><span class="color-dot active"></span>Java</div>
-              <div class="lang-cmd">ven install java 17 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">17.0.9</span></div>
-            </div>
-            <div class="lang-card" id="s4-c5">
-              <div class="lang-name"><span class="color-dot active"></span>Deno</div>
-              <div class="lang-cmd">ven install deno 1.40 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">1.40.5</span></div>
-            </div>
-            <div class="lang-card" id="s4-c6">
-              <div class="lang-name"><span class="color-dot active"></span>Bun</div>
-              <div class="lang-cmd">ven install bun 1.0 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">1.0.35</span></div>
-            </div>
-            <div class="lang-card" id="s4-c7">
-              <div class="lang-name"><span class="color-dot active"></span>Ruby</div>
-              <div class="lang-cmd">ven install ruby 3.2 <span class="version-chip" style="font-size:13px; padding:2px 6px; opacity:0;">3.2.2</span></div>
+            <div class="lang-card" id="s4-card4">
+              <div class="lang-name">Java</div>
+              <div class="lang-cmd">ven use java 21</div>
+              <div class="lang-cmd">ven install java 17</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ═══ Scene 5: Ghost Dependency Scan ═══ -->
+      <!-- ═══ Scene 5: Ghost Scan (67s – 83s) ═══ -->
       <div id="scene5" class="scene">
-        <div class="scan-lines" id="s5-scan"></div>
-        <div class="scan-wave" id="s5-scan-wave" style="top:0;"></div>
-        <div class="ghost-toml" id="s5-ghost-toml" data-layout-ignore data-layout-allow-overflow>ven.toml</div>
-        <div class="corner-bracket tl" id="s5-br-tl"></div>
-        <div class="corner-bracket tr" id="s5-br-tr"></div>
-        <div class="corner-bracket bl" id="s5-br-bl"></div>
-        <div class="corner-bracket br" id="s5-br-br"></div>
+        <div class="scan-lines" id="s5-scan-lines"></div>
+        <div class="ghost-toml" id="s5-ghost-toml" data-layout-allow-overflow>[versions]</div>
         <div class="scene-content">
-          <h2 class="headline" id="s5-headline">Know your dependencies. Every one.</h2>
-          <p class="sub" id="s5-sub">Detect ghost imports, auto-switch runtimes, scan for CVEs.</p>
+          <div class="headline" id="s5-headline">Ghost detection</div>
+          <div class="sub" id="s5-sub">ven scans your system for <span class="conflict">orphaned runtimes</span></div>
           <div class="split">
             <div class="toml-panel" id="s5-toml">
-              <div class="tl-section">[runtime]</div>
-              <div><span class="tl-key">node</span> = <span class="tl-val">"20"</span></div>
-              <div><span class="tl-key">python</span> = <span class="tl-val">"3.11"</span></div>
-              <div><span class="tl-key">go</span> = <span class="tl-val">"1.21"</span></div>
-              <div style="margin-top:12px; border-top:1px solid #3a494b; padding-top:12px;">
-                <div class="tl-section">[packages]</div>
-                <div><span class="tl-key">express</span> = <span class="tl-val">"4.18"</span></div>
-                <div><span class="tl-key">axios</span> = <span class="tl-val">"^1.6"</span></div>
-                <div><span class="tl-key">lodash</span> = <span class="tl-val" style="color:#ffb4ab;">"*"</span></div>
-              </div>
-              <div style="margin-top:12px; border-top:1px solid #3a494b; padding-top:12px;">
-                <div class="tl-section">[env]</div>
-                <div><span class="tl-key">NODE_ENV</span> = <span class="tl-val">"development"</span></div>
-              </div>
+              <div class="tl-section">[versions]</div>
+              <div id="s5-tl1"><span class="tl-key">node</span> = <span class="tl-val">"18.17.0"</span><span class="muted-text">  # active</span></div>
+              <div id="s5-tl2"><span class="tl-key">node</span> = <span class="err">"14.21.3"</span><span class="muted-text">  # orphan</span></div>
+              <div id="s5-tl3"><span class="tl-key">python</span> = <span class="tl-val">"3.12.2"</span><span class="muted-text">  # active</span></div>
+              <div id="s5-tl4"><span class="tl-key">python</span> = <span class="err">"2.7.18"</span><span class="muted-text">  # ghost</span></div>
+              <div id="s5-tl5"><span class="tl-key">rust</span> = <span class="err">"1.65.0"</span><span class="muted-text">  # stale</span></div>
+              <div id="s5-tl6"><span class="tl-key">java</span> = <span class="tl-val">"21.0.1"</span><span class="muted-text">  # active</span></div>
             </div>
-            <div class="term-panel" id="s5-terminal">
-              <div class="term-bar">
-                <span class="dot dot-r"></span>
-                <span class="dot dot-y"></span>
-                <span class="dot dot-g"></span>
-                <span class="term-title">ven — ghost scan</span>
+            <div>
+              <div class="term-panel" id="s5-term">
+                <div class="term-bar">
+                  <span class="dot dot-r"></span>
+                  <span class="dot dot-y"></span>
+                  <span class="dot dot-g"></span>
+                  <span class="term-title">ven scan — ghost report</span>
+                </div>
+                <div class="ghost-term-body">
+                  <div id="s5-gh1"><span class="success">✓</span> Found <span class="conflict">3 ghost</span> runtimes</div>
+                  <div id="s5-gh2" style="margin-top:8px;"><span class="ghost-chip" id="s5-chip1"><span class="conflict">⚠</span> node 14.21.3 (unused 2.3y)</span></div>
+                  <div id="s5-gh3"><span class="ghost-chip" id="s5-chip2"><span class="conflict">⚠</span> python 2.7.18 (unused 5.1y)</span></div>
+                  <div id="s5-gh4"><span class="ghost-chip" id="s5-chip3"><span class="conflict">⚠</span> rust 1.65.0 (stale)</span></div>
+                </div>
               </div>
-              <div class="ghost-term-body">
-                <div class="success" id="s5-o1">✓ node 20.20.2 · python 3.11.5 · go 1.21.0</div>
-                <div class="cmd" id="s5-c1">$ ven scan --ghosts</div>
-                <div class="muted-text" id="s5-o2">→ Walking source tree (gitignore-aware)...</div>
-                <div class="out" id="s5-o3">Found 3 undeclared imports:</div>
-                <div class="ghost-chip" id="s5-ghost1">👻 lodash — src/utils.js:12</div>
-                <div class="ghost-chip" id="s5-ghost2">👻 chalk — src/cli.js:4</div>
-                <div class="ghost-chip" id="s5-ghost3">👻 dayjs — src/dates.js:7</div>
-                <div class="cmd" id="s5-c2">$ ven scan --ghosts --fix</div>
-                <div class="success" id="s5-o4">✓ 3 ghosts added to ven.toml [packages]</div>
+              <div class="stats-bar" id="s5-stats" style="margin-top:12px;">
+                <div class="stat-item">Active: <span class="stat-ok" id="s5-stat-active">0</span></div>
+                <div class="stat-item">Ghost: <span class="conflict" id="s5-stat-ghost">0</span></div>
+                <div class="stat-item">Freed: <span class="stat-val" id="s5-stat-freed">0 GB</span></div>
               </div>
-            </div>
-          </div>
-          <div style="display:flex; gap:24px; align-items:center;">
-            <div class="ghost-bar-chart" id="s5-ghost-chart">
-              <div class="ghost-bar g1" style="height:20px;" id="s5-gb1"></div>
-              <div class="ghost-bar g2" style="height:32px;" id="s5-gb2"></div>
-              <div class="ghost-bar g3" style="height:16px;" id="s5-gb3"></div>
-              <div class="ghost-bar g4" style="height:8px;" id="s5-gb4"></div>
-            </div>
-            <div class="stats-bar" id="s5-stats">
-              <span class="stat-item">Declared: <span class="stat-val">14</span></span>
-              <span class="stat-item">Ghosts found: <span class="stat-val" style="color:#ffb4ab;">3</span></span>
-              <span class="stat-item">Fixed: <span class="stat-ok">✓ 3</span></span>
-              <span class="stat-item">Auto-switch: <span class="stat-ok">✓ 3 runtimes</span></span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ═══ Scene 6: Security ═══ -->
+      <!-- ═══ Scene 6: Security (83s – 100s) ═══ -->
       <div id="scene6" class="scene">
         <div class="mesh-bg" id="s6-mesh"></div>
-        <div class="shield-icon" id="s6-shield" style="top:30px; left:30px;">⬡</div>
-        <div class="network-node" id="s6-n0" style="top:120px; right:100px;"></div>
-        <div class="network-node" id="s6-n1" style="top:160px; right:140px;"></div>
-        <div class="network-node" id="s6-n2" style="top:140px; right:200px;"></div>
-        <div class="network-line" id="s6-l0" style="top:124px; right:100px; width:60px; transform:rotate(-20deg);"></div>
-        <div class="network-line" id="s6-l1" style="top:164px; right:140px; width:50px; transform:rotate(15deg);"></div>
-        <div class="status-ticker" id="s6-ticker" style="position:absolute; top:100px; right:30px;">◉ scanning ...</div>
         <div class="scene-content">
-          <h2 class="headline" id="s6-headline">Production-ready security.</h2>
-          <p class="sub" id="s6-sub">CVE scanning · EOL alerts · lockfile integrity · team sync</p>
+          <div class="headline" id="s6-headline">Security first</div>
+          <div class="sub" id="s6-sub">ven audits your toolchain for <span class="conflict">CVEs and vulnerabilities</span></div>
           <div class="panels">
-            <div class="panel" id="s6-p1">
+            <div class="panel" id="s6-panel1">
               <div class="term-bar">
                 <span class="dot dot-r"></span>
                 <span class="dot dot-y"></span>
                 <span class="dot dot-g"></span>
-                <span class="term-title">ven check</span>
+                <span class="term-title">vulnerabilities</span>
               </div>
               <div class="p-body">
-                <div class="cmd">$ ven check --security</div>
-                <div class="out" style="margin-top:8px;">Scanning 8 ecosystems...</div>
-                <div class="success">✓ npm: 0 CVEs</div>
-                <div class="success">✓ PyPI: 0 CVEs</div>
-                <div class="success">✓ crates.io: 0 CVEs</div>
-                <div class="success">✓ Go: 0 CVEs</div>
-                <div class="bar-chart" id="s6-chart">
-                  <div class="bar-wrap"><div class="bar" id="s6-bar0" style="height:8px;"></div><span class="bar-label">npm</span></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar1" style="height:6px;"></div><span class="bar-label">PyPI</span></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar2" style="height:4px;"></div><span class="bar-label">Go</span></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar3" style="height:10px;"></div><span class="bar-label">crates</span></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar4" style="height:5px;"></div><span class="bar-label">Java</span></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar5" style="height:7px;"></div><span class="bar-label">Ruby</span></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar6" style="height:3px;"></div><span class="bar-label">Deno</span></div>
+                <div><span class="cmd">$ </span><span class="out">ven audit</span></div>
+                <div id="s6-vuln1"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
+                <div id="s6-vuln2"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
+                <div id="s6-vuln3"><span class="conflict">✗ CVE-2024-xxx</span> <span class="err">critical</span></div>
+                <div id="s6-vuln4"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">patched</span></div>
+                <div class="bar-chart" id="s6-bar-chart">
+                  <div class="bar-wrap"><div class="bar" id="s6-bar1" style="height:8px;"></div><div class="bar-label">node</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s6-bar2" style="height:8px;"></div><div class="bar-label">npm</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s6-bar3" style="height:8px;"></div><div class="bar-label">python</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s6-bar4" style="height:8px;"></div><div class="bar-label">pip</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s6-bar5" style="height:8px;"></div><div class="bar-label">rust</div></div>
                 </div>
               </div>
             </div>
-            <div class="panel" id="s6-p2">
+            <div class="panel" id="s6-panel2">
               <div class="term-bar">
                 <span class="dot dot-r"></span>
                 <span class="dot dot-y"></span>
                 <span class="dot dot-g"></span>
-                <span class="term-title">ven sync</span>
+                <span class="term-title">ven shield</span>
               </div>
               <div class="p-body">
-                <div class="cmd">$ ven lock</div>
-                <div class="success">✓ ven.lock v2 · SRI integrity hashes</div>
-                <div class="cmd">$ ven sync</div>
-                <div class="success">✓ Node 20.20.2 installed</div>
-                <div class="success">✓ 34 packages · SHA256 verified</div>
-                <div class="out">──</div>
-                <div class="cmd">$ ven check --eol</div>
-                <div class="out">Runtime EOL: <span class="success">all active</span></div>
-                <div class="muted-text" style="margin-top:8px;">CI-safe · non-zero exit on drift</div>
+                <div style="display:flex; align-items:center; gap:20px; margin-bottom:12px;">
+                  <div class="shield-icon" id="s6-shield">&#x1F6E1;</div>
+                  <div><span style="font-size:28px; font-weight:600; color:#e1fdff;">Zero-day protection</span></div>
+                </div>
+                <div id="s6-audit1"><span class="success">✓</span> Isolated runtime</div>
+                <div id="s6-audit2"><span class="success">✓</span> Dependency graph clean</div>
+                <div id="s6-audit3"><span class="success">✓</span> No malicious packages</div>
+                <div class="badge-row">
+                  <div class="badge badge-green" id="s6-badge1">✓ 14 safe</div>
+                  <div class="badge badge-cyan" id="s6-badge2">⟳ auto-fix</div>
+                </div>
               </div>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
-            <div class="badge-row" id="s6-badges">
-              <div class="badge badge-green">✓ CI-SAFE</div>
-              <div class="badge badge-cyan">⬡ 8 ecosystems</div>
-              <div class="badge badge-green">✓ TEAM SYNC</div>
-            </div>
-            <div style="display:flex; gap:8px;" id="s6-cves">
-              <span class="cve-badge safe">0 critical</span>
-              <span class="cve-badge safe">0 high</span>
-              <span class="cve-badge safe">0 medium</span>
-            </div>
-          </div>
         </div>
       </div>
 
-      <!-- ═══ Scene 7: CTA ═══ -->
+      <!-- ═══ Scene 7: CTA (100s – 120s) ═══ -->
       <div id="scene7" class="scene">
         <div class="glow" id="s7-glow"></div>
-        <div class="ghost-ring" id="s7-ring"></div>
-        <div class="star-particle" id="s7-st0" style="top:44%; left:43%;"></div>
-        <div class="star-particle" id="s7-st1" style="top:42%; left:48%;"></div>
-        <div class="star-particle" id="s7-st2" style="top:47%; left:42%;"></div>
-        <div class="star-particle" id="s7-st3" style="top:46%; left:55%;"></div>
-        <div class="star-particle" id="s7-st4" style="top:43%; left:54%;"></div>
-        <div class="star-particle" id="s7-st5" style="top:39%; left:46%;"></div>
-        <div class="star-particle" id="s7-st6" style="top:50%; left:57%;"></div>
-        <div class="star-particle" id="s7-st7" style="top:51%; left:41%;"></div>
-        <div class="corner-bracket tl" id="s7-br-tl" style="opacity:0.15;"></div>
-        <div class="corner-bracket tr" id="s7-br-tr" style="opacity:0.15;"></div>
-        <div class="corner-bracket bl" id="s7-br-bl" style="opacity:0.15;"></div>
-        <div class="corner-bracket br" id="s7-br-br" style="opacity:0.15;"></div>
-        <div class="scene-content" id="s7-content">
-          <img class="logo" id="s7-logo" src="assets/Ven_logo.png" alt="ven" crossorigin="anonymous" data-hf-skip-duplicate-check />
-          <h2 class="headline" id="s7-headline">Start with ven today.</h2>
-          <div class="install-block" id="s7-install" style="position:relative;">
-            curl -fsSL get.ven.sh | sh
-            <div class="corner-bracket tl" style="opacity:0.3; width:20px; height:20px; border-color:#00e639;"></div>
-            <div class="corner-bracket tr" style="opacity:0.3; width:20px; height:20px; border-color:#00e639;"></div>
-            <div class="corner-bracket bl" style="opacity:0.3; width:20px; height:20px; border-color:#00e639;"></div>
-            <div class="corner-bracket br" style="opacity:0.3; width:20px; height:20px; border-color:#00e639;"></div>
-          </div>
-          <div style="display:flex; align-items:center; gap:16px;">
-            <div class="platforms" id="s7-platforms">
-              Windows · macOS · Linux
-            </div>
-            <span class="version-chip" id="s7-version-chip">latest v0.2.1</span>
-          </div>
-          <div class="download-arrow" id="s7-download">↓ Install now</div>
-          <p class="tagline" id="s7-tagline">
-            Install once. Switch automatically. Never break.
-          </p>
-          <div class="footnote" id="s7-footnote">
-            MIT License · github.com/bhuwanb23/ven
-          </div>
+        <div class="ghost-ring" id="s7-ghost-ring"></div>
+        <div class="ring-expand-cta rc1" id="s7-rc1"></div>
+        <div class="ring-expand-cta rc2" id="s7-rc2"></div>
+        <div class="star-particle" style="top:10%;left:20%;" id="s7-sp1"></div>
+        <div class="star-particle" style="top:15%;left:70%;" id="s7-sp2"></div>
+        <div class="star-particle" style="top:30%;left:85%;" id="s7-sp3"></div>
+        <div class="star-particle" style="top:50%;left:8%;" id="s7-sp4"></div>
+        <div class="star-particle" style="top:60%;left:90%;" id="s7-sp5"></div>
+        <div class="star-particle" style="top:75%;left:15%;" id="s7-sp6"></div>
+        <div class="star-particle" style="top:80%;left:75%;" id="s7-sp7"></div>
+        <div class="star-particle" style="top:90%;left:40%;" id="s7-sp8"></div>
+        <div class="star-particle" style="top:20%;left:45%;" id="s7-sp9"></div>
+        <div class="star-particle" style="top:70%;left:55%;" id="s7-sp10"></div>
+        <div class="scene-content">
+          <img class="logo" src="assets/Ven_logo.png" alt="ven" id="s7-logo" />
+          <div class="headline" id="s7-headline">Ship with<br/>confidence.</div>
+          <div class="install-block" id="s7-install"><span class="cmd" id="s7-cmd-cursor">❯</span> <span id="s7-cmd-text"></span></div>
+          <div class="platforms" id="s7-platforms">macOS • Linux • Windows</div>
+          <div class="tagline" id="s7-tagline">ven — the universal version manager.</div>
+          <div class="footnote" id="s7-footnote">get ven at ven.sh</div>
         </div>
       </div>
 
-      <!-- Background music — place a .mp3/.wav file in assets/music.mp3 -->
-      <audio
-        id="bg-music"
-        data-start="0"
-        data-duration="120"
-        data-track-index="10"
-        src="assets/music.mp3"
-        data-volume="0.35"
-      ></audio>
+      <audio id="bg-music" src="assets/music.mp3" preload="auto" data-start="0"></audio>
     </div>
+    <div id="scene7-exit" style="position:absolute;top:0;left:0;width:1920px;height:1080px;background:#131313;z-index:8;opacity:0;pointer-events:none;"></div>
 
     <script>
       window.__timelines = window.__timelines || {};
-      const tl = gsap.timeline({ paused: true });
+      var tl = gsap.timeline({ paused: true });
 
-      // ── Transition timing constants ───────────────────────
-      const S1_END = 10.5;     // Scene 1 → 2 transition
-      const S2_END = 24.5;     // Scene 2 → 3
-      const S3_END = 42.5;     // Scene 3 → 4
-      const S4_END = 60.5;     // Scene 4 → 5
-      const S5_END = 83.5;     // Scene 5 → 6
-      const S6_END = 102.5;    // Scene 6 → 7
+      // ── Scene timing constants ──
+      var T = {
+        S1_END: 14.2,
+        S2_END: 29.2,
+        S3_END: 49.2,
+        S4_END: 66.2,
+        S5_END: 82.2,
+        S6_END: 99.2
+      };
 
-      // ── Ambient decoratives (seekable on tl) ─────────────
-      tl.to("#s1-grid", { backgroundPosition: "48px 48px", duration: 10, ease: "none", repeat: 11 }, 0);
-      tl.to("#s1-gt1", { y: 12, rotation: 3.8, duration: 4, ease: "sine.inOut", repeat: 2, yoyo: true }, 0);
-      tl.to("#s1-gt2", { y: -10, rotation: -2.8, duration: 5, ease: "sine.inOut", repeat: 2, yoyo: true }, 0);
-      tl.to("#s3-glow", { scale: 1.08, opacity: 0.85, duration: 4, ease: "sine.inOut", repeat: 4, yoyo: true }, 26.5);
-      tl.to("#s3-ring", { rotation: 15, duration: 5, ease: "sine.inOut", repeat: 3, yoyo: true }, 26.5);
-      tl.to("#s4-grid-bg", { backgroundPosition: "48px 48px", duration: 12, ease: "none", repeat: 1 }, 44.5);
-      tl.to("#s5-scan", { backgroundPosition: "0px 8px", duration: 4, ease: "none", repeat: 5 }, 63);
-      tl.to("#s7-glow", { scale: 1.1, duration: 5, ease: "sine.inOut", repeat: 3, yoyo: true }, 104.5);
-      tl.to("#s7-ring", { rotation: 20, duration: 6, ease: "sine.inOut", repeat: 2, yoyo: true }, 104.5);
+      // ═══ Scene 1: Chaos (0s – 14.2s) ═══
 
-      // ── New ambient decoratives ─────────────────────────────
-      tl.to("#s1-stripe", { opacity: 0.08, duration: 3, ease: "sine.inOut", repeat: 3, yoyo: true }, 0);
-      tl.to("#s1-gt3", { y: 8, rotation: 6.5, duration: 4.5, ease: "sine.inOut", repeat: 2, yoyo: true }, 0);
-      tl.to("#s1-gt4", { y: -8, rotation: -5.2, duration: 3.5, ease: "sine.inOut", repeat: 3, yoyo: true }, 0);
-      tl.to("#s2-stripe", { opacity: 0.06, duration: 5, ease: "sine.inOut", repeat: 2, yoyo: true, overwrite: "auto" }, S1_END + 0.5);
-      tl.to("#s2-progress", { width: "68%", duration: 2, ease: "sine.inOut", repeat: 5, yoyo: true }, S1_END + 1);
-      tl.to("#s3-p0", { x: -8, y: -6, duration: 3, ease: "sine.inOut", repeat: 5, yoyo: true }, 26.5);
-      tl.to("#s3-p1", { x: 6, y: -8, duration: 4, ease: "sine.inOut", repeat: 4, yoyo: true }, 26.5);
-      tl.to("#s3-p2", { x: 8, y: 6, duration: 3.5, ease: "sine.inOut", repeat: 4, yoyo: true }, 26.5);
-      tl.to("#s3-p3", { x: -6, y: 8, duration: 4.5, ease: "sine.inOut", repeat: 3, yoyo: true }, 26.5);
-      tl.to("#s3-p4", { x: 7, y: -5, duration: 3.8, ease: "sine.inOut", repeat: 4, yoyo: true }, 26.5);
-      tl.to("#s3-p5", { x: -7, y: 7, duration: 4.2, ease: "sine.inOut", repeat: 3, yoyo: true }, 26.5);
-      tl.to("#s3-pulse-ring", { scale: 1.15, opacity: 0.4, duration: 3, ease: "sine.inOut", repeat: 7, yoyo: true }, 26.5);
-      tl.to("#s4-term-badge", { opacity: 0.5, duration: 3, ease: "sine.inOut", repeat: 5, yoyo: true }, 44.5);
-      tl.to("#s5-scan-wave", { top: "100%", duration: 6, ease: "none", repeat: 3 }, 63);
-      tl.to("#s6-shield", { scale: 1.08, duration: 3, ease: "sine.inOut", repeat: 5, yoyo: true }, S5_END + 0.5);
-      tl.to("#s6-ticker", { opacity: 0.4, duration: 1.5, ease: "none", repeat: 13, yoyo: true }, S5_END + 0.5);
-      tl.to("#s7-st0", { x: -10, y: -8, duration: 4, ease: "sine.inOut", repeat: 3, yoyo: true }, 104.5);
-      tl.to("#s7-st1", { x: 8, y: -6, duration: 3.5, ease: "sine.inOut", repeat: 4, yoyo: true }, 104.5);
-      tl.to("#s7-st2", { x: -6, y: 10, duration: 5, ease: "sine.inOut", repeat: 3, yoyo: true }, 104.5);
-      tl.to("#s7-st3", { x: 10, y: 6, duration: 4.5, ease: "sine.inOut", repeat: 3, yoyo: true }, 104.5);
-      tl.to("#s7-st4", { x: -8, y: -10, duration: 3.8, ease: "sine.inOut", repeat: 4, yoyo: true }, 104.5);
-      tl.to("#s7-st5", { x: 6, y: 8, duration: 4.2, ease: "sine.inOut", repeat: 3, yoyo: true }, 104.5);
-      tl.to("#s7-st6", { x: -12, y: 6, duration: 5.5, ease: "sine.inOut", repeat: 2, yoyo: true }, 104.5);
-      tl.to("#s7-st7", { x: 8, y: -12, duration: 4.8, ease: "sine.inOut", repeat: 3, yoyo: true }, 104.5);
+      // Ghost terminals stagger in
+      tl.from('#s1-gt1, #s1-gt2', { opacity: 0, scale: 0.92, duration: 0.8, stagger: 0.15, ease: 'power2.out' }, 0);
+      tl.from('#s1-gt3, #s1-gt4, #s1-gt5, #s1-gt6', { opacity: 0, scale: 0.9, duration: 0.7, stagger: 0.12, ease: 'sine.out' }, 0.3);
 
-      // ══════════════ SCENE 1: Chaos (0s → 12s) ════════════
-      tl.fromTo("#s1-terminal", { y: -80, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 0.2);
-      tl.fromTo("#s1-c1", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, 0.6);
-      tl.fromTo("#s1-e1", { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 0.85);
-      tl.fromTo("#s1-c2", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, 1.3);
-      tl.fromTo("#s1-e2", { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 1.55);
-      tl.fromTo("#s1-c3", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, 2.2);
-      tl.fromTo("#s1-e3", { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 2.45);
-      tl.fromTo("#s1-c4", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, 3.2);
-      tl.fromTo("#s1-o4", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, 3.5);
-      tl.fromTo("#s1-elapsed", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 4.0);
-      tl.fromTo("#s1-warn", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.4)" }, 3.0);
-      tl.fromTo("#s1-err-count", { opacity: 0 }, { opacity: 0.5, duration: 0.4, ease: "power2.out" }, 4.5);
-      tl.fromTo("#s1-gt3", { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "sine.out" }, 1.0);
-      tl.fromTo("#s1-gt4", { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "sine.out" }, 1.5);
-      tl.fromTo("#s1-d1", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 2.0);
-      tl.fromTo("#s1-d2", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 2.4);
+      // Background layers
+      tl.from('#s1-grid', { opacity: 0, duration: 1.2 }, 0);
+      tl.from('#s1-stripe', { opacity: 0, duration: 1.0 }, 0);
+      tl.to('#s1-scanlines', { opacity: 1, duration: 0.5 }, 0.3);
 
-      // ── Transition 1: Blur through (chaos → problem) ──────
-      tl.to("#scene1", { filter: "blur(15px)", scale: 1.05, opacity: 0, duration: 0.4, ease: "power2.in" }, S1_END);
-      tl.fromTo(
-        "#scene2",
-        { filter: "blur(15px)", scale: 0.95, opacity: 0 },
-        { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.5, ease: "power2.out" },
-        S1_END + 0.15
-      );
+      // Main terminal
+      tl.from('#s1-terminal', { opacity: 0, y: 40, duration: 0.7, ease: 'expo.out' }, 0.6);
 
-      // ══════════════ SCENE 2: Problem (12s → 26s) ═════════
-      tl.fromTo("#s2-line", { scaleY: 0, transformOrigin: "top" }, { scaleY: 1, duration: 0.5, ease: "power2.out" }, S1_END + 0.45);
-      tl.fromTo("#s2-eyebrow", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, S1_END + 0.55);
-      tl.fromTo("#s2-headline", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, S1_END + 0.65);
-      tl.fromTo("#s2-body", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, S1_END + 0.85);
-      tl.fromTo("#s2-terminal", { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, S1_END + 0.75);
-      tl.fromTo("#s2-c1", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, S1_END + 1.0);
-      tl.fromTo("#s2-o1", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, S1_END + 1.25);
-      tl.fromTo("#s2-c2", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, S1_END + 1.5);
-      tl.fromTo("#s2-o2", { x: -10, opacity: 0 }, { x: 0, opacity: 1, duration: 0.35, ease: "power2.out" }, S1_END + 1.75);
-      tl.fromTo("#s2-o3", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, S1_END + 2.0);
-      tl.fromTo("#s2-ghost", { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "sine.out" }, S1_END + 0.5);
-      tl.fromTo("#s2-stripe", { opacity: 0 }, { opacity: 0.04, duration: 0.8, ease: "sine.out" }, S1_END + 0.3);
-      tl.fromTo("#s2-versions", { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, S1_END + 0.7);
-      tl.fromTo("#s2-d1", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, S1_END + 1.0);
-      tl.fromTo("#s2-d2", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, S1_END + 1.3);
-      tl.fromTo("#s2-progress-wrap", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, S1_END + 1.5);
+      // Terminal lines sequenced
+      tl.from('#s1-c1', { opacity: 0, x: -8, duration: 0.3, ease: 'power1.out' }, 1.2);
+      tl.from('#s1-e1', { opacity: 0, x: -8, duration: 0.35, ease: 'power2.out' }, 1.6);
+      tl.from('#s1-c2', { opacity: 0, x: -8, duration: 0.3, ease: 'power1.out' }, 2.3);
+      tl.from('#s1-e2', { opacity: 0, x: -8, duration: 0.35, ease: 'power2.out' }, 2.7);
+      tl.from('#s1-c3', { opacity: 0, x: -8, duration: 0.3, ease: 'power1.out' }, 3.4);
+      tl.from('#s1-e3', { opacity: 0, x: -8, duration: 0.35, ease: 'power2.out' }, 3.8);
+      tl.from('#s1-c4', { opacity: 0, x: -8, duration: 0.3, ease: 'power1.out' }, 4.5);
+      tl.from('#s1-o4', { opacity: 0, x: -8, duration: 0.35, ease: 'power2.out' }, 4.9);
 
-      // ── Transition 2: Blur crossfade (problem → meet ven) ─
-      tl.to("#scene2", { filter: "blur(12px)", opacity: 0, duration: 0.35, ease: "power2.in" }, S2_END);
-      tl.fromTo(
-        "#scene3",
-        { filter: "blur(12px)", opacity: 0 },
-        { filter: "blur(0px)", opacity: 1, duration: 0.45, ease: "power3.out" },
-        S2_END + 0.15
-      );
+      // Badge + counter
+      tl.from('#s1-warn', { opacity: 0, scale: 0.7, duration: 0.45, ease: 'back.out(1.7)' }, 2.5);
+      tl.from('#s1-err-count', { opacity: 0, duration: 0.4 }, 3.5);
+      tl.from('#s1-elapsed', { opacity: 0, y: 10, duration: 0.5, ease: 'power2.out' }, 5.5);
 
-      // ══════════ SCENE 3: Meet ven + Auto-Switch (26s → 44s) ═════
-      tl.fromTo("#s3-logo", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.6)" }, S2_END + 0.4);
-      tl.fromTo("#s3-logo-text", { x: -20, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, S2_END + 0.6);
-      tl.fromTo("#s3-subtitle", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, S2_END + 0.85);
-      tl.fromTo("#s3-version-meta", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, S2_END + 0.95);
-      tl.fromTo("#s3-pulse-ring", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 0.3, duration: 0.8, ease: "expo.out" }, S2_END + 0.5);
-      tl.fromTo("#s3-logo-frame", { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 0.6, duration: 0.6, ease: "expo.out" }, S2_END + 0.3);
+      // Decorative diamond entrances
+      tl.from('#s1-d1, #s1-d2, #s1-d3, #s1-d4, #s1-d5, #s1-d6, #s1-d7, #s1-d8', { opacity: 0, scale: 0, duration: 0.3, ease: 'back.out(2)', stagger: 0.04 }, 2.0);
 
-      // Auto-switch panel assembles after 4s hold
-      tl.fromTo("#s3-tree", { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "expo.out" }, S2_END + 4.5);
-      tl.fromTo("#s3-term", { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, S2_END + 4.6);
-      tl.fromTo("#s3-sw-c1", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, S2_END + 5.0);
-      tl.fromTo("#s3-sw-o1", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, S2_END + 5.2);
-      tl.fromTo("#s3-sw-c2", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, S2_END + 5.6);
-      tl.fromTo("#s3-sw-o2", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(2)" }, S2_END + 5.8);
-      tl.fromTo("#s3-sw-info", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, S2_END + 6.2);
+      // Particle dot entrances
+      tl.from('#s1-p0, #s1-p1, #s1-p2, #s1-p3, #s1-p4, #s1-p5', { opacity: 0, scale: 0, duration: 0.3, stagger: 0.05, ease: 'back.out(1.7)' }, 2.5);
 
-      // ── Transition 3: Zoom through (meet → languages) ────
-      tl.to("#scene3", { scale: 1.08, filter: "blur(18px)", opacity: 0, duration: 0.35, ease: "power3.in" }, S3_END);
-      tl.fromTo(
-        "#scene4",
-        { scale: 0.88, filter: "blur(18px)", opacity: 0 },
-        { scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "expo.out" },
-        S3_END + 0.12
-      );
+      // ── Transition 1→2: blur crossfade ──
+      tl.to('#scene1', { filter: 'blur(15px)', scale: 1.05, opacity: 0, duration: 0.5, ease: 'power2.in' }, T.S1_END);
+      tl.fromTo('#scene2', { filter: 'blur(15px)', scale: 0.95, opacity: 0 }, { filter: 'blur(0px)', scale: 1, opacity: 1, duration: 0.55, ease: 'power3.out', overwrite: 'auto' }, T.S1_END + 0.1);
 
-      // ══════════════ SCENE 4: Languages (44s → 62s) ════════
-      tl.fromTo("#s4-headline", { x: -50, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, S3_END + 0.45);
-      tl.fromTo("#s4-sub", { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, S3_END + 0.6);
-      tl.fromTo(
-        "#s4-grid .lang-card",
-        { y: 50, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.45, ease: "back.out(1.2)", stagger: 0.07 },
-        S3_END + 0.75
-      );
-      tl.fromTo("#s4-term-badge", { opacity: 0 }, { opacity: 0.3, duration: 0.6, ease: "sine.out" }, S3_END + 0.5);
-      tl.fromTo("#s4-d1", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, S3_END + 1.0);
-      tl.fromTo("#s4-d2", { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, S3_END + 1.3);
-      tl.fromTo("#s4-grid .version-chip", { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(1.4)", stagger: 0.06 }, S3_END + 2.5);
+      // ═══ Scene 2: Problem (14.2s – 29.2s) ═══
 
-      // ── Transition 4: Push slide up (languages → ghost) ──
-      tl.to("#scene4", { y: -60, filter: "blur(20px)", opacity: 0, duration: 0.35, ease: "power2.in" }, S4_END);
-      tl.fromTo(
-        "#scene5",
-        { y: 80, filter: "blur(20px)", opacity: 0 },
-        { y: 0, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "power2.out" },
-        S4_END + 0.15
-      );
+      // Accent line grows down
+      tl.from('#s2-accent', { scaleY: 0, transformOrigin: 'top center', duration: 0.5, ease: 'power3.out' }, T.S1_END + 0.4);
+      // Ghost bg text
+      tl.from('#s2-ghost-text', { x: 200, opacity: 0, duration: 1.0, ease: 'power2.out' }, T.S1_END + 0.4);
 
-      // ══════════════ SCENE 5: Ghost Scan (62s → 85s) ════════
-      tl.fromTo("#s5-headline", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, S4_END + 0.45);
-      tl.fromTo("#s5-sub", { y: 25, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, S4_END + 0.6);
-      tl.fromTo("#s5-toml", { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.55, ease: "expo.out" }, S4_END + 0.7);
-      tl.fromTo("#s5-terminal", { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, S4_END + 0.8);
-      tl.fromTo("#s5-o1", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, S4_END + 1.0);
-      tl.fromTo("#s5-c1", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, S4_END + 1.3);
-      tl.fromTo("#s5-o2", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, S4_END + 1.6);
-      tl.fromTo("#s5-o3", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, S4_END + 1.9);
-      tl.fromTo("#s5-ghost1", { x: -10, opacity: 0, scale: 0.9 }, { x: 0, opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, S4_END + 2.1);
-      tl.fromTo("#s5-ghost2", { x: -10, opacity: 0, scale: 0.9 }, { x: 0, opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, S4_END + 2.4);
-      tl.fromTo("#s5-ghost3", { x: -10, opacity: 0, scale: 0.9 }, { x: 0, opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, S4_END + 2.7);
-      tl.fromTo("#s5-c2", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, S4_END + 3.2);
-      tl.fromTo("#s5-o4", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, S4_END + 3.5);
-      tl.fromTo("#s5-stats", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, S4_END + 4.0);
-      tl.fromTo("#s5-ghost-toml", { opacity: 0 }, { opacity: 1, duration: 1.0, ease: "sine.out" }, S4_END + 0.5);
-      tl.fromTo("#s5-scan-wave", { top: 0, opacity: 0 }, { opacity: 0.25, duration: 0.3, ease: "power2.out" }, S4_END + 0.5);
-      tl.fromTo("#s5-br-tl, #s5-br-tr, #s5-br-bl, #s5-br-br", { opacity: 0 }, { opacity: 0.2, duration: 0.4, ease: "power2.out" }, S4_END + 0.5);
-      tl.fromTo("#s5-ghost-chart", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, S4_END + 1.5);
+      // Copy entrances (varied eases)
+      tl.from('#s2-eyebrow', { opacity: 0, x: -20, duration: 0.4, ease: 'power3.out' }, T.S1_END + 0.5);
+      tl.from('#s2-headline', { opacity: 0, y: 40, duration: 0.7, ease: 'power4.out' }, T.S1_END + 0.6);
+      tl.from('#s2-body', { opacity: 0, y: 25, duration: 0.5, ease: 'power2.out' }, T.S1_END + 0.8);
 
-      // ── Transition 5: Directional slide (ghost → security) ─
-      tl.to("#scene5", { x: -180, filter: "blur(12px)", opacity: 0, duration: 0.4, ease: "power3.in" }, S5_END);
-      tl.fromTo(
-        "#scene6",
-        { x: 180, filter: "blur(12px)", opacity: 0 },
-        { x: 0, filter: "blur(0px)", opacity: 1, duration: 0.45, ease: "power3.out" },
-        S5_END + 0.15
-      );
+      // Terminal panel
+      tl.from('#s2-terminal', { opacity: 0, x: 60, duration: 0.6, ease: 'expo.out' }, T.S1_END + 0.7);
 
-      // ══════════════ SCENE 6: Security (85s → 104s) ═════════
-      tl.fromTo("#s6-headline", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, S5_END + 0.45);
-      tl.fromTo("#s6-sub", { y: 25, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, S5_END + 0.6);
-      tl.fromTo("#s6-p1", { x: -50, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, S5_END + 0.7);
-      tl.fromTo("#s6-p2", { x: 50, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, S5_END + 0.85);
-      tl.fromTo("#s6-bar0", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 1.2);
-      tl.fromTo("#s6-bar1", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 1.35);
-      tl.fromTo("#s6-bar2", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 1.5);
-      tl.fromTo("#s6-bar3", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 1.65);
-      tl.fromTo("#s6-bar4", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 1.8);
-      tl.fromTo("#s6-bar5", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 1.95);
-      tl.fromTo("#s6-bar6", { scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.3, ease: "power2.out" }, S5_END + 2.1);
-      tl.fromTo("#s6-badges", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, S5_END + 2.5);
-      tl.fromTo("#s6-shield", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.6)" }, S5_END + 0.4);
-      tl.fromTo("#s6-cves", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, S5_END + 2.8);
-      // network nodes fade in staggered
-      tl.fromTo("#s6-n0", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, S5_END + 0.6);
-      tl.fromTo("#s6-n1", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, S5_END + 0.8);
-      tl.fromTo("#s6-n2", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, S5_END + 1.0);
-      tl.fromTo("#s6-l0, #s6-l1", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.4, ease: "power2.out" }, S5_END + 0.9);
+      // Version chips
+      tl.from('.version-chip', { opacity: 0, y: -10, duration: 0.35, stagger: 0.08, ease: 'power2.out' }, T.S1_END + 0.7);
 
-      // ── Transition 6: Slow dissolve (security → CTA) ─────
-      tl.to("#scene6", { filter: "blur(10px)", opacity: 0, duration: 0.5, ease: "sine.inOut" }, S6_END);
-      tl.fromTo(
-        "#scene7",
-        { filter: "blur(10px)", opacity: 0 },
-        { filter: "blur(0px)", opacity: 1, duration: 0.6, ease: "sine.inOut" },
-        S6_END + 0.15
-      );
+      // Progress bar
+      tl.from('#s2-progress', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S1_END + 1.2);
+      tl.to('#s2-progress-fill', { width: '87%', duration: 14, ease: 'power1.inOut' }, T.S1_END + 1.5);
+      (function() {
+        var p = { n: 0 };
+        tl.to(p, { n: 87, duration: 14, ease: 'power1.inOut', onUpdate: function() { document.getElementById('s2-progress-label').textContent = Math.round(p.n) + '%'; } }, T.S1_END + 1.5);
+      })();
 
-      // ══════════════ SCENE 7: CTA (104s → 120s) ═════════════
-      tl.fromTo("#s7-logo", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.6)" }, S6_END + 0.45);
-      tl.fromTo("#s7-headline", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, S6_END + 0.65);
-      tl.fromTo("#s7-install", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "expo.out" }, S6_END + 0.85);
-      tl.fromTo("#s7-platforms", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, S6_END + 1.1);
-      tl.fromTo("#s7-tagline", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, S6_END + 1.3);
-      tl.fromTo("#s7-footnote", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, S6_END + 1.55);
-      tl.fromTo("#s7-version-chip", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, S6_END + 1.8);
-      tl.fromTo("#s7-download", { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, S6_END + 2.0);
-      tl.fromTo("#s7-br-tl, #s7-br-tr, #s7-br-bl, #s7-br-br", { opacity: 0 }, { opacity: 0.15, duration: 0.5, ease: "sine.out" }, S6_END + 0.3);
+      // ── Transition 2→3: blur crossfade ──
+      tl.to('#scene2', { filter: 'blur(12px)', opacity: 0, duration: 0.4, ease: 'power2.in' }, T.S2_END);
+      tl.fromTo('#scene3', { filter: 'blur(12px)', opacity: 0 }, { filter: 'blur(0px)', opacity: 1, duration: 0.5, ease: 'power3.out', overwrite: 'auto' }, T.S2_END + 0.1);
 
-      // ── Final fade out (only scene with exit animations) ──
-      tl.to("#s7-content > *", { opacity: 0, y: -20, duration: 1.2, stagger: 0.08, ease: "power2.in" }, 116);
-      tl.to("#scene7", { opacity: 0, duration: 0.8, ease: "power1.in" }, 117.5);
-      tl.set("#scene7", { visibility: "hidden" }, 118.3);
+      // ═══ Scene 3: Meet ven (29.2s – 49.2s) ═══
 
-      window.__timelines["ven-promo-v2"] = tl;
+      // Glow + ambient rings
+      tl.from('#s3-glow', { opacity: 0, scale: 0.6, duration: 1.2, ease: 'power2.out' }, T.S2_END + 0.3);
+      tl.from('#s3-ghost-ring', { scale: 0, opacity: 0, duration: 0.8, ease: 'expo.out' }, T.S2_END + 0.3);
+      tl.from('#s3-logo-frame', { scale: 0.7, opacity: 0, duration: 0.6, ease: 'expo.out' }, T.S2_END + 0.3);
+      tl.from('#s3-pulse-ring', { scale: 0.3, opacity: 0, duration: 0.7, ease: 'expo.out' }, T.S2_END + 0.5);
+
+      // Expanding rings
+      tl.from('#s3-re1', { width: 0, height: 0, opacity: 0, duration: 0.8, ease: 'power2.out' }, T.S2_END + 0.5);
+      tl.from('#s3-re2', { width: 0, height: 0, opacity: 0, duration: 1.0, ease: 'power2.out' }, T.S2_END + 0.7);
+      tl.from('#s3-re3', { width: 0, height: 0, opacity: 0, duration: 1.2, ease: 'power2.out' }, T.S2_END + 0.9);
+
+      // Logo reveal
+      tl.from('#s3-logo-img', { scale: 0.3, opacity: 0, duration: 0.8, ease: 'back.out(1.6)' }, T.S2_END + 0.4);
+      tl.from('#s3-logo-text', { opacity: 0, x: -20, duration: 0.6, ease: 'power3.out' }, T.S2_END + 0.6);
+      tl.from('#s3-version-meta', { opacity: 0, duration: 0.4, ease: 'power2.out' }, T.S2_END + 0.9);
+      tl.from('#s3-subtitle', { opacity: 0, y: 30, duration: 0.5, ease: 'power2.out' }, T.S2_END + 0.8);
+
+      // Auto-switch panel (delayed)
+      tl.from('#s3-tree', { opacity: 0, x: -50, duration: 0.55, ease: 'expo.out' }, T.S2_END + 4.0);
+      tl.from('#s3-ft1, #s3-ft2, #s3-ft3, #s3-ft4, #s3-ft5', { opacity: 0, x: -20, duration: 0.3, stagger: 0.06, ease: 'power2.out' }, T.S2_END + 4.2);
+      tl.from('#s3-switch-term', { opacity: 0, x: 60, duration: 0.5, ease: 'power3.out' }, T.S2_END + 4.1);
+
+      // Terminal lines
+      tl.from('#s3-sw1', { opacity: 0, duration: 0.2, ease: 'none' }, T.S2_END + 4.8);
+      tl.from('#s3-sw2', { opacity: 0, scale: 0.8, duration: 0.3, ease: 'back.out(2)' }, T.S2_END + 5.0);
+      tl.from('#s3-sw3', { opacity: 0, duration: 0.2, ease: 'none' }, T.S2_END + 5.5);
+      tl.from('#s3-sw4', { opacity: 0, scale: 0.8, duration: 0.35, ease: 'back.out(1.7)' }, T.S2_END + 5.7);
+      tl.from('#s3-sw5', { opacity: 0, duration: 0.4, ease: 'power2.out' }, T.S2_END + 6.2);
+
+      // ── Transition 3→4: zoom through ──
+      tl.to('#scene3', { scale: 1.08, filter: 'blur(18px)', opacity: 0, duration: 0.35, ease: 'power3.in' }, T.S3_END);
+      tl.fromTo('#scene4', { scale: 0.88, filter: 'blur(18px)', opacity: 0 }, { scale: 1, filter: 'blur(0px)', opacity: 1, duration: 0.5, ease: 'expo.out', overwrite: 'auto' }, T.S3_END + 0.1);
+
+      // ═══ Scene 4: Languages (49.2s – 66.2s) ═══
+
+      // Background
+      tl.from('#s4-bg-grid', { opacity: 0, duration: 1.0 }, T.S3_END + 0.3);
+
+      // Text entrances
+      tl.from('#s4-headline', { opacity: 0, x: -40, duration: 0.6, ease: 'power3.out' }, T.S3_END + 0.4);
+      tl.from('#s4-sub', { opacity: 0, x: -20, duration: 0.45, ease: 'power2.out' }, T.S3_END + 0.6);
+
+      // Floating icons
+      tl.from('#s4-fi1, #s4-fi2, #s4-fi3, #s4-fi4', { opacity: 0, scale: 0.5, duration: 0.6, stagger: 0.1, ease: 'power2.out' }, T.S3_END + 0.5);
+
+      // Language cards — varying eases
+      tl.from('#s4-card1', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'power3.out' }, T.S3_END + 0.8);
+      tl.from('#s4-card2', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'back.out(1.6)' }, T.S3_END + 1.1);
+      tl.from('#s4-card3', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'power3.out' }, T.S3_END + 1.4);
+      tl.from('#s4-card4', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'back.out(1.8)' }, T.S3_END + 1.7);
+
+      // ── Transition 4→5: slide up ──
+      tl.to('#scene4', { y: -60, filter: 'blur(20px)', opacity: 0, duration: 0.35, ease: 'power2.in' }, T.S4_END);
+      tl.fromTo('#scene5', { y: 80, filter: 'blur(20px)', opacity: 0 }, { y: 0, filter: 'blur(0px)', opacity: 1, duration: 0.5, ease: 'power2.out', overwrite: 'auto' }, T.S4_END + 0.1);
+
+      // ═══ Scene 5: Ghost Scan (66.2s – 82.2s) ═══
+
+      // Background layers
+      tl.from('#s5-scan-lines', { opacity: 0, duration: 0.8 }, T.S4_END + 0.3);
+      tl.from('#s5-ghost-toml', { opacity: 0, x: 100, duration: 1.0, ease: 'sine.out' }, T.S4_END + 0.4);
+
+      // Headline + sub
+      tl.from('#s5-headline', { opacity: 0, y: 30, duration: 0.6, ease: 'power3.out' }, T.S4_END + 0.45);
+      tl.from('#s5-sub', { opacity: 0, y: 20, duration: 0.45, ease: 'power2.out' }, T.S4_END + 0.6);
+
+      // TOML panel
+      tl.from('#s5-toml', { opacity: 0, x: -50, duration: 0.55, ease: 'expo.out' }, T.S4_END + 0.7);
+      tl.from('#s5-tl1, #s5-tl2, #s5-tl3, #s5-tl4, #s5-tl5, #s5-tl6', { opacity: 0, x: -10, duration: 0.3, stagger: 0.06, ease: 'power2.out' }, T.S4_END + 0.9);
+
+      // Terminal panel
+      tl.from('#s5-term', { opacity: 0, x: 50, duration: 0.5, ease: 'power3.out' }, T.S4_END + 0.8);
+      tl.from('#s5-gh1', { opacity: 0, duration: 0.3, ease: 'none' }, T.S4_END + 1.2);
+
+      // Ghost chips (staggered)
+      tl.from('#s5-chip1', { opacity: 0, scale: 0.85, x: -10, duration: 0.35, ease: 'back.out(1.5)' }, T.S4_END + 1.5);
+      tl.from('#s5-chip2', { opacity: 0, scale: 0.85, x: -10, duration: 0.35, ease: 'back.out(1.5)' }, T.S4_END + 1.8);
+      tl.from('#s5-chip3', { opacity: 0, scale: 0.85, x: -10, duration: 0.35, ease: 'back.out(1.5)' }, T.S4_END + 2.1);
+
+      // Stats bar
+      tl.from('#s5-stats', { opacity: 0, y: 20, duration: 0.45, ease: 'power2.out' }, T.S4_END + 2.5);
+
+      // Stats counters
+      (function() {
+        var a = { n: 0 }, g = { n: 0 }, f = { n: 0 };
+        tl.to(a, { n: 12, duration: 1.5, ease: 'power2.out', onUpdate: function() { document.getElementById('s5-stat-active').textContent = Math.round(a.n); } }, T.S4_END + 2.8);
+        tl.to(g, { n: 3, duration: 1.0, ease: 'power2.out', onUpdate: function() { document.getElementById('s5-stat-ghost').textContent = Math.round(g.n); } }, T.S4_END + 2.8);
+        tl.to(f, { n: 14.2, duration: 2.0, ease: 'power2.out', onUpdate: function() { document.getElementById('s5-stat-freed').textContent = f.n.toFixed(1) + ' GB'; } }, T.S4_END + 2.8);
+      })();
+
+      // ── Transition 5→6: slide right ──
+      tl.to('#scene5', { x: -180, filter: 'blur(12px)', opacity: 0, duration: 0.4, ease: 'power3.in' }, T.S5_END);
+      tl.fromTo('#scene6', { x: 180, filter: 'blur(12px)', opacity: 0 }, { x: 0, filter: 'blur(0px)', opacity: 1, duration: 0.45, ease: 'power3.out', overwrite: 'auto' }, T.S5_END + 0.1);
+
+      // ═══ Scene 6: Security (82.2s – 99.2s) ═══
+
+      // Background
+      tl.from('#s6-mesh', { opacity: 0, duration: 1.0 }, T.S5_END + 0.3);
+
+      // Text
+      tl.from('#s6-headline', { opacity: 0, y: 30, duration: 0.6, ease: 'power3.out' }, T.S5_END + 0.4);
+      tl.from('#s6-sub', { opacity: 0, y: 20, duration: 0.45, ease: 'power2.out' }, T.S5_END + 0.55);
+
+      // Panel 1 (vulnerabilities)
+      tl.from('#s6-panel1', { opacity: 0, x: -40, duration: 0.5, ease: 'power3.out' }, T.S5_END + 0.65);
+      tl.from('#s6-vuln1, #s6-vuln2, #s6-vuln3, #s6-vuln4', { opacity: 0, y: 8, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S5_END + 1.0);
+
+      // Bar chart — elastic growth
+      tl.to('#s6-bar1', { height: '48px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.5);
+      tl.to('#s6-bar2', { height: '32px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.65);
+      tl.to('#s6-bar3', { height: '56px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.8);
+      tl.to('#s6-bar4', { height: '24px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.95);
+      tl.to('#s6-bar5', { height: '40px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 2.1);
+
+      // Panel 2 (shield)
+      tl.from('#s6-panel2', { opacity: 0, x: 40, duration: 0.5, ease: 'power3.out' }, T.S5_END + 0.75);
+      tl.from('#s6-shield', { scale: 0.3, opacity: 0, duration: 0.6, ease: 'back.out(1.6)' }, T.S5_END + 0.4);
+      tl.from('#s6-audit1, #s6-audit2, #s6-audit3', { opacity: 0, x: -10, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S5_END + 1.0);
+
+      // Badges
+      tl.from('#s6-badge1, #s6-badge2', { opacity: 0, scale: 0.6, duration: 0.4, stagger: 0.1, ease: 'back.out(1.8)' }, T.S5_END + 2.5);
+
+      // ── Transition 6→7: blur dissolve ──
+      tl.to('#scene6', { filter: 'blur(15px)', scale: 0.95, opacity: 0, duration: 0.4, ease: 'power2.in' }, T.S6_END);
+      tl.fromTo('#scene7', { filter: 'blur(15px)', scale: 1.05, opacity: 0 }, { filter: 'blur(0px)', scale: 1, opacity: 1, duration: 0.5, ease: 'power3.out', overwrite: 'auto' }, T.S6_END + 0.1);
+
+      // ═══ Scene 7: CTA (99.2s – 120s) ═══
+
+      // Glow + rings
+      tl.from('#s7-glow', { opacity: 0, scale: 0.5, duration: 1.5, ease: 'power2.out' }, T.S6_END + 0.3);
+      tl.from('#s7-ghost-ring', { scale: 0, opacity: 0, duration: 1.0, ease: 'expo.out' }, T.S6_END + 0.3);
+      tl.from('#s7-rc1', { width: 0, height: 0, opacity: 0, duration: 1.2, ease: 'power2.out' }, T.S6_END + 0.5);
+      tl.from('#s7-rc2', { width: 0, height: 0, opacity: 0, duration: 1.5, ease: 'power2.out' }, T.S6_END + 0.7);
+
+      // Star particles
+      tl.from('.star-particle', { opacity: 0, scale: 0, duration: 0.4, stagger: 0.06, ease: 'back.out(2)' }, T.S6_END + 0.6);
+
+      // Logo
+      tl.from('#s7-logo', { scale: 0.3, opacity: 0, duration: 0.8, ease: 'back.out(1.6)' }, T.S6_END + 0.8);
+
+      // Headline
+      tl.from('#s7-headline', { opacity: 0, y: 40, duration: 0.7, ease: 'power3.out' }, T.S6_END + 1.2);
+
+      // Install block
+      tl.from('#s7-install', { opacity: 0, y: 20, scale: 0.95, duration: 0.5, ease: 'power2.out' }, T.S6_END + 1.8);
+
+      // Typewriter effect
+      (function() {
+        var cmdText = 'npm install -g ven';
+        var proxy = { n: 0 };
+        tl.to(proxy, { n: cmdText.length, duration: 2.0, ease: 'none', onUpdate: function() { document.getElementById('s7-cmd-text').textContent = cmdText.substring(0, Math.round(proxy.n)); } }, T.S6_END + 2.0);
+      })();
+
+      // Platforms + tagline
+      tl.from('#s7-platforms', { opacity: 0, y: 15, duration: 0.4, ease: 'power2.out' }, T.S6_END + 2.5);
+      tl.from('#s7-tagline', { opacity: 0, y: 15, duration: 0.45, ease: 'power2.out' }, T.S6_END + 2.8);
+      tl.from('#s7-footnote', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S6_END + 3.1);
+
+      // ── Final fade out (only exit in the composition) ──
+      tl.to('#scene7', { filter: 'blur(20px)', scale: 1.08, opacity: 0, duration: 1.2, ease: 'power2.in' }, 118);
+      tl.to('#scene7-exit', { opacity: 1, duration: 1.0, ease: 'power2.in' }, 119);
+
+      window.__timelines['ven-promo-v2'] = tl;
     </script>
   </body>
 </html>
