@@ -783,7 +783,7 @@
       id="root"
       data-composition-id="ven-promo-v2"
       data-start="0"
-      data-duration="120"
+      data-duration="60"
       data-width="1920"
       data-height="1080"
     >
@@ -1103,12 +1103,12 @@
 
       // ── Scene timing constants ──
       var T = {
-        S1_END: 14.2,
-        S2_END: 29.2,
-        S3_END: 49.2,
-        S4_END: 66.2,
-        S5_END: 82.2,
-        S6_END: 99.2
+        S1_END: 7.1,
+        S2_END: 14.6,
+        S3_END: 24.6,
+        S4_END: 33.1,
+        S5_END: 41.1,
+        S6_END: 49.6
       };
 
       // ═══ Scene 1: Chaos (0s – 14.2s) ═══
@@ -1340,8 +1340,8 @@
       tl.from('#s7-footnote', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S6_END + 3.1);
 
       // ── Final fade out (only exit in the composition) ──
-      tl.to('#scene7', { filter: 'blur(20px)', scale: 1.08, opacity: 0, duration: 1.2, ease: 'power2.in' }, 118);
-      tl.to('#scene7-exit', { opacity: 1, duration: 1.0, ease: 'power2.in' }, 119);
+      tl.to('#scene7', { filter: 'blur(20px)', scale: 1.08, opacity: 0, duration: 1.2, ease: 'power2.in' }, 59);
+      tl.to('#scene7-exit', { opacity: 1, duration: 1.0, ease: 'power2.in' }, 59.5);
 
       window.__timelines['ven-promo-v2'] = tl;
     </script>
