@@ -599,64 +599,151 @@
       #scene5 .stat-val { color: #b9cacb; font-weight: 600; }
       #scene5 .stat-ok { color: #00e639; }
 
-      /* ── Scene 6: Security ── */
-      #scene6 { z-index: 6; background: #1a1a1a; opacity: 0; }
-      #scene6 .mesh-bg {
+      /* ── Scene 6: Setup Wizard ── */
+      #scene6 { z-index: 6; background: #131313; opacity: 0; }
+      #scene6 .scene-content {
+        display: flex; flex-direction: row;
+        align-items: center;
+        width: 100%; height: 100%;
+        padding: 90px 120px;
+        gap: 64px;
+      }
+      #scene6 .wizard-mock {
+        width: 520px;
+        background: #0e0e0e;
+        border: 2px solid rgba(0, 219, 231, 0.4);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+      }
+      #scene6 .wiz-header {
+        padding: 20px 24px;
+        background: #201f1f;
+        border-bottom: 2px solid #3a494b;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #scene6 .wiz-logo {
+        width: 32px;
+        height: 32px;
+      }
+      #scene6 .wiz-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #e5e2e1;
+      }
+      #scene6 .wiz-body {
+        padding: 28px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      #scene6 .wiz-step {
+        padding: 16px;
+        background: rgba(0, 219, 231, 0.08);
+        border: 2px solid #00dbe7;
+        border-radius: 8px;
+        font-size: 20px;
+        color: #e5e2e1;
+      }
+      #scene6 .wiz-step.dim {
+        background: #16161a;
+        border-color: #3a494b;
+        color: #849495;
+      }
+      #scene6 .features {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      #scene6 .headline {
+        font-size: 64px;
+        font-weight: 700;
+        color: #e1fdff;
+        line-height: 1.1;
+      }
+      #scene6 .feat {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        font-size: 30px;
+        color: #b9cacb;
+        line-height: 1.4;
+      }
+      #scene6 .feat-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(0, 230, 57, 0.15);
+        border: 2px solid #00e639;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #00e639;
+        font-size: 22px;
+        flex-shrink: 0;
+      }
+
+      /* ── Scene 7: Security ── */
+      #scene7 { z-index: 7; background: #1a1a1a; opacity: 0; }
+      #scene7 .mesh-bg {
         position: absolute; inset: 0;
         opacity: 0.05;
         background-image:
           radial-gradient(circle at 30% 40%, rgba(0, 255, 65, 0.12) 0%, transparent 50%),
           radial-gradient(circle at 70% 60%, rgba(0, 219, 231, 0.08) 0%, transparent 50%);
       }
-      #scene6 .scene-content {
+      #scene7 .scene-content {
         display: flex; flex-direction: column;
         width: 100%; height: 100%;
         padding: 70px 100px; gap: 24px;
       }
-      #scene6 .headline { font-size: 64px; font-weight: 700; color: #e1fdff; }
-      #scene6 .sub { font-size: 28px; color: #b9cacb; }
-      #scene6 .panels {
+      #scene7 .headline { font-size: 64px; font-weight: 700; color: #e1fdff; }
+      #scene7 .sub { font-size: 28px; color: #b9cacb; }
+      #scene7 .panels {
         display: flex; gap: 32px;
         flex: 1;
       }
-      #scene6 .panel {
+      #scene7 .panel {
         flex: 1;
         background: #0e0e0e;
         border: 2px solid #3a494b;
         border-radius: 8px;
         overflow: hidden;
       }
-      #scene6 .p-body { padding: 20px 24px; font-family: "JetBrains Mono", monospace; font-size: 20px; line-height: 1.7; }
-      #scene6 .bar-chart {
+      #scene7 .p-body { padding: 20px 24px; font-family: "JetBrains Mono", monospace; font-size: 20px; line-height: 1.7; }
+      #scene7 .bar-chart {
         display: flex; gap: 12px;
         align-items: flex-end; height: 60px;
         margin: 12px 0;
       }
-      #scene6 .bar {
+      #scene7 .bar {
         flex: 1; height: 8px;
         background: #00e639;
         border-radius: 2px;
         opacity: 0.7;
       }
-      #scene6 .bar-wrap {
+      #scene7 .bar-wrap {
         display: flex; flex-direction: column; align-items: center;
         gap: 4px; flex: 1;
       }
-      #scene6 .bar-label { font-family: "JetBrains Mono", monospace; font-size: 12px; color: #849495; }
-      #scene6 .badge-row { display: flex; gap: 16px; margin-top: auto; }
-      #scene6 .badge {
+      #scene7 .bar-label { font-family: "JetBrains Mono", monospace; font-size: 12px; color: #849495; }
+      #scene7 .badge-row { display: flex; gap: 16px; margin-top: auto; }
+      #scene7 .badge {
         display: flex; align-items: center; gap: 8px;
         padding: 10px 20px;
         border-radius: 4px;
         font-family: "JetBrains Mono", monospace;
         font-size: 20px;
       }
-      #scene6 .badge-green { background: rgba(0, 230, 57, 0.1); border: 2px solid #00e639; color: #00e639; }
-      #scene6 .badge-cyan { background: rgba(0, 219, 231, 0.1); border: 2px solid #00dbe7; color: #00dbe7; }
+      #scene7 .badge-green { background: rgba(0, 230, 57, 0.1); border: 2px solid #00e639; color: #00e639; }
+      #scene7 .badge-cyan { background: rgba(0, 219, 231, 0.1); border: 2px solid #00dbe7; color: #00dbe7; }
 
-      /* ── Scene 7: CTA ── */
-      #scene7 { z-index: 7; background: #131313; opacity: 0; }
-      #scene7 .glow {
+      /* ── Scene 8: CTA ── */
+      #scene8 { z-index: 8; background: #131313; opacity: 0; }
+      #scene8 .glow {
         position: absolute;
         width: 1000px; height: 1000px;
         border-radius: 50%;
@@ -665,7 +752,7 @@
         transform: translate(-50%, -50%);
         pointer-events: none;
       }
-      #scene7 .ghost-ring {
+      #scene8 .ghost-ring {
         position: absolute;
         width: 480px; height: 480px;
         border: 3px solid rgba(0, 219, 231, 0.08);
@@ -674,7 +761,7 @@
         transform: translate(-50%, -50%);
         pointer-events: none;
       }
-      #scene7 .ring-expand-cta {
+      #scene8 .ring-expand-cta {
         position: absolute;
         border-radius: 50%;
         border: 2px solid rgba(0,219,231,0.06);
@@ -682,16 +769,16 @@
         transform: translate(-50%,-50%);
         pointer-events: none;
       }
-      #scene7 .ring-expand-cta.rc1 { width: 600px; height: 600px; }
-      #scene7 .ring-expand-cta.rc2 { width: 800px; height: 800px; }
-      #scene7 .scene-content {
+      #scene8 .ring-expand-cta.rc1 { width: 600px; height: 600px; }
+      #scene8 .ring-expand-cta.rc2 { width: 800px; height: 800px; }
+      #scene8 .scene-content {
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
         width: 100%; height: 100%;
         padding: 80px 160px; gap: 28px;
         text-align: center;
       }
-      #scene7 .logo {
+      #scene8 .logo {
         width: 160px; height: 160px;
         border-radius: 50%;
         border: 3px solid rgba(0, 219, 231, 0.5);
@@ -699,11 +786,11 @@
         object-fit: contain; padding: 18px;
         background: #201f1f;
       }
-      #scene7 .headline {
+      #scene8 .headline {
         font-size: 88px; font-weight: 700;
         color: #e1fdff; letter-spacing: -0.03em;
       }
-      #scene7 .install-block {
+      #scene8 .install-block {
         font-family: "JetBrains Mono", monospace;
         font-size: 36px; color: #00e639;
         background: #0e0e0e;
@@ -712,10 +799,10 @@
         padding: 24px 48px;
         box-shadow: 0 0 40px rgba(0, 219, 231, 0.1);
       }
-      #scene7 .platforms { font-family: "JetBrains Mono", monospace; font-size: 28px; color: #00dbe7; }
-      #scene7 .tagline { font-size: 32px; color: #b9cacb; max-width: 800px; }
-      #scene7 .footnote { font-family: "JetBrains Mono", monospace; font-size: 22px; color: #849495; }
-      #scene7 .star-particle {
+      #scene8 .platforms { font-family: "JetBrains Mono", monospace; font-size: 28px; color: #00dbe7; }
+      #scene8 .tagline { font-size: 32px; color: #b9cacb; max-width: 800px; }
+      #scene8 .footnote { font-family: "JetBrains Mono", monospace; font-size: 22px; color: #849495; }
+      #scene8 .star-particle {
         position: absolute; width: 4px; height: 4px;
         background: #00dbe7; border-radius: 50%; pointer-events: none;
       }
@@ -770,10 +857,10 @@
       #scene3 .pulse-ring {
         animation: ring-pulse 4s ease-in-out infinite;
       }
-      #scene7 .star-particle {
+      #scene8 .star-particle {
         animation: star-pulse 2.5s ease-in-out infinite;
       }
-      #scene3 .glow, #scene7 .glow {
+      #scene3 .glow, #scene8 .glow {
         animation: ring-pulse 6s ease-in-out infinite;
       }
     </style>
@@ -967,6 +1054,26 @@
               <div class="lang-cmd">ven use java 21</div>
               <div class="lang-cmd">ven install java 17</div>
             </div>
+            <div class="lang-card" id="s4-card5">
+              <div class="lang-name">Go</div>
+              <div class="lang-cmd">ven use go 1.21</div>
+              <div class="lang-cmd">ven install go 1.20</div>
+            </div>
+            <div class="lang-card" id="s4-card6">
+              <div class="lang-name">Deno</div>
+              <div class="lang-cmd">ven use deno 1.40</div>
+              <div class="lang-cmd">ven install deno 1.38</div>
+            </div>
+            <div class="lang-card" id="s4-card7">
+              <div class="lang-name">Bun</div>
+              <div class="lang-cmd">ven use bun 1.0</div>
+              <div class="lang-cmd">ven install bun 0.8</div>
+            </div>
+            <div class="lang-card" id="s4-card8">
+              <div class="lang-name">Ruby</div>
+              <div class="lang-cmd">ven use ruby 3.2</div>
+              <div class="lang-cmd">ven install ruby 3.0</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1013,14 +1120,47 @@
         </div>
       </div>
 
-      <!-- ═══ Scene 6: Security (83s – 100s) ═══ -->
+      <!-- ═══ Scene 6: Setup Wizard ═══ -->
       <div id="scene6" class="scene">
-        <div class="mesh-bg" id="s6-mesh"></div>
         <div class="scene-content">
-          <div class="headline" id="s6-headline">Security first</div>
-          <div class="sub" id="s6-sub">ven audits your toolchain for <span class="conflict">CVEs and vulnerabilities</span></div>
+          <div class="wizard-mock" id="s6-wizard">
+            <div class="wiz-header">
+              <img class="wiz-logo" src="assets/Ven_logo.png" alt="" />
+              <span class="wiz-title">Ven Setup</span>
+            </div>
+            <div class="wiz-body">
+              <div class="wiz-step">● Install mode — User</div>
+              <div class="wiz-step dim">○ Storage location</div>
+              <div class="wiz-step dim">○ Shell integration</div>
+              <div class="wiz-step dim">○ Pre-install runtimes</div>
+            </div>
+          </div>
+          <div class="features">
+            <h2 class="headline" id="s6-headline">Install in 60 seconds.<br/>Upgrade with one command.</h2>
+            <div class="feat" id="s6-f1">
+              <div class="feat-icon">✓</div>
+              <span>GUI wizard or CLI — ven-setup on every platform</span>
+            </div>
+            <div class="feat" id="s6-f2">
+              <div class="feat-icon">✓</div>
+              <span>Self-update with ven update — no re-download scripts</span>
+            </div>
+            <div class="feat" id="s6-f3">
+              <div class="feat-icon">✓</div>
+              <span>Auto-activates when you cd into a project</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Scene 7: Security (83s – 100s) ═══ -->
+      <div id="scene7" class="scene">
+        <div class="mesh-bg" id="s7-mesh"></div>
+        <div class="scene-content">
+          <div class="headline" id="s7-headline">Security first</div>
+          <div class="sub" id="s7-sub">ven audits your toolchain for <span class="conflict">CVEs and vulnerabilities</span></div>
           <div class="panels">
-            <div class="panel" id="s6-panel1">
+            <div class="panel" id="s7-panel1">
               <div class="term-bar">
                 <span class="dot dot-r"></span>
                 <span class="dot dot-y"></span>
@@ -1029,20 +1169,20 @@
               </div>
               <div class="p-body">
                 <div><span class="cmd">$ </span><span class="out">ven audit</span></div>
-                <div id="s6-vuln1"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
-                <div id="s6-vuln2"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
-                <div id="s6-vuln3"><span class="conflict">✗ CVE-2024-xxx</span> <span class="err">critical</span></div>
-                <div id="s6-vuln4"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">patched</span></div>
-                <div class="bar-chart" id="s6-bar-chart">
-                  <div class="bar-wrap"><div class="bar" id="s6-bar1" style="height:8px;"></div><div class="bar-label">node</div></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar2" style="height:8px;"></div><div class="bar-label">npm</div></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar3" style="height:8px;"></div><div class="bar-label">python</div></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar4" style="height:8px;"></div><div class="bar-label">pip</div></div>
-                  <div class="bar-wrap"><div class="bar" id="s6-bar5" style="height:8px;"></div><div class="bar-label">rust</div></div>
+                <div id="s7-vuln1"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
+                <div id="s7-vuln2"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
+                <div id="s7-vuln3"><span class="conflict">✗ CVE-2024-xxx</span> <span class="err">critical</span></div>
+                <div id="s7-vuln4"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">patched</span></div>
+                <div class="bar-chart" id="s7-bar-chart">
+                  <div class="bar-wrap"><div class="bar" id="s7-bar1" style="height:8px;"></div><div class="bar-label">node</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s7-bar2" style="height:8px;"></div><div class="bar-label">npm</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s7-bar3" style="height:8px;"></div><div class="bar-label">python</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s7-bar4" style="height:8px;"></div><div class="bar-label">pip</div></div>
+                  <div class="bar-wrap"><div class="bar" id="s7-bar5" style="height:8px;"></div><div class="bar-label">rust</div></div>
                 </div>
               </div>
             </div>
-            <div class="panel" id="s6-panel2">
+            <div class="panel" id="s7-panel2">
               <div class="term-bar">
                 <span class="dot dot-r"></span>
                 <span class="dot dot-y"></span>
@@ -1051,15 +1191,15 @@
               </div>
               <div class="p-body">
                 <div style="display:flex; align-items:center; gap:20px; margin-bottom:12px;">
-                  <div class="shield-icon" id="s6-shield">&#x1F6E1;</div>
+                  <div class="shield-icon" id="s7-shield">&#x1F6E1;</div>
                   <div><span style="font-size:28px; font-weight:600; color:#e1fdff;">Zero-day protection</span></div>
                 </div>
-                <div id="s6-audit1"><span class="success">✓</span> Isolated runtime</div>
-                <div id="s6-audit2"><span class="success">✓</span> Dependency graph clean</div>
-                <div id="s6-audit3"><span class="success">✓</span> No malicious packages</div>
+                <div id="s7-audit1"><span class="success">✓</span> Isolated runtime</div>
+                <div id="s7-audit2"><span class="success">✓</span> Dependency graph clean</div>
+                <div id="s7-audit3"><span class="success">✓</span> No malicious packages</div>
                 <div class="badge-row">
-                  <div class="badge badge-green" id="s6-badge1">✓ 14 safe</div>
-                  <div class="badge badge-cyan" id="s6-badge2">⟳ auto-fix</div>
+                  <div class="badge badge-green" id="s7-badge1">✓ 14 safe</div>
+                  <div class="badge badge-cyan" id="s7-badge2">⟳ auto-fix</div>
                 </div>
               </div>
             </div>
@@ -1067,29 +1207,29 @@
         </div>
       </div>
 
-      <!-- ═══ Scene 7: CTA (100s – 120s) ═══ -->
-      <div id="scene7" class="scene">
-        <div class="glow" id="s7-glow"></div>
-        <div class="ghost-ring" id="s7-ghost-ring"></div>
-        <div class="ring-expand-cta rc1" id="s7-rc1"></div>
-        <div class="ring-expand-cta rc2" id="s7-rc2"></div>
-        <div class="star-particle" style="top:10%;left:20%;" id="s7-sp1"></div>
-        <div class="star-particle" style="top:15%;left:70%;" id="s7-sp2"></div>
-        <div class="star-particle" style="top:30%;left:85%;" id="s7-sp3"></div>
-        <div class="star-particle" style="top:50%;left:8%;" id="s7-sp4"></div>
-        <div class="star-particle" style="top:60%;left:90%;" id="s7-sp5"></div>
-        <div class="star-particle" style="top:75%;left:15%;" id="s7-sp6"></div>
-        <div class="star-particle" style="top:80%;left:75%;" id="s7-sp7"></div>
-        <div class="star-particle" style="top:90%;left:40%;" id="s7-sp8"></div>
-        <div class="star-particle" style="top:20%;left:45%;" id="s7-sp9"></div>
-        <div class="star-particle" style="top:70%;left:55%;" id="s7-sp10"></div>
+      <!-- ═══ Scene 8: CTA (100s – 120s) ═══ -->
+      <div id="scene8" class="scene">
+        <div class="glow" id="s8-glow"></div>
+        <div class="ghost-ring" id="s8-ghost-ring"></div>
+        <div class="ring-expand-cta rc1" id="s8-rc1"></div>
+        <div class="ring-expand-cta rc2" id="s8-rc2"></div>
+        <div class="star-particle" style="top:10%;left:20%;" id="s8-sp1"></div>
+        <div class="star-particle" style="top:15%;left:70%;" id="s8-sp2"></div>
+        <div class="star-particle" style="top:30%;left:85%;" id="s8-sp3"></div>
+        <div class="star-particle" style="top:50%;left:8%;" id="s8-sp4"></div>
+        <div class="star-particle" style="top:60%;left:90%;" id="s8-sp5"></div>
+        <div class="star-particle" style="top:75%;left:15%;" id="s8-sp6"></div>
+        <div class="star-particle" style="top:80%;left:75%;" id="s8-sp7"></div>
+        <div class="star-particle" style="top:90%;left:40%;" id="s8-sp8"></div>
+        <div class="star-particle" style="top:20%;left:45%;" id="s8-sp9"></div>
+        <div class="star-particle" style="top:70%;left:55%;" id="s8-sp10"></div>
         <div class="scene-content">
-          <img class="logo" src="assets/Ven_logo.png" alt="ven" id="s7-logo" />
-          <div class="headline" id="s7-headline">Ship with<br/>confidence.</div>
-          <div class="install-block" id="s7-install"><span class="cmd" id="s7-cmd-cursor">❯</span> <span id="s7-cmd-text"></span></div>
-          <div class="platforms" id="s7-platforms">macOS • Linux • Windows</div>
-          <div class="tagline" id="s7-tagline">ven — the universal version manager.</div>
-          <div class="footnote" id="s7-footnote">get ven at ven.sh</div>
+          <img class="logo" src="assets/Ven_logo.png" alt="ven" id="s8-logo" />
+          <div class="headline" id="s8-headline">Ship with<br/>confidence.</div>
+          <div class="install-block" id="s8-install"><span class="cmd" id="s8-cmd-cursor">❯</span> <span id="s8-cmd-text"></span></div>
+          <div class="platforms" id="s8-platforms">macOS • Linux • Windows</div>
+          <div class="tagline" id="s8-tagline">ven — the universal version manager.</div>
+          <div class="footnote" id="s8-footnote">get ven at ven.sh</div>
         </div>
       </div>
 
@@ -1097,7 +1237,7 @@
       <audio id="music-hopeful" src="assets/music-hopeful.mp3" preload="auto" data-start="18" data-duration="24" data-volume="0.6"></audio>
       <audio id="music-triumphant" src="assets/music-triumphant.mp3" preload="auto" data-start="42" data-duration="18" data-volume="0.7"></audio>
     </div>
-    <div id="scene7-exit" style="position:absolute;top:0;left:0;width:1920px;height:1080px;background:#131313;z-index:8;opacity:0;pointer-events:none;"></div>
+    <div id="scene8-exit" style="position:absolute;top:0;left:0;width:1920px;height:1080px;background:#131313;z-index:9;opacity:0;pointer-events:none;"></div>
 
     <script>
       window.__timelines = window.__timelines || {};
@@ -1105,12 +1245,13 @@
 
       // ── Scene timing constants ──
       var T = {
-        S1_END: 7.1,
-        S2_END: 14.6,
-        S3_END: 24.6,
-        S4_END: 33.1,
-        S5_END: 41.1,
-        S6_END: 49.6
+        S1_END: 6,
+        S2_END: 11,
+        S3_END: 20,
+        S4_END: 27,
+        S5_END: 34,
+        S6_END: 40,
+        S7_END: 48
       };
 
       // ═══ Scene 1: Chaos (0s – 14.2s) ═══
@@ -1172,10 +1313,10 @@
 
       // Progress bar
       tl.from('#s2-progress', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S1_END + 1.2);
-      tl.to('#s2-progress-fill', { width: '87%', duration: 14, ease: 'power1.inOut' }, T.S1_END + 1.5);
+      tl.to('#s2-progress-fill', { width: '87%', duration: 3, ease: 'power1.inOut' }, T.S1_END + 1.5);
       (function() {
         var p = { n: 0 };
-        tl.to(p, { n: 87, duration: 14, ease: 'power1.inOut', onUpdate: function() { document.getElementById('s2-progress-label').textContent = Math.round(p.n) + '%'; } }, T.S1_END + 1.5);
+        tl.to(p, { n: 87, duration: 3, ease: 'power1.inOut', onUpdate: function() { document.getElementById('s2-progress-label').textContent = Math.round(p.n) + '%'; } }, T.S1_END + 1.5);
       })();
 
       // ── Transition 2→3: blur crossfade ──
@@ -1234,6 +1375,10 @@
       tl.from('#s4-card2', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'back.out(1.6)' }, T.S3_END + 1.1);
       tl.from('#s4-card3', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'power3.out' }, T.S3_END + 1.4);
       tl.from('#s4-card4', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'back.out(1.8)' }, T.S3_END + 1.7);
+      tl.from('#s4-card5', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'back.out(1.6)' }, T.S3_END + 2.0);
+      tl.from('#s4-card6', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'power3.out' }, T.S3_END + 2.3);
+      tl.from('#s4-card7', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'back.out(1.7)' }, T.S3_END + 2.6);
+      tl.from('#s4-card8', { opacity: 0, rotationY: 80, duration: 0.55, ease: 'power3.out' }, T.S3_END + 2.9);
 
       // ── Transition 4→5: slide up ──
       tl.to('#scene4', { y: -60, filter: 'blur(20px)', opacity: 0, duration: 0.35, ease: 'power2.in' }, T.S4_END);
@@ -1277,73 +1422,86 @@
       tl.to('#scene5', { x: -180, filter: 'blur(12px)', opacity: 0, duration: 0.4, ease: 'power3.in' }, T.S5_END);
       tl.fromTo('#scene6', { x: 180, filter: 'blur(12px)', opacity: 0 }, { x: 0, filter: 'blur(0px)', opacity: 1, duration: 0.45, ease: 'power3.out', overwrite: 'auto' }, T.S5_END + 0.1);
 
-      // ═══ Scene 6: Security (82.2s – 99.2s) ═══
+      // ═══ Scene 6: Setup Wizard ═══
+
+      // Wizard mock panel
+      tl.from('#s6-wizard', { x: -60, opacity: 0, duration: 0.55, ease: 'power3.out' }, T.S5_END + 0.5);
+      tl.from('#s6-headline', { y: 40, opacity: 0, duration: 0.6, ease: 'power3.out' }, T.S5_END + 0.6);
+      tl.from('#s6-f1', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 0.85);
+      tl.from('#s6-f2', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 1.05);
+      tl.from('#s6-f3', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 1.25);
+
+      // ── Transition 6→7: slide right ──
+      tl.to('#scene6', { x: -180, filter: 'blur(12px)', opacity: 0, duration: 0.4, ease: 'power3.in' }, T.S6_END);
+      tl.fromTo('#scene7', { x: 180, filter: 'blur(12px)', opacity: 0 }, { x: 0, filter: 'blur(0px)', opacity: 1, duration: 0.45, ease: 'power3.out', overwrite: 'auto' }, T.S6_END + 0.1);
+
+      // ═══ Scene 7: Security ═══
 
       // Background
-      tl.from('#s6-mesh', { opacity: 0, duration: 1.0 }, T.S5_END + 0.3);
+      tl.from('#s7-mesh', { opacity: 0, duration: 1.0 }, T.S6_END + 0.3);
 
       // Text
-      tl.from('#s6-headline', { opacity: 0, y: 30, duration: 0.6, ease: 'power3.out' }, T.S5_END + 0.4);
-      tl.from('#s6-sub', { opacity: 0, y: 20, duration: 0.45, ease: 'power2.out' }, T.S5_END + 0.55);
+      tl.from('#s7-headline', { opacity: 0, y: 30, duration: 0.6, ease: 'power3.out' }, T.S6_END + 0.4);
+      tl.from('#s7-sub', { opacity: 0, y: 20, duration: 0.45, ease: 'power2.out' }, T.S6_END + 0.55);
 
       // Panel 1 (vulnerabilities)
-      tl.from('#s6-panel1', { opacity: 0, x: -40, duration: 0.5, ease: 'power3.out' }, T.S5_END + 0.65);
-      tl.from('#s6-vuln1, #s6-vuln2, #s6-vuln3, #s6-vuln4', { opacity: 0, y: 8, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S5_END + 1.0);
+      tl.from('#s7-panel1', { opacity: 0, x: -40, duration: 0.5, ease: 'power3.out' }, T.S6_END + 0.65);
+      tl.from('#s7-vuln1, #s7-vuln2, #s7-vuln3, #s7-vuln4', { opacity: 0, y: 8, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S6_END + 1.0);
 
       // Bar chart — elastic growth
-      tl.to('#s6-bar1', { height: '48px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.5);
-      tl.to('#s6-bar2', { height: '32px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.65);
-      tl.to('#s6-bar3', { height: '56px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.8);
-      tl.to('#s6-bar4', { height: '24px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 1.95);
-      tl.to('#s6-bar5', { height: '40px', duration: 0.6, ease: 'back.out(1.7)' }, T.S5_END + 2.1);
+      tl.to('#s7-bar1', { height: '48px', duration: 0.6, ease: 'back.out(1.7)' }, T.S6_END + 1.5);
+      tl.to('#s7-bar2', { height: '32px', duration: 0.6, ease: 'back.out(1.7)' }, T.S6_END + 1.65);
+      tl.to('#s7-bar3', { height: '56px', duration: 0.6, ease: 'back.out(1.7)' }, T.S6_END + 1.8);
+      tl.to('#s7-bar4', { height: '24px', duration: 0.6, ease: 'back.out(1.7)' }, T.S6_END + 1.95);
+      tl.to('#s7-bar5', { height: '40px', duration: 0.6, ease: 'back.out(1.7)' }, T.S6_END + 2.1);
 
       // Panel 2 (shield)
-      tl.from('#s6-panel2', { opacity: 0, x: 40, duration: 0.5, ease: 'power3.out' }, T.S5_END + 0.75);
-      tl.from('#s6-shield', { scale: 0.3, opacity: 0, duration: 0.6, ease: 'back.out(1.6)' }, T.S5_END + 0.4);
-      tl.from('#s6-audit1, #s6-audit2, #s6-audit3', { opacity: 0, x: -10, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S5_END + 1.0);
+      tl.from('#s7-panel2', { opacity: 0, x: 40, duration: 0.5, ease: 'power3.out' }, T.S6_END + 0.75);
+      tl.from('#s7-shield', { scale: 0.3, opacity: 0, duration: 0.6, ease: 'back.out(1.6)' }, T.S6_END + 0.4);
+      tl.from('#s7-audit1, #s7-audit2, #s7-audit3', { opacity: 0, x: -10, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S6_END + 1.0);
 
       // Badges
-      tl.from('#s6-badge1, #s6-badge2', { opacity: 0, scale: 0.6, duration: 0.4, stagger: 0.1, ease: 'back.out(1.8)' }, T.S5_END + 2.5);
+      tl.from('#s7-badge1, #s7-badge2', { opacity: 0, scale: 0.6, duration: 0.4, stagger: 0.1, ease: 'back.out(1.8)' }, T.S6_END + 2.5);
 
-      // ── Transition 6→7: blur dissolve ──
-      tl.to('#scene6', { filter: 'blur(15px)', scale: 0.95, opacity: 0, duration: 0.4, ease: 'power2.in' }, T.S6_END);
-      tl.fromTo('#scene7', { filter: 'blur(15px)', scale: 1.05, opacity: 0 }, { filter: 'blur(0px)', scale: 1, opacity: 1, duration: 0.5, ease: 'power3.out', overwrite: 'auto' }, T.S6_END + 0.1);
+      // ── Transition 7→8: blur dissolve ──
+      tl.to('#scene7', { filter: 'blur(15px)', scale: 0.95, opacity: 0, duration: 0.4, ease: 'power2.in' }, T.S7_END);
+      tl.fromTo('#scene8', { filter: 'blur(15px)', scale: 1.05, opacity: 0 }, { filter: 'blur(0px)', scale: 1, opacity: 1, duration: 0.5, ease: 'power3.out', overwrite: 'auto' }, T.S7_END + 0.1);
 
-      // ═══ Scene 7: CTA (99.2s – 120s) ═══
+      // ═══ Scene 8: CTA (99.2s – 120s) ═══
 
       // Glow + rings
-      tl.from('#s7-glow', { opacity: 0, scale: 0.5, duration: 1.5, ease: 'power2.out' }, T.S6_END + 0.3);
-      tl.from('#s7-ghost-ring', { scale: 0, opacity: 0, duration: 1.0, ease: 'expo.out' }, T.S6_END + 0.3);
-      tl.from('#s7-rc1', { width: 0, height: 0, opacity: 0, duration: 1.2, ease: 'power2.out' }, T.S6_END + 0.5);
-      tl.from('#s7-rc2', { width: 0, height: 0, opacity: 0, duration: 1.5, ease: 'power2.out' }, T.S6_END + 0.7);
+      tl.from('#s8-glow', { opacity: 0, scale: 0.5, duration: 1.5, ease: 'power2.out' }, T.S7_END + 0.3);
+      tl.from('#s8-ghost-ring', { scale: 0, opacity: 0, duration: 1.0, ease: 'expo.out' }, T.S7_END + 0.3);
+      tl.from('#s8-rc1', { width: 0, height: 0, opacity: 0, duration: 1.2, ease: 'power2.out' }, T.S7_END + 0.5);
+      tl.from('#s8-rc2', { width: 0, height: 0, opacity: 0, duration: 1.5, ease: 'power2.out' }, T.S7_END + 0.7);
 
       // Star particles
-      tl.from('.star-particle', { opacity: 0, scale: 0, duration: 0.4, stagger: 0.06, ease: 'back.out(2)' }, T.S6_END + 0.6);
+      tl.from('.star-particle', { opacity: 0, scale: 0, duration: 0.4, stagger: 0.06, ease: 'back.out(2)' }, T.S7_END + 0.6);
 
       // Logo
-      tl.from('#s7-logo', { scale: 0.3, opacity: 0, duration: 0.8, ease: 'back.out(1.6)' }, T.S6_END + 0.8);
+      tl.from('#s8-logo', { scale: 0.3, opacity: 0, duration: 0.8, ease: 'back.out(1.6)' }, T.S7_END + 0.8);
 
       // Headline
-      tl.from('#s7-headline', { opacity: 0, y: 40, duration: 0.7, ease: 'power3.out' }, T.S6_END + 1.2);
+      tl.from('#s8-headline', { opacity: 0, y: 40, duration: 0.7, ease: 'power3.out' }, T.S7_END + 1.2);
 
       // Install block
-      tl.from('#s7-install', { opacity: 0, y: 20, scale: 0.95, duration: 0.5, ease: 'power2.out' }, T.S6_END + 1.8);
+      tl.from('#s8-install', { opacity: 0, y: 20, scale: 0.95, duration: 0.5, ease: 'power2.out' }, T.S7_END + 1.8);
 
       // Typewriter effect
       (function() {
         var cmdText = 'npm install -g ven';
         var proxy = { n: 0 };
-        tl.to(proxy, { n: cmdText.length, duration: 2.0, ease: 'none', onUpdate: function() { document.getElementById('s7-cmd-text').textContent = cmdText.substring(0, Math.round(proxy.n)); } }, T.S6_END + 2.0);
+        tl.to(proxy, { n: cmdText.length, duration: 2.0, ease: 'none', onUpdate: function() { document.getElementById('s8-cmd-text').textContent = cmdText.substring(0, Math.round(proxy.n)); } }, T.S7_END + 2.0);
       })();
 
       // Platforms + tagline
-      tl.from('#s7-platforms', { opacity: 0, y: 15, duration: 0.4, ease: 'power2.out' }, T.S6_END + 2.5);
-      tl.from('#s7-tagline', { opacity: 0, y: 15, duration: 0.45, ease: 'power2.out' }, T.S6_END + 2.8);
-      tl.from('#s7-footnote', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S6_END + 3.1);
+      tl.from('#s8-platforms', { opacity: 0, y: 15, duration: 0.4, ease: 'power2.out' }, T.S7_END + 2.5);
+      tl.from('#s8-tagline', { opacity: 0, y: 15, duration: 0.45, ease: 'power2.out' }, T.S7_END + 2.8);
+      tl.from('#s8-footnote', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S7_END + 3.1);
 
       // ── Final fade out (only exit in the composition) ──
-      tl.to('#scene7', { filter: 'blur(20px)', scale: 1.08, opacity: 0, duration: 1.2, ease: 'power2.in' }, 59);
-      tl.to('#scene7-exit', { opacity: 1, duration: 1.0, ease: 'power2.in' }, 59.5);
+      tl.to('#scene8', { filter: 'blur(20px)', scale: 1.08, opacity: 0, duration: 1.2, ease: 'power2.in' }, 59);
+      tl.to('#scene8-exit', { opacity: 1, duration: 1.0, ease: 'power2.in' }, 59.5);
 
       window.__timelines['ven-promo-v2'] = tl;
     </script>
