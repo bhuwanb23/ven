@@ -262,10 +262,36 @@
         box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
       }
       #scene1 .term-body-sc1 {
-        padding: 28px 36px;
+        padding: 24px 32px;
         font-family: "JetBrains Mono", monospace;
-        font-size: 26px;
-        line-height: 1.7;
+        font-size: 21px;
+        line-height: 1.5;
+      }
+      #scene1 .s1-conflict-log {
+        position: absolute; width: 240px; height: 180px;
+        background: #0e0e0e;
+        border: 1px solid rgba(255, 59, 48, 0.25);
+        border-radius: 6px;
+        padding: 14px 18px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px; line-height: 1.6;
+        pointer-events: none;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      }
+      #scene1 .s1-conflict-log .cl-head {
+        color: #ffb4ab; font-weight: 600;
+        border-bottom: 1px solid rgba(255,59,48,0.15);
+        padding-bottom: 6px; margin-bottom: 6px;
+      }
+      #scene1 .s1-conflict-log .cl-line { color: #b9cacb; }
+      #scene1 .s1-conflict-log .cl-conflict { color: #ff3b30; }
+      #scene1 .s1-float-ver {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 22px; font-weight: 600;
+        color: rgba(255, 59, 48, 0.08);
+        pointer-events: none;
+        white-space: nowrap;
       }
       #scene1 .err-block {
         display: inline-block;
@@ -598,6 +624,63 @@
       #scene5 .stat-item { font-family: "JetBrains Mono", monospace; font-size: 20px; color: #849495; }
       #scene5 .stat-val { color: #b9cacb; font-weight: 600; }
       #scene5 .stat-ok { color: #00e639; }
+      #scene5 .s5-scan-ticker {
+        margin-top: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; line-height: 1.6;
+        color: #849495;
+      }
+      #scene5 .s5-scan-ticker .tick-line { opacity: 0; }
+      #scene5 .s5-scan-ticker .tick-done { color: #00e639; }
+      #scene5 .s5-orphan-bars {
+        position: absolute; top: 40px; right: 40px;
+        display: flex; gap: 10px;
+        align-items: flex-end; height: 60px;
+        pointer-events: none;
+      }
+      #scene5 .s5-orphan-bar-wrap {
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+      }
+      #scene5 .s5-orphan-bar {
+        width: 28px; border-radius: 2px 2px 0 0;
+        background: #ff5252; opacity: 0.6;
+      }
+      #scene5 .s5-orphan-bar-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px; color: #849495;
+      }
+      #scene5 .s5-freed-ring-wrap {
+        display: flex; align-items: center; gap: 12px;
+        margin-top: 8px;
+      }
+      #scene5 .s5-freed-ring-svg {
+        width: 48px; height: 48px; flex-shrink: 0;
+      }
+      #scene5 .s5-freed-ring-text {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; color: #b9cacb;
+      }
+      #scene5 .s5-freed-ring-text .freed-val { color: #00e639; font-weight: 600; }
+      #scene5 .s5-freed-ring-text .freed-total { color: #849495; }
+      #scene5 .s5-ghost-file {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px;
+        background: rgba(255, 180, 171, 0.06);
+        border: 1px solid rgba(255, 180, 171, 0.15);
+        border-radius: 4px;
+        padding: 6px 12px;
+        color: #ffb4ab;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      #scene5 .s5-ghost-file .gf-badge {
+        display: inline-block;
+        font-size: 11px; padding: 1px 6px;
+        background: rgba(255, 59, 48, 0.15);
+        border-radius: 3px;
+        color: #ff5252; margin-left: 8px;
+      }
 
       /* ── Scene 6: Setup Wizard ── */
       #scene6 { z-index: 6; background: #131313; opacity: 0; }
@@ -685,6 +768,44 @@
         font-size: 22px;
         flex-shrink: 0;
       }
+      #scene6 .wizard-col {
+        display: flex; flex-direction: column;
+        gap: 20px; flex-shrink: 0; width: 520px;
+      }
+      #scene6 .s6-term-output {
+        background: #0e0e0e;
+        border: 2px solid #3a494b;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #scene6 .s6-term-body {
+        padding: 16px 20px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; line-height: 1.65;
+        color: #849495;
+      }
+      #scene6 .s6-term-body .t-ok { color: #00e639; }
+      #scene6 .s6-term-body .t-done { color: #b9cacb; }
+      #scene6 .s6-sys-card {
+        margin-top: 8px;
+        padding: 12px 16px;
+        background: #16161a;
+        border: 1px solid #3a494b;
+        border-radius: 6px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        color: #849495;
+        display: flex; gap: 16px;
+      }
+      #scene6 .s6-sys-card .sc-label { color: #00dbe7; }
+      #scene6 .s6-sys-card .sc-val { color: #b9cacb; }
+      #scene6 .s6-float-pm {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 28px; font-weight: 700;
+        color: rgba(0, 219, 231, 0.05);
+        pointer-events: none;
+      }
 
       /* ── Scene 7: Security ── */
       #scene7 { z-index: 7; background: #1a1a1a; opacity: 0; }
@@ -740,6 +861,53 @@
       }
       #scene7 .badge-green { background: rgba(0, 230, 57, 0.1); border: 2px solid #00e639; color: #00e639; }
       #scene7 .badge-cyan { background: rgba(0, 219, 231, 0.1); border: 2px solid #00dbe7; color: #00dbe7; }
+      #scene7 .sv-severity {
+        display: flex; gap: 8px; margin-top: 10px;
+      }
+      #scene7 .sv-sev {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; gap: 2px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px; color: #849495;
+      }
+      #scene7 .sv-sev .sv-bar {
+        width: 100%; height: 4px;
+        border-radius: 2px; background: #3a494b;
+      }
+      #scene7 .sv-sev .sv-bar.fill-crit { background: #ff5252; }
+      #scene7 .sv-sev .sv-bar.fill-high { background: #ffb171; }
+      #scene7 .sv-sev .sv-bar.fill-med { background: #fdd663; }
+      #scene7 .sv-sev .sv-bar.fill-low { background: #00e639; }
+      #scene7 .sv-sev .sv-count { color: #b9cacb; font-weight: 600; }
+      #scene7 .sv-timestamp {
+        position: absolute;
+        bottom: 16px; right: 24px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px; color: #849495;
+      }
+      #scene7 .sv-timestamp .ts-val { color: #00dbe7; }
+      #scene7 .dep-tree { margin-top: 12px; }
+      #scene7 .dep-tree .dt-line {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; line-height: 1.6;
+        color: #849495; opacity: 0;
+      }
+      #scene7 .dep-tree .dt-line .dt-ok { color: #00e639; }
+      #scene7 .dep-tree .dt-line .dt-warn { color: #ffb171; }
+      #scene7 .s7-glyph {
+        position: absolute; font-size: 40px;
+        opacity: 0.06; pointer-events: none;
+      }
+      #scene7 .prot-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        margin-left: 12px;
+        padding: 4px 12px;
+        background: rgba(0, 230, 57, 0.1);
+        border: 1px solid #00e639;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px; color: #00e639;
+      }
 
       /* ── Scene 8: CTA ── */
       #scene8 { z-index: 8; background: #131313; opacity: 0; }
@@ -886,6 +1054,22 @@
         <div class="s1-ghost-extra gt4" id="s1-gt4"></div>
         <div class="s1-ghost-extra gt5" id="s1-gt5"></div>
         <div class="s1-ghost-extra gt6" id="s1-gt6"></div>
+        <div class="s1-ghost-extra" id="s1-gt7" style="top:90px;left:40px;width:260px;height:140px;transform:rotate(-5deg);"></div>
+        <div class="s1-ghost-extra" id="s1-gt8" style="bottom:180px;right:40px;width:300px;height:160px;transform:rotate(4deg);"></div>
+
+        <!-- Conflict log (floating package.json errors) -->
+        <div class="s1-conflict-log" id="s1-conflict" style="top:80px;left:40px;">
+          <div class="cl-head">✗ package.json conflicts</div>
+          <div class="cl-line"><span class="cl-conflict">«««</span> main</div>
+          <div class="cl-line">  "express": "^4.18.0"</div>
+          <div class="cl-line"><span class="cl-conflict">»»»</span> feature/api</div>
+          <div class="cl-line">  "express": "^5.0.0"</div>
+        </div>
+
+        <!-- Floating version numbers -->
+        <div class="s1-float-ver" id="s1-fv1" style="top:380px;left:60px;transform:rotate(-6deg);">v14.17.0</div>
+        <div class="s1-float-ver" id="s1-fv2" style="top:160px;right:280px;transform:rotate(4deg);">Python 3.8</div>
+        <div class="s1-float-ver" id="s1-fv3" style="bottom:100px;left:280px;transform:rotate(-3deg);">v20.11.0</div>
 
         <!-- Particle diamonds — scattered chaos -->
         <div class="diamond-red" style="top:80px; left:80px;" id="s1-d1"></div>
@@ -896,6 +1080,10 @@
         <div class="diamond-red" style="bottom:180px; right:100px;" id="s1-d6"></div>
         <div class="diamond" style="bottom:140px; right:140px;" id="s1-d7"></div>
         <div class="diamond-red" style="bottom:120px; left:140px;" id="s1-d8"></div>
+        <div class="diamond" style="top:320px; left:40px;" id="s1-d9"></div>
+        <div class="diamond-red" style="top:400px; right:40px;" id="s1-d10"></div>
+        <div class="diamond-green" style="bottom:60px; left:240px;" id="s1-d11"></div>
+        <div class="diamond" style="bottom:260px; right:260px;" id="s1-d12"></div>
 
         <!-- Floating error particles (red dots) -->
         <div class="particle-dot red" style="top:25%; left:15%;" id="s1-p0"></div>
@@ -904,6 +1092,9 @@
         <div class="particle-dot red" style="top:70%; left:80%;" id="s1-p3"></div>
         <div class="particle-dot red" style="top:45%; left:20%;" id="s1-p4"></div>
         <div class="particle-dot red" style="top:55%; left:75%;" id="s1-p5"></div>
+        <div class="particle-dot red" style="top:20%; left:50%;" id="s1-p6"></div>
+        <div class="particle-dot red" style="top:75%; left:45%;" id="s1-p7"></div>
+        <div class="particle-dot red" style="top:40%; left:5%;" id="s1-p8"></div>
 
         <div class="warning-badge" id="s1-warn" style="position:absolute; top:30px; right:30px;"><span>⚠</span><span>4 unresolved conflicts</span></div>
         <div class="err-counter" id="s1-err-count">✗ ERRORS: 3</div>
@@ -1082,6 +1273,15 @@
       <div id="scene5" class="scene">
         <div class="scan-lines" id="s5-scan-lines"></div>
         <div class="ghost-toml" id="s5-ghost-toml" data-layout-allow-overflow>[versions]</div>
+        <div class="s5-orphan-bars" id="s5-orphan-bars">
+          <div class="s5-orphan-bar-wrap"><div class="s5-orphan-bar" id="s5-ob1" style="height:4px;"></div><div class="s5-orphan-bar-label">node</div></div>
+          <div class="s5-orphan-bar-wrap"><div class="s5-orphan-bar" id="s5-ob2" style="height:4px;"></div><div class="s5-orphan-bar-label">python</div></div>
+          <div class="s5-orphan-bar-wrap"><div class="s5-orphan-bar" id="s5-ob3" style="height:4px;"></div><div class="s5-orphan-bar-label">rust</div></div>
+        </div>
+        <!-- Floating ghost files -->
+        <div class="s5-ghost-file" id="s5-fg1" style="bottom:120px;left:60px;">.nvmrc <span class="gf-badge">orphan</span></div>
+        <div class="s5-ghost-file" id="s5-fg2" style="top:360px;left:280px;">.python-version <span class="gf-badge">stale</span></div>
+        <div class="s5-ghost-file" id="s5-fg3" style="top:160px;right:100px;">rust-toolchain <span class="gf-badge">ghost</span></div>
         <div class="scene-content">
           <div class="headline" id="s5-headline">Ghost detection</div>
           <div class="sub" id="s5-sub">ven scans your system for <span class="conflict">orphaned runtimes</span></div>
@@ -1108,12 +1308,24 @@
                   <div id="s5-gh2" style="margin-top:8px;"><span class="ghost-chip" id="s5-chip1"><span class="conflict">⚠</span> node 14.21.3 (unused 2.3y)</span></div>
                   <div id="s5-gh3"><span class="ghost-chip" id="s5-chip2"><span class="conflict">⚠</span> python 2.7.18 (unused 5.1y)</span></div>
                   <div id="s5-gh4"><span class="ghost-chip" id="s5-chip3"><span class="conflict">⚠</span> rust 1.65.0 (stale)</span></div>
+                  <div class="s5-scan-ticker" id="s5-ticker">
+                    <div class="tick-line" id="s5-st1"><span class="tick-done">✓</span> scanning /usr/local/lib...</div>
+                    <div class="tick-line" id="s5-st2"><span class="tick-done">✓</span> checking nvm aliases...</div>
+                    <div class="tick-line" id="s5-st3"><span class="tick-done">✓</span> found 2 more orphans</div>
+                  </div>
                 </div>
               </div>
               <div class="stats-bar" id="s5-stats" style="margin-top:12px;">
                 <div class="stat-item">Active: <span class="stat-ok" id="s5-stat-active">0</span></div>
                 <div class="stat-item">Ghost: <span class="conflict" id="s5-stat-ghost">0</span></div>
                 <div class="stat-item">Freed: <span class="stat-val" id="s5-stat-freed">0 GB</span></div>
+              </div>
+              <div class="s5-freed-ring-wrap" id="s5-ring-wrap">
+                <svg class="s5-freed-ring-svg" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="18" fill="none" stroke="#3a494b" stroke-width="3"/>
+                  <circle class="s5-ring-arc" id="s5-ring-arc" cx="24" cy="24" r="18" fill="none" stroke="#00e639" stroke-width="3" stroke-dasharray="113" stroke-dashoffset="113" stroke-linecap="round" transform="rotate(-90 24 24)"/>
+                </svg>
+                <div class="s5-freed-ring-text"><span class="freed-val" id="s5-freed-val">0</span> GB / <span class="freed-total">22</span> GB freed</div>
               </div>
             </div>
           </div>
@@ -1122,17 +1334,43 @@
 
       <!-- ═══ Scene 6: Setup Wizard ═══ -->
       <div id="scene6" class="scene">
+        <!-- Floating package manager labels -->
+        <div class="s6-float-pm" id="s6-pm1" style="top:120px;left:60px;transform:rotate(-5deg);">npm</div>
+        <div class="s6-float-pm" id="s6-pm2" style="top:80px;right:80px;transform:rotate(4deg);">pip</div>
+        <div class="s6-float-pm" id="s6-pm3" style="bottom:160px;left:120px;transform:rotate(-3deg);">cargo</div>
+        <div class="s6-float-pm" id="s6-pm4" style="bottom:100px;right:60px;transform:rotate(6deg);">gem</div>
         <div class="scene-content">
-          <div class="wizard-mock" id="s6-wizard">
-            <div class="wiz-header">
-              <img class="wiz-logo" src="assets/Ven_logo.png" alt="" />
-              <span class="wiz-title">Ven Setup</span>
+          <div class="wizard-col">
+            <div class="wizard-mock" id="s6-wizard">
+              <div class="wiz-header">
+                <img class="wiz-logo" src="assets/Ven_logo.png" alt="" />
+                <span class="wiz-title">Ven Setup</span>
+              </div>
+              <div class="wiz-body">
+                <div class="wiz-step">● Install mode — User</div>
+                <div class="wiz-step dim">○ Storage location</div>
+                <div class="wiz-step dim">○ Shell integration</div>
+                <div class="wiz-step dim">○ Pre-install runtimes</div>
+                <div class="s6-sys-card" id="s6-sys-card">
+                  <span><span class="sc-label">OS</span> <span class="sc-val">macOS 14.3</span></span>
+                  <span><span class="sc-label">Shell</span> <span class="sc-val">zsh 5.9</span></span>
+                  <span><span class="sc-label">Arch</span> <span class="sc-val">arm64</span></span>
+                </div>
+              </div>
             </div>
-            <div class="wiz-body">
-              <div class="wiz-step">● Install mode — User</div>
-              <div class="wiz-step dim">○ Storage location</div>
-              <div class="wiz-step dim">○ Shell integration</div>
-              <div class="wiz-step dim">○ Pre-install runtimes</div>
+            <div class="s6-term-output" id="s6-term-out">
+              <div class="term-bar">
+                <span class="dot dot-r"></span>
+                <span class="dot dot-y"></span>
+                <span class="dot dot-g"></span>
+                <span class="term-title">install log</span>
+              </div>
+              <div class="s6-term-body">
+                <div id="s6-to1"><span class="t-ok">✓</span> <span class="t-done">Downloading ven v0.4.2...</span></div>
+                <div id="s6-to2"><span class="t-ok">✓</span> <span class="t-done">Extracting...</span></div>
+                <div id="s6-to3"><span class="t-ok">✓</span> <span class="t-done">Adding to PATH...</span></div>
+                <div id="s6-to4"><span class="t-ok">✓</span> <span class="t-done">Shell integration complete</span></div>
+              </div>
             </div>
           </div>
           <div class="features">
@@ -1149,6 +1387,14 @@
               <div class="feat-icon">✓</div>
               <span>Auto-activates when you cd into a project</span>
             </div>
+            <div class="feat" id="s6-f4">
+              <div class="feat-icon">✓</div>
+              <span>Zero-config per-project switching</span>
+            </div>
+            <div class="feat" id="s6-f5">
+              <div class="feat-icon">✓</div>
+              <span>Works with all major shells</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1156,6 +1402,10 @@
       <!-- ═══ Scene 7: Security (83s – 100s) ═══ -->
       <div id="scene7" class="scene">
         <div class="mesh-bg" id="s7-mesh"></div>
+        <!-- Decorative glyphs -->
+        <div class="s7-glyph" id="s7-gl1" style="top:15%;left:8%;">&#x1F6E1;</div>
+        <div class="s7-glyph" id="s7-gl2" style="bottom:20%;right:6%;">&#x1F512;</div>
+        <div class="s7-glyph" id="s7-gl3" style="top:45%;left:3%;">&#x26E8;</div>
         <div class="scene-content">
           <div class="headline" id="s7-headline">Security first</div>
           <div class="sub" id="s7-sub">ven audits your toolchain for <span class="conflict">CVEs and vulnerabilities</span></div>
@@ -1173,6 +1423,12 @@
                 <div id="s7-vuln2"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
                 <div id="s7-vuln3"><span class="conflict">✗ CVE-2024-xxx</span> <span class="err">critical</span></div>
                 <div id="s7-vuln4"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">patched</span></div>
+                <div class="sv-severity" id="s7-severity">
+                  <div class="sv-sev"><span class="sv-bar fill-crit"></span><span class="sv-count">2</span><span>crit</span></div>
+                  <div class="sv-sev"><span class="sv-bar fill-high"></span><span class="sv-count">3</span><span>high</span></div>
+                  <div class="sv-sev"><span class="sv-bar fill-med"></span><span class="sv-count">5</span><span>med</span></div>
+                  <div class="sv-sev"><span class="sv-bar fill-low"></span><span class="sv-count">12</span><span>low</span></div>
+                </div>
                 <div class="bar-chart" id="s7-bar-chart">
                   <div class="bar-wrap"><div class="bar" id="s7-bar1" style="height:8px;"></div><div class="bar-label">node</div></div>
                   <div class="bar-wrap"><div class="bar" id="s7-bar2" style="height:8px;"></div><div class="bar-label">npm</div></div>
@@ -1181,6 +1437,7 @@
                   <div class="bar-wrap"><div class="bar" id="s7-bar5" style="height:8px;"></div><div class="bar-label">rust</div></div>
                 </div>
               </div>
+              <div class="sv-timestamp" id="s7-ts">scan <span class="ts-val">2024-03-15 14:22 UTC</span></div>
             </div>
             <div class="panel" id="s7-panel2">
               <div class="term-bar">
@@ -1193,10 +1450,19 @@
                 <div style="display:flex; align-items:center; gap:20px; margin-bottom:12px;">
                   <div class="shield-icon" id="s7-shield">&#x1F6E1;</div>
                   <div><span style="font-size:28px; font-weight:600; color:#e1fdff;">Zero-day protection</span></div>
+                  <span class="prot-badge" id="s7-protb">active</span>
                 </div>
                 <div id="s7-audit1"><span class="success">✓</span> Isolated runtime</div>
                 <div id="s7-audit2"><span class="success">✓</span> Dependency graph clean</div>
                 <div id="s7-audit3"><span class="success">✓</span> No malicious packages</div>
+                <div class="dep-tree" id="s7-dep-tree">
+                  <div class="dt-line" id="s7-dt1">├── <span class="dt-ok">✓</span> node <span style="color:#b9cacb;">18.17.0</span></div>
+                  <div class="dt-line" id="s7-dt2">│   ├── <span class="dt-ok">✓</span> npm <span style="color:#b9cacb;">10.2.0</span></div>
+                  <div class="dt-line" id="s7-dt3">│   └── <span class="dt-ok">✓</span> corepack <span style="color:#b9cacb;">0.23.0</span></div>
+                  <div class="dt-line" id="s7-dt4">├── <span class="dt-warn">⚠</span> python <span style="color:#b9cacb;">3.12.2</span> <span style="color:#ffb171;">(2 advisories)</span></div>
+                  <div class="dt-line" id="s7-dt5">├── <span class="dt-ok">✓</span> rust <span style="color:#b9cacb;">1.77.0</span></div>
+                  <div class="dt-line" id="s7-dt6">└── <span class="dt-ok">✓</span> go <span style="color:#b9cacb;">1.22.1</span></div>
+                </div>
                 <div class="badge-row">
                   <div class="badge badge-green" id="s7-badge1">✓ 14 safe</div>
                   <div class="badge badge-cyan" id="s7-badge2">⟳ auto-fix</div>
@@ -1259,6 +1525,7 @@
       // Ghost terminals stagger in
       tl.from('#s1-gt1, #s1-gt2', { opacity: 0, scale: 0.92, duration: 0.8, stagger: 0.15, ease: 'power2.out' }, 0);
       tl.from('#s1-gt3, #s1-gt4, #s1-gt5, #s1-gt6', { opacity: 0, scale: 0.9, duration: 0.7, stagger: 0.12, ease: 'sine.out' }, 0.3);
+      tl.from('#s1-gt7, #s1-gt8', { opacity: 0, scale: 0.88, duration: 0.7, stagger: 0.15, ease: 'sine.out' }, 0.5);
 
       // Background layers
       tl.from('#s1-grid', { opacity: 0, duration: 1.2 }, 0);
@@ -1284,10 +1551,25 @@
       tl.from('#s1-elapsed', { opacity: 0, y: 10, duration: 0.5, ease: 'power2.out' }, 5.5);
 
       // Decorative diamond entrances
-      tl.from('#s1-d1, #s1-d2, #s1-d3, #s1-d4, #s1-d5, #s1-d6, #s1-d7, #s1-d8', { opacity: 0, scale: 0, duration: 0.3, ease: 'back.out(2)', stagger: 0.04 }, 2.0);
+      tl.from('#s1-d1, #s1-d2, #s1-d3, #s1-d4, #s1-d5, #s1-d6, #s1-d7, #s1-d8, #s1-d9, #s1-d10, #s1-d11, #s1-d12', { opacity: 0, scale: 0, duration: 0.3, ease: 'back.out(2)', stagger: 0.04 }, 2.0);
 
       // Particle dot entrances
-      tl.from('#s1-p0, #s1-p1, #s1-p2, #s1-p3, #s1-p4, #s1-p5', { opacity: 0, scale: 0, duration: 0.3, stagger: 0.05, ease: 'back.out(1.7)' }, 2.5);
+      tl.from('#s1-p0, #s1-p1, #s1-p2, #s1-p3, #s1-p4, #s1-p5, #s1-p6, #s1-p7, #s1-p8', { opacity: 0, scale: 0, duration: 0.3, stagger: 0.05, ease: 'back.out(1.7)' }, 2.5);
+
+      // Conflict log + floating versions
+      tl.from('#s1-conflict', { opacity: 0, x: -20, duration: 0.5, ease: 'power2.out' }, 2.0);
+      tl.from('#s1-fv1, #s1-fv2, #s1-fv3', { opacity: 0, scale: 0.5, duration: 0.5, stagger: 0.1, ease: 'power2.out' }, 3.0);
+
+      // Time counter — tick up from 00:00:00 to 00:02:34
+      (function() {
+        var t = { sec: 0 };
+        tl.to(t, { sec: 154, duration: 4.5, ease: 'power1.in', onUpdate: function() {
+          var m = Math.floor(t.sec / 60);
+          var s = Math.floor(t.sec % 60);
+          document.getElementById('s1-time-counter').textContent =
+            '00:' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        } }, 1.0);
+      })();
 
       // ── Transition 1→2: blur crossfade ──
       tl.to('#scene1', { filter: 'blur(15px)', scale: 1.05, opacity: 0, duration: 0.5, ease: 'power2.in' }, T.S1_END);
@@ -1410,6 +1692,23 @@
       // Stats bar
       tl.from('#s5-stats', { opacity: 0, y: 20, duration: 0.45, ease: 'power2.out' }, T.S4_END + 2.5);
 
+      // Freed ring + scan ticker
+      tl.from('#s5-ring-wrap', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S4_END + 2.6);
+      tl.to('#s5-ring-arc', { strokeDashoffset: 28, duration: 1.5, ease: 'power2.out' }, T.S4_END + 2.8);
+
+      // Scan ticker lines
+      tl.from('#s5-st1', { opacity: 0, x: -10, duration: 0.3, ease: 'power1.out' }, T.S4_END + 2.8);
+      tl.from('#s5-st2', { opacity: 0, x: -10, duration: 0.3, ease: 'power1.out' }, T.S4_END + 3.1);
+      tl.from('#s5-st3', { opacity: 0, x: -10, duration: 0.3, ease: 'power1.out' }, T.S4_END + 3.4);
+
+      // Orphan bars
+      tl.to('#s5-ob1', { height: '48px', duration: 0.6, ease: 'back.out(1.5)' }, T.S4_END + 2.0);
+      tl.to('#s5-ob2', { height: '32px', duration: 0.6, ease: 'back.out(1.5)' }, T.S4_END + 2.15);
+      tl.to('#s5-ob3', { height: '56px', duration: 0.6, ease: 'back.out(1.5)' }, T.S4_END + 2.3);
+
+      // Floating ghost files
+      tl.from('#s5-fg1, #s5-fg2, #s5-fg3', { opacity: 0, x: -20, duration: 0.5, stagger: 0.15, ease: 'power2.out' }, T.S4_END + 1.5);
+
       // Stats counters
       (function() {
         var a = { n: 0 }, g = { n: 0 }, f = { n: 0 };
@@ -1430,6 +1729,16 @@
       tl.from('#s6-f1', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 0.85);
       tl.from('#s6-f2', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 1.05);
       tl.from('#s6-f3', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 1.25);
+      tl.from('#s6-f4', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 1.45);
+      tl.from('#s6-f5', { x: 40, opacity: 0, duration: 0.45, ease: 'power2.out' }, T.S5_END + 1.65);
+
+      // System info card + floating PM labels
+      tl.from('#s6-sys-card', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S5_END + 1.0);
+      tl.from('#s6-pm1, #s6-pm2, #s6-pm3, #s6-pm4', { opacity: 0, scale: 0.5, duration: 0.6, stagger: 0.1, ease: 'power2.out' }, T.S5_END + 0.5);
+
+      // Terminal output lines (staggered)
+      tl.from('#s6-term-out', { opacity: 0, y: 15, duration: 0.5, ease: 'power2.out' }, T.S5_END + 1.2);
+      tl.from('#s6-to1, #s6-to2, #s6-to3, #s6-to4', { opacity: 0, x: -10, duration: 0.3, stagger: 0.15, ease: 'power1.out' }, T.S5_END + 1.5);
 
       // ── Transition 6→7: slide right ──
       tl.to('#scene6', { x: -180, filter: 'blur(12px)', opacity: 0, duration: 0.4, ease: 'power3.in' }, T.S6_END);
@@ -1459,6 +1768,22 @@
       tl.from('#s7-panel2', { opacity: 0, x: 40, duration: 0.5, ease: 'power3.out' }, T.S6_END + 0.75);
       tl.from('#s7-shield', { scale: 0.3, opacity: 0, duration: 0.6, ease: 'back.out(1.6)' }, T.S6_END + 0.4);
       tl.from('#s7-audit1, #s7-audit2, #s7-audit3', { opacity: 0, x: -10, duration: 0.3, stagger: 0.08, ease: 'power2.out' }, T.S6_END + 1.0);
+
+      // Severity meter
+      tl.from('#s7-severity', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S6_END + 1.8);
+
+      // Timestamp
+      tl.from('#s7-ts', { opacity: 0, duration: 0.3, ease: 'power2.out' }, T.S6_END + 2.8);
+
+      // Dep tree lines (staggered)
+      tl.from('#s7-dep-tree', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, T.S6_END + 1.8);
+      tl.from('#s7-dt1, #s7-dt2, #s7-dt3, #s7-dt4, #s7-dt5, #s7-dt6', { opacity: 0, x: -10, duration: 0.25, stagger: 0.05, ease: 'power1.out' }, T.S6_END + 2.2);
+
+      // Protection badge
+      tl.from('#s7-protb', { opacity: 0, scale: 0.3, duration: 0.4, ease: 'back.out(2)' }, T.S6_END + 1.0);
+
+      // Floating glyphs
+      tl.from('#s7-gl1, #s7-gl2, #s7-gl3', { opacity: 0, scale: 0.3, duration: 0.6, stagger: 0.15, ease: 'power2.out' }, T.S6_END + 0.5);
 
       // Badges
       tl.from('#s7-badge1, #s7-badge2', { opacity: 0, scale: 0.6, duration: 0.4, stagger: 0.1, ease: 'back.out(1.8)' }, T.S6_END + 2.5);
