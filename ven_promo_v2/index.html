@@ -402,6 +402,11 @@
         overflow: hidden;
         box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
       }
+      #scene2 .stat-line {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 20px; color: #849495;
+        margin-top: 8px; letter-spacing: 0.02em;
+      }
 
       /* ── Scene 3: Meet ven ── */
       #scene3 { z-index: 3; background: #131313; opacity: 0; }
@@ -513,6 +518,22 @@
         font-family: "JetBrains Mono", monospace;
         font-size: 22px; line-height: 1.7;
       }
+      #scene3 .s3-status-bar {
+        display: flex; gap: 24px;
+        padding: 12px 20px;
+        background: #16161a;
+        border: 1px solid #3a494b;
+        border-radius: 6px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; color: #849495;
+        margin-top: 8px;
+      }
+      #scene3 .s3-sb-item {
+        display: flex; align-items: center; gap: 8px;
+      }
+      #scene3 .s3-sb-dot { width: 8px; height: 8px; border-radius: 50%; }
+      #scene3 .s3-sb-dot.green { background: #00e639; }
+      #scene3 .s3-sb-dot.cyan { background: #00dbe7; }
 
       /* ── Scene 4: Languages ── */
       #scene4 { z-index: 4; background: #131313; opacity: 0; }
@@ -701,6 +722,24 @@
         background: rgba(255, 59, 48, 0.15);
         border-radius: 3px;
         color: #ff5252; margin-left: 8px;
+      }
+      #scene5 .s5-eco-breakdown {
+        margin-top: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; line-height: 1.7;
+        color: #b9cacb;
+        border-top: 1px solid #3a494b;
+        padding-top: 10px;
+      }
+      #scene5 .s5-eco-breakdown .eco-name { color: #00dbe7; }
+      #scene5 .s5-recommend {
+        margin-top: 8px;
+        padding: 10px 16px;
+        background: rgba(0, 230, 57, 0.08);
+        border: 1px solid rgba(0, 230, 57, 0.2);
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; color: #00e639;
       }
 
       /* ── Scene 6: Setup Wizard ── */
@@ -929,6 +968,17 @@
         font-family: "JetBrains Mono", monospace;
         font-size: 14px; color: #00e639;
       }
+      #scene7 .s7-summary-row {
+        display: flex; gap: 24px;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #3a494b;
+      }
+      #scene7 .s7-summary-item {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 18px; color: #849495;
+      }
+      #scene7 .s7-val { color: #e1fdff; font-weight: 600; }
 
       /* ── Scene 8: CTA ── */
       #scene8 { z-index: 8; background: #131313; opacity: 0; }
@@ -1158,8 +1208,9 @@
         <div class="scene-content">
           <div class="copy">
             <div class="eyebrow" id="s2-eyebrow">The Problem</div>
-            <div class="headline" id="s2-headline">Version hell<br/>is real.</div>
+            <div class="headline" id="s2-headline">Version hell is real.</div>
             <div class="body" id="s2-body">Every project needs a different toolchain. Different Node, Python, Rust. Different package managers. Different everything.</div>
+            <div class="stat-line" id="s2-stat">12 projects · 8 runtimes · 37 version files</div>
           </div>
           <div class="terminal" id="s2-terminal">
             <div class="term-bar">
@@ -1169,14 +1220,18 @@
               <span class="term-title">versions — bash</span>
             </div>
             <div class="term-body" style="font-size:20px;">
-              <div><span class="cmd">$ </span><span class="out">node --version</span></div>
+              <div><span class="cmd" id="s2-c1">$ </span><span class="out">node --version</span></div>
               <div><span class="out">v14.17.0</span></div>
               <div><span class="cmd">$ </span><span class="out">cd ../project-b &amp;&amp; node --version</span></div>
               <div><span class="err">v20.11.0 — nvm use 18</span></div>
               <div><span class="cmd">$ </span><span class="out">python --version</span></div>
               <div><span class="err">Python 2.7.18?!</span></div>
               <div><span class="cmd">$ </span><span class="out">rustc --version</span></div>
-              <div><span class="out">rustc 1.65.0 — (wait, that's <span class="err">two years old</span>)</span></div>
+              <div><span class="out">rustc 1.65.0 — <span class="err">two years old</span></span></div>
+              <div style="margin-top:4px;"><span class="cmd">$ </span><span class="out">go version</span></div>
+              <div><span class="err">go1.18 — eol since 2023</span></div>
+              <div><span class="cmd">$ </span><span class="out">deno --version</span></div>
+              <div><span class="err">deno 1.30 — not found in runtime list</span></div>
             </div>
           </div>
         </div>
@@ -1216,19 +1271,34 @@
               <div class="ft-item" id="s3-ft4">├── compiler/ <span class="muted-text">→ rust 1.77</span></div>
               <div class="ft-item" id="s3-ft5">└── mobile-app/ <span class="muted-text">→ java 21</span></div>
             </div>
-            <div class="term-panel" id="s3-switch-term">
-              <div class="term-bar">
-                <span class="dot dot-r"></span>
-                <span class="dot dot-y"></span>
-                <span class="dot dot-g"></span>
-                <span class="term-title">ven — auto-switch</span>
+            <div style="flex:1; display:flex; flex-direction:column;">
+              <div class="term-panel" id="s3-switch-term">
+                <div class="term-bar">
+                  <span class="dot dot-r"></span>
+                  <span class="dot dot-y"></span>
+                  <span class="dot dot-g"></span>
+                  <span class="term-title">ven — auto-switch</span>
+                </div>
+                <div class="sw-term-body" data-layout-allow-overflow>
+                  <div id="s3-sw1"><span class="cmd">$ </span><span class="out">cd api-gateway</span></div>
+                  <div id="s3-sw2"><span class="success">✓ auto-switched to node 20</span></div>
+                  <div id="s3-sw3"><span class="cmd">$ </span><span class="out">node --version</span></div>
+                  <div id="s3-sw4"><span class="success">v20.11.0</span></div>
+                  <div id="s3-sw5" style="margin-top:12px;"><span class="muted-text"># .ven.toml detected</span></div>
+                  <div id="s3-sw6"><span class="cmd">$ </span><span class="out">cd ../data-pipe</span></div>
+                  <div id="s3-sw7"><span class="success">✓ auto-switched to python 3.12</span></div>
+                  <div id="s3-sw8"><span class="cmd">$ </span><span class="out">python --version</span></div>
+                  <div id="s3-sw9"><span class="success">Python 3.12.2</span></div>
+                  <div id="s3-sw10" style="margin-top:12px;"><span class="cmd">$ </span><span class="out">cd ../compiler</span></div>
+                  <div id="s3-sw11"><span class="success">✓ auto-switched to rust 1.77</span></div>
+                  <div id="s3-sw12"><span class="cmd">$ </span><span class="out">rustc --version</span></div>
+                  <div id="s3-sw13"><span class="success">rustc 1.77.0</span></div>
+                </div>
               </div>
-              <div class="sw-term-body">
-                <div id="s3-sw1"><span class="cmd">$ </span><span class="out">cd api-gateway</span></div>
-                <div id="s3-sw2"><span class="success">✓ auto-switched to node 20</span></div>
-                <div id="s3-sw3"><span class="cmd">$ </span><span class="out">node --version</span></div>
-                <div id="s3-sw4"><span class="success">v20.11.0</span></div>
-                <div id="s3-sw5" style="margin-top:12px;"><span class="muted-text"># .ven.toml detected — seamless</span></div>
+              <div class="s3-status-bar" id="s3-status-bar">
+                <div class="s3-sb-item"><span class="s3-sb-dot green"></span> node 20 active</div>
+                <div class="s3-sb-item"><span class="s3-sb-dot green"></span> python 3.12 active</div>
+                <div class="s3-sb-item"><span class="s3-sb-dot cyan"></span> rust 1.77 active</div>
               </div>
             </div>
           </div>
@@ -1334,6 +1404,13 @@
                     <div class="tick-line" id="s5-st2"><span class="tick-done">✓</span> checking nvm aliases...</div>
                     <div class="tick-line" id="s5-st3"><span class="tick-done">✓</span> found 2 more orphans</div>
                   </div>
+                  <div class="s5-eco-breakdown" id="s5-eco" data-layout-allow-overflow>
+                    <div id="s5-eco1"><span class="eco-name">npm:</span> 14 scanned, 1 orphan</div>
+                    <div id="s5-eco2"><span class="eco-name">PyPI:</span> 8 scanned, 1 orphan</div>
+                    <div id="s5-eco3"><span class="eco-name">cargo:</span> 5 scanned, 1 stale</div>
+                    <div id="s5-eco4"><span class="eco-name">gem:</span> 3 scanned, 0 issues</div>
+                  </div>
+                  <div class="s5-recommend" id="s5-rec"><span class="cmd">$ </span>ven clean --dry-run → <span class="success">would free 14.2 GB</span></div>
                 </div>
               </div>
               <div class="stats-bar" id="s5-stats" style="margin-top:12px;">
@@ -1439,11 +1516,17 @@
                 <span class="term-title">vulnerabilities</span>
               </div>
               <div class="p-body">
+                <div class="s7-summary-row" id="s7-summary1">
+                  <div class="s7-summary-item">Packages: <span class="s7-val">24</span></div>
+                  <div class="s7-summary-item">Ecosystems: <span class="s7-val">7</span></div>
+                  <div class="s7-summary-item">CVEs: <span class="s7-val" style="color:#ff5252;">5</span></div>
+                </div>
                 <div><span class="cmd">$ </span><span class="out">ven audit</span></div>
-                <div id="s7-vuln1"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
-                <div id="s7-vuln2"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">safe</span></div>
-                <div id="s7-vuln3"><span class="conflict">✗ CVE-2024-xxx</span> <span class="err">critical</span></div>
-                <div id="s7-vuln4"><span class="cve-badge safe">✓ CVE-2024-xxx</span> <span class="success">patched</span></div>
+                <div id="s7-vuln1"><span class="cve-badge safe">✓ CVE-2024-101</span> <span class="success">safe</span></div>
+                <div id="s7-vuln2"><span class="cve-badge safe">✓ CVE-2024-102</span> <span class="success">safe</span></div>
+                <div id="s7-vuln3"><span class="conflict">✗ CVE-2024-103</span> <span class="err">critical</span></div>
+                <div id="s7-vuln4"><span class="cve-badge safe">✓ CVE-2024-104</span> <span class="success">patched</span></div>
+                <div id="s7-vuln5"><span class="conflict">✗ CVE-2024-105</span> <span class="err">high</span></div>
                 <div class="sv-severity" id="s7-severity">
                   <div class="sv-sev"><span class="sv-bar fill-crit"></span><span class="sv-count">2</span><span>crit</span></div>
                   <div class="sv-sev"><span class="sv-bar fill-high"></span><span class="sv-count">3</span><span>high</span></div>
@@ -1468,6 +1551,11 @@
                 <span class="term-title">ven shield</span>
               </div>
               <div class="p-body">
+                <div class="s7-summary-row" id="s7-summary2">
+                  <div class="s7-summary-item">Status: <span class="s7-val" style="color:#00e639;">protected</span></div>
+                  <div class="s7-summary-item">Audit: <span class="s7-val">passed</span></div>
+                  <div class="s7-summary-item">Auto-fix: <span class="s7-val">enabled</span></div>
+                </div>
                 <div style="display:flex; align-items:center; gap:20px; margin-bottom:12px;">
                   <div class="shield-icon" id="s7-shield">&#x1F6E1;</div>
                   <div><span style="font-size:28px; font-weight:600; color:#e1fdff;">Zero-day protection</span></div>
@@ -1482,7 +1570,10 @@
                   <div class="dt-line" id="s7-dt3">│   └── <span class="dt-ok">✓</span> corepack <span style="color:#b9cacb;">0.23.0</span></div>
                   <div class="dt-line" id="s7-dt4">├── <span class="dt-warn">⚠</span> python <span style="color:#b9cacb;">3.12.2</span> <span style="color:#ffb171;">(2 advisories)</span></div>
                   <div class="dt-line" id="s7-dt5">├── <span class="dt-ok">✓</span> rust <span style="color:#b9cacb;">1.77.0</span></div>
-                  <div class="dt-line" id="s7-dt6">└── <span class="dt-ok">✓</span> go <span style="color:#b9cacb;">1.22.1</span></div>
+                  <div class="dt-line" id="s7-dt6">├── <span class="dt-ok">✓</span> go <span style="color:#b9cacb;">1.22.1</span></div>
+                  <div class="dt-line" id="s7-dt7">├── <span class="dt-ok">✓</span> deno <span style="color:#b9cacb;">1.40.0</span></div>
+                  <div class="dt-line" id="s7-dt8">├── <span class="dt-ok">✓</span> java <span style="color:#b9cacb;">21.0.1</span></div>
+                  <div class="dt-line" id="s7-dt9">└── <span class="dt-ok">✓</span> ruby <span style="color:#b9cacb;">3.2.2</span></div>
                 </div>
                 <div class="badge-row">
                   <div class="badge badge-green" id="s7-badge1">✓ 14 safe</div>
@@ -1850,6 +1941,123 @@
       tl.to('#scene8-exit', { opacity: 1, duration: 1.0, ease: 'power2.in' }, 59.5);
 
       window.__timelines['ven-promo-v2'] = tl;
+
+      // ═══ WAAPI animations for new content ═══
+
+      // Scene 2: Stat line
+      (function() {
+        var el = document.getElementById('s2-stat');
+        if (el) {
+          var a = el.animate([
+            { opacity: 0, transform: 'translateY(12px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ], { duration: 500, delay: 7300, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+          a.pause();
+        }
+      })();
+
+      // Scene 3: Auto-switch lines (s3-sw6 through s3-sw13)
+      (function() {
+        var ids = ['s3-sw6','s3-sw7','s3-sw8','s3-sw9','s3-sw10','s3-sw11','s3-sw12','s3-sw13'];
+        ids.forEach(function(id, i) {
+          var el = document.getElementById(id);
+          if (el) {
+            var a = el.animate([
+              { opacity: 0, transform: 'translateX(-8px)' },
+              { opacity: 1, transform: 'translateX(0)' }
+            ], { duration: 300, delay: 17500 + i * 350, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+            a.pause();
+          }
+        });
+      })();
+
+      // Scene 3: Status bar
+      (function() {
+        var el = document.getElementById('s3-status-bar');
+        if (el) {
+          var a = el.animate([
+            { opacity: 0, transform: 'translateY(10px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ], { duration: 400, delay: 19500, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+          a.pause();
+        }
+      })();
+
+      // Scene 5: Eco breakdown lines
+      (function() {
+        var ids = ['s5-eco1','s5-eco2','s5-eco3','s5-eco4'];
+        ids.forEach(function(id, i) {
+          var el = document.getElementById(id);
+          if (el) {
+            var a = el.animate([
+              { opacity: 0, transform: 'translateX(-6px)' },
+              { opacity: 1, transform: 'translateX(0)' }
+            ], { duration: 250, delay: 30500 + i * 120, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+            a.pause();
+          }
+        });
+      })();
+
+      // Scene 5: Recommendation
+      (function() {
+        var el = document.getElementById('s5-rec');
+        if (el) {
+          var a = el.animate([
+            { opacity: 0, transform: 'translateY(8px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ], { duration: 400, delay: 31000, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+          a.pause();
+        }
+      })();
+
+      // Scene 7: Summary rows
+      (function() {
+        var el = document.getElementById('s7-summary1');
+        if (el) {
+          var a = el.animate([
+            { opacity: 0, transform: 'translateY(-8px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ], { duration: 400, delay: 40600, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+          a.pause();
+        }
+      })();
+      (function() {
+        var el = document.getElementById('s7-summary2');
+        if (el) {
+          var a = el.animate([
+            { opacity: 0, transform: 'translateY(-8px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ], { duration: 400, delay: 40700, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+          a.pause();
+        }
+      })();
+
+      // Scene 7: Additional CVE
+      (function() {
+        var el = document.getElementById('s7-vuln5');
+        if (el) {
+          var a = el.animate([
+            { opacity: 0, transform: 'translateY(4px)' },
+            { opacity: 1, transform: 'translateY(0)' }
+          ], { duration: 300, delay: 41300, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+          a.pause();
+        }
+      })();
+
+      // Scene 7: Additional dep tree lines
+      (function() {
+        var ids = ['s7-dt7','s7-dt8','s7-dt9'];
+        ids.forEach(function(id, i) {
+          var el = document.getElementById(id);
+          if (el) {
+            var a = el.animate([
+              { opacity: 0, transform: 'translateX(-6px)' },
+              { opacity: 1, transform: 'translateX(0)' }
+            ], { duration: 200, delay: 42300 + i * 60, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both', iterations: 1 });
+            a.pause();
+          }
+        });
+      })();
     </script>
   </body>
 </html>
