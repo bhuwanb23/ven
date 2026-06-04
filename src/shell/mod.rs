@@ -65,7 +65,10 @@ fn bash_zsh_hook() -> String {
         r#"
 {HOOK_MARKER}
 # ven shell hook (bash/zsh) - Auto-switches runtimes on cd
-__VEN_ORIGINAL_PATH="$PATH"
+# __VEN_ORIGINAL_PATH is captured LAZILY on first __ven_activate call
+# (not at hook source time) so re-sourcing .bashrc mid-session cannot
+# pollute it with ven-prepended entries.
+__VEN_ORIGINAL_PATH=""
 __VEN_LAST_DIR=""
 __VEN_LAST_TOML_SIG=""
 __VEN_BIN="{ven_path}"
@@ -96,6 +99,9 @@ ven-use() {{
 }}
 
 __ven_activate() {{
+    if [ -z "$__VEN_ORIGINAL_PATH" ]; then
+        __VEN_ORIGINAL_PATH="$PATH"
+    fi
     local current_dir="$PWD"
     local sig
     sig=$(__ven_toml_sig "$current_dir")

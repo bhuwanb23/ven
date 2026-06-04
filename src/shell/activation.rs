@@ -31,6 +31,67 @@ pub fn path_for_env_value(p: &Path) -> String {
     }
 }
 
+/// Path-separator for `$PATH` on this platform. Windows uses `;`, Unix uses `:`.
+pub fn path_separator() -> &'static str {
+    if cfg!(target_os = "windows") { ";" } else { ":" }
+}
+
+/// Split a `PATH`-style string into entries, dropping empty strings
+/// (the leading or trailing separator produces one).
+fn split_path_entries(path: &str, sep: &str) -> Vec<&str> {
+    path.split(sep).filter(|s| !s.is_empty()).collect()
+}
+
+/// Remove duplicate entries from the **ven-prepended** region of `current`,
+/// leaving the user's tail (the suffix that contains an original-path entry)
+/// intact.
+///
+/// **Why this exists**: the bash/zsh/fish/powershell hook prepends a fixed
+/// list of bin dirs to `$PATH` on every `cd` that lands in a ven project.
+/// If the user cd's in and out repeatedly, `$PATH` grows by `N` entries per
+/// cd. A user that toggles between two projects 50 times ends up with 50
+/// copies of each ven bin dir, which (a) makes `$PATH` balloon, (b) slows
+/// every shell exec, and (c) obscures anything the user adds themselves.
+///
+/// **Algorithm**:
+///   1. Split `current` and `original` on the path separator.
+///   2. Find the first index in `current` whose entry also appears in
+///      `original` — everything up to that index is the "ven region".
+///   3. Deduplicate entries within the ven region (first occurrence wins).
+///   4. Append the tail (`current[ven_end..]`) unchanged.
+///
+/// This is robust to the user inserting new entries between ven and the
+/// original (they end up in the tail, untouched), and to the user
+/// rearranging entries in the original (we only test set membership for
+/// the boundary, not order).
+pub fn dedup_ven_path(current_path: &str, original_path: &str, sep: &str) -> String {
+    let current = split_path_entries(current_path, sep);
+    let original = split_path_entries(original_path, sep);
+
+    // Find the boundary: the first index in `current` whose entry is
+    // part of the original. Everything before is "ven's region".
+    let mut ven_end = current.len();
+    for (i, entry) in current.iter().enumerate() {
+        if original.contains(entry) {
+            ven_end = i;
+            break;
+        }
+    }
+
+    // Deduplicate within the ven region, preserving first-occurrence order.
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut deduped_ven: Vec<&str> = Vec::with_capacity(ven_end);
+    for entry in &current[..ven_end] {
+        if seen.insert(*entry) {
+            deduped_ven.push(*entry);
+        }
+    }
+
+    let mut result: Vec<&str> = deduped_ven;
+    result.extend_from_slice(&current[ven_end..]);
+    result.join(sep)
+}
+
 /// Resolved toolchain layout from a project directory (same inputs as shell activation).
 #[derive(Debug, Clone)]
 pub struct ActivationParts {
@@ -806,5 +867,72 @@ mod tests {
         assert!(env_assignment_posix("FOO;BAR", "x").is_none());
         assert!(env_assignment_powershell("1FOO", "x").is_none());
         assert!(env_assignment_posix("", "x").is_none());
+    }
+
+    // --- dedup_ven_path -------------------------------------------------
+
+    /// The ballooning scenario: hook has prepended ven-bin twice, original
+    /// is the user's startup PATH. After dedup, ven-bin should appear once
+    /// at the front.
+    #[test]
+    fn dedup_ven_path_removes_duplicate_ven_entries() {
+        let current = "/ven-bin:/a:/b:/ven-bin:/a:/b";
+        let original = "/a:/b";
+        let result = dedup_ven_path(current, original, ":");
+        assert_eq!(result, "/ven-bin:/a:/b");
+    }
+
+    /// If `current` already looks clean, leave it alone.
+    #[test]
+    fn dedup_ven_path_no_change_when_clean() {
+        let current = "/ven-bin:/a:/b";
+        let original = "/a:/b";
+        assert_eq!(dedup_ven_path(current, original, ":"), current);
+    }
+
+    /// User inserts a new entry between ven and the original: keep it.
+    #[test]
+    fn dedup_ven_path_preserves_user_inserted_entries() {
+        // current = [ven-region] [user-added] [original-tail]
+        // Here the user inserted /my-tool *after* ven-bin and *before* /a.
+        let current = "/ven-bin:/my-tool:/a:/b";
+        let original = "/a:/b";
+        assert_eq!(
+            dedup_ven_path(current, original, ":"),
+            "/ven-bin:/my-tool:/a:/b"
+        );
+    }
+
+    /// User wipes the original entirely (e.g., `export PATH=/x` in shell).
+    /// We can't know what they wanted, so just dedup within current.
+    #[test]
+    fn dedup_ven_path_handles_missing_original() {
+        let current = "/ven-bin:/x:/ven-bin";
+        let original = "/nope";
+        assert_eq!(dedup_ven_path(current, original, ":"), "/ven-bin:/x");
+    }
+
+    /// Windows path separator is `;`; smoke-test it.
+    #[test]
+    fn dedup_ven_path_uses_provided_separator() {
+        let current = "C:\\ven;C:\\a;C:\\ven;C:\\a";
+        let original = "C:\\a";
+        assert_eq!(dedup_ven_path(current, original, ";"), "C:\\ven;C:\\a");
+    }
+
+    /// Empty input is a no-op.
+    #[test]
+    fn dedup_ven_path_empty() {
+        assert_eq!(dedup_ven_path("", "", ":"), "");
+    }
+
+    #[test]
+    fn path_separator_matches_platform() {
+        let s = path_separator();
+        if cfg!(target_os = "windows") {
+            assert_eq!(s, ";");
+        } else {
+            assert_eq!(s, ":");
+        }
     }
 }
