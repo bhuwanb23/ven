@@ -400,14 +400,16 @@ mod tests {
 
     #[test]
     fn validate_trivial_lock() {
+        // Package keys are "name@version" (multi-version lockfile); see
+        // from_merged_simulations. Roots use the same composite key.
         let lock = VenLockFile {
             lock_format_version: LOCK_FORMAT_VERSION,
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["left-pad".into()],
+            roots: vec!["left-pad@1.3.0".into()],
             packages: HashMap::from([(
-                "left-pad".into(),
+                "left-pad@1.3.0".into(),
                 VenLockPackage {
                     version: "1.3.0".into(),
                     integrity: None,
@@ -560,9 +562,9 @@ mod tests {
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["x".into()],
+            roots: vec!["x@1.0.0".into()],
             packages: HashMap::from([(
-                "x".into(),
+                "x@1.0.0".into(),
                 VenLockPackage {
                     version: "1.0.0".into(),
                     integrity: Some("md5-bad".into()),
