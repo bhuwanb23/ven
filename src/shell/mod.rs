@@ -115,6 +115,12 @@ __ven_activate() {{
         eval "$exports"
     else
         export PATH="$__VEN_ORIGINAL_PATH"
+        # Only clear vars ven itself sets on activation. Non-ven vars
+        # (JAVA_HOME, GOROOT, GOPATH, CARGO_HOME, RUSTUP_HOME, GEM_HOME,
+        # GEM_PATH) are *only ever set* by ven, never clobbered by the
+        # hook on transition out — the user may have set them by hand
+        # before cd'ing into a ven project, and silently unsetting them
+        # was a footgun. Use `ven shell deactivate` to fully clean.
         unset VEN_NODE_VERSION 2>/dev/null
         unset VEN_PYTHON_VERSION 2>/dev/null
         unset VEN_GO_VERSION 2>/dev/null
@@ -123,15 +129,9 @@ __ven_activate() {{
         unset VEN_DENO_VERSION 2>/dev/null
         unset VEN_BUN_VERSION 2>/dev/null
         unset VEN_RUBY_VERSION 2>/dev/null
-        unset GEM_HOME 2>/dev/null
-        unset GEM_PATH 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
-        unset GOROOT 2>/dev/null
-        unset GOPATH 2>/dev/null
-        unset CARGO_HOME 2>/dev/null
-        unset RUSTUP_HOME 2>/dev/null
-        unset JAVA_HOME 2>/dev/null
+        unset NODE_PATH 2>/dev/null
         unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
     fi
 }}
@@ -198,6 +198,9 @@ function __ven_on_prompt --on-event fish_prompt
         eval $exports
     else
         set -gx PATH $__VEN_ORIGINAL_PATH
+        # Only clear vars ven itself sets on activation. Non-ven vars
+        # (JAVA_HOME, GOROOT, etc.) are never clobbered by the hook on
+        # transition out — see the matching note in the bash hook.
         set -e VEN_NODE_VERSION 2>/dev/null
         set -e VEN_PYTHON_VERSION 2>/dev/null
         set -e VEN_GO_VERSION 2>/dev/null
@@ -206,15 +209,8 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_DENO_VERSION 2>/dev/null
         set -e VEN_BUN_VERSION 2>/dev/null
         set -e VEN_RUBY_VERSION 2>/dev/null
-        set -e GEM_HOME 2>/dev/null
-        set -e GEM_PATH 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
-        set -e GOROOT 2>/dev/null
-        set -e GOPATH 2>/dev/null
-        set -e CARGO_HOME 2>/dev/null
-        set -e RUSTUP_HOME 2>/dev/null
-        set -e JAVA_HOME 2>/dev/null
         set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
     end
 end
@@ -293,70 +289,39 @@ function global:__ven_activate {{
             Invoke-Expression $script
             $global:VEN_LAST_ACTIVATE_WARN = $null
         }} elseif ($exit -ne 0) {{
-            $env:PATH = $global:VEN_ORIGINAL_PATH
-            if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
-            if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
-            if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
-            if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
-            if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-            if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
-            if (Test-Path Env:VEN_BUN_VERSION) {{ Remove-Item Env:VEN_BUN_VERSION }}
-            if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
-            if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
-            if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
-            if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
-            if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
-            if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
-            if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
-            if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
-            if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
-            if (Test-Path Env:JAVA_HOME) {{ Remove-Item Env:JAVA_HOME }}
+            __ven_clear_ven_state
             $key = "$current_dir|$exit"
             if ($global:VEN_LAST_ACTIVATE_WARN -ne $key) {{
                 Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install required runtimes or fix ven.toml. Try: ven shell activate `"$current_dir`""
                 $global:VEN_LAST_ACTIVATE_WARN = $key
             }}
         }} else {{
-            $env:PATH = $global:VEN_ORIGINAL_PATH
-            if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
-            if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
-            if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
-            if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
-            if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-            if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
-            if (Test-Path Env:VEN_BUN_VERSION) {{ Remove-Item Env:VEN_BUN_VERSION }}
-            if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
-            if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
-            if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
-            if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
-            if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
-            if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
-            if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
-            if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
-            if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
-            if (Test-Path Env:JAVA_HOME) {{ Remove-Item Env:JAVA_HOME }}
-            if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
+            __ven_clear_ven_state
         }}
     }} catch {{
-        $env:PATH = $global:VEN_ORIGINAL_PATH
-        if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
-        if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
-        if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
-        if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
-        if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-        if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
-        if (Test-Path Env:VEN_BUN_VERSION) {{ Remove-Item Env:VEN_BUN_VERSION }}
-        if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
-        if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
-        if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
-        if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
-        if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
-        if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
-        if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
-        if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
-        if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
-        if (Test-Path Env:JAVA_HOME) {{ Remove-Item Env:JAVA_HOME }}
+        __ven_clear_ven_state
     }}
+}}
+
+# Restore the shell to its pre-ven state. Only clears vars ven itself owns
+# (VEN_* and VIRTUAL_ENV). Non-ven vars (JAVA_HOME, GOROOT, GOPATH, etc.)
+# are NEVER touched here — they may have been set by the user in their
+# profile before the hook first fired, and clobbering them on cd-out was a
+# footgun. Use `ven shell deactivate` for a full clear.
+function global:__ven_clear_ven_state {{
+    $env:PATH = $global:VEN_ORIGINAL_PATH
+    if (Test-Path Env:VEN_NODE_VERSION)    {{ Remove-Item Env:VEN_NODE_VERSION }}
+    if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
+    if (Test-Path Env:VEN_GO_VERSION)      {{ Remove-Item Env:VEN_GO_VERSION }}
+    if (Test-Path Env:VEN_RUST_VERSION)   {{ Remove-Item Env:VEN_RUST_VERSION }}
+    if (Test-Path Env:VEN_JAVA_VERSION)   {{ Remove-Item Env:VEN_JAVA_VERSION }}
+    if (Test-Path Env:VEN_DENO_VERSION)   {{ Remove-Item Env:VEN_DENO_VERSION }}
+    if (Test-Path Env:VEN_BUN_VERSION)     {{ Remove-Item Env:VEN_BUN_VERSION }}
+    if (Test-Path Env:VEN_RUBY_VERSION)   {{ Remove-Item Env:VEN_RUBY_VERSION }}
+    if (Test-Path Env:VEN_TOML)            {{ Remove-Item Env:VEN_TOML }}
+    if (Test-Path Env:VIRTUAL_ENV)         {{ Remove-Item Env:VIRTUAL_ENV }}
+    if (Test-Path Env:NODE_PATH)           {{ Remove-Item Env:NODE_PATH }}
+    if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
 }}
 
 # Wrap Set-Location so `cd` / Set-Location always re-run activation (prompt alone misses some hosts)
