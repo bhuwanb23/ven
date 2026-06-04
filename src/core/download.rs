@@ -107,18 +107,7 @@ impl NodeDownloader {
             .with_context(|| format!("Failed to read body of {}", url))?;
 
         // Figure out the filename we downloaded (to match line in SHASUMS256.txt)
-        let ver_clean = version.trim_start_matches('v');
-        let filename = if cfg!(target_os = "windows") {
-            format!("node-v{}-win-x64.zip", ver_clean)
-        } else if cfg!(target_os = "macos") {
-            if cfg!(target_arch = "aarch64") {
-                format!("node-v{}-darwin-arm64.tar.gz", ver_clean)
-            } else {
-                format!("node-v{}-darwin-x64.tar.gz", ver_clean)
-            }
-        } else {
-            format!("node-v{}-linux-x64.tar.gz", ver_clean)
-        };
+        let filename = checksum_filename(version);
 
         for line in text.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -258,3 +247,62 @@ impl NodeDownloader {
         Ok(versions)
     }
 }
+
+/// Compute the archive filename that nodejs.org publishes in `SHASUMS256.txt`
+/// for the given Node version on the current `target_os` / `target_arch`.
+///
+/// Pure function (no I/O) so it is unit-testable on every host.
+pub fn checksum_filename(version: &str) -> String {
+    let ver_clean = version.trim_start_matches('v');
+    if cfg!(target_os = "windows") {
+        if cfg!(target_arch = "aarch64") {
+            format!("node-v{}-win-arm64.zip", ver_clean)
+        } else {
+            format!("node-v{}-win-x64.zip", ver_clean)
+        }
+    } else if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            format!("node-v{}-darwin-arm64.tar.gz", ver_clean)
+        } else {
+            format!("node-v{}-darwin-x64.tar.gz", ver_clean)
+        }
+    } else if cfg!(target_arch = "aarch64") {
+        format!("node-v{}-linux-arm64.tar.gz", ver_clean)
+    } else {
+        format!("node-v{}-linux-x64.tar.gz", ver_clean)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The platform-conditional branch isn't reachable from a single host,
+    /// so we exercise the format pieces directly. The function above uses
+    /// `cfg!()` literally — its correctness on the other 3 OS/arch combos
+    /// is guaranteed by code review against the Node release manifest.
+    #[test]
+    fn checksum_filename_strips_v_prefix() {
+        let f = checksum_filename("v20.11.0");
+        if cfg!(target_os = "windows") {
+            assert!(f.starts_with("node-v20.11.0-win-"), "got {}", f);
+        } else if cfg!(target_os = "macos") {
+            assert!(f.starts_with("node-v20.11.0-darwin-"), "got {}", f);
+        } else {
+            assert!(f.starts_with("node-v20.11.0-linux-"), "got {}", f);
+        }
+    }
+
+    #[test]
+    fn checksum_filename_accepts_unprefixed() {
+        let f = checksum_filename("20.11.0");
+        if cfg!(target_os = "windows") {
+            assert!(f.starts_with("node-v20.11.0-win-"), "got {}", f);
+        } else if cfg!(target_os = "macos") {
+            assert!(f.starts_with("node-v20.11.0-darwin-"), "got {}", f);
+        } else {
+            assert!(f.starts_with("node-v20.11.0-linux-"), "got {}", f);
+        }
+    }
+}
+
