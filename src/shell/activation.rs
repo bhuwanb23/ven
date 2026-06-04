@@ -558,7 +558,10 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
         }
         out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", parts.toml_normalized));
         for (key, val) in &parts.ven_user_env {
-            out.push_str(&format!("$env:{} = \"{}\"\n", key, val));
+            if let Some(line) = env_assignment_powershell(key, val) {
+                out.push_str(&line);
+                out.push('\n');
+            }
         }
         out
     } else {
@@ -657,10 +660,151 @@ unset JAVA_HOME 2>/dev/null || true
         }
         out.push_str(&format!("export VEN_TOML=\"{}\"\n", parts.toml_normalized));
         for (key, val) in &parts.ven_user_env {
-            out.push_str(&format!("export {}=\"{}\"\n", key, val));
+            if let Some(line) = env_assignment_posix(key, val) {
+                out.push_str(&line);
+                out.push('\n');
+            }
         }
         out
     };
 
     exports
+}
+
+/// True iff `key` is a legal environment-variable name on every POSIX
+/// system we target (and also a legal PowerShell `$env:NAME`). Reject
+/// anything else: keys with `;`, `(`, `)`, newlines, or spaces would
+/// otherwise produce shell-injectable fragments when concatenated into
+/// the activation script.
+pub fn is_valid_env_key(key: &str) -> bool {
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(c) if c == '_' || c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+}
+
+/// Produce a single PowerShell `$env:KEY = "value"` line for the
+/// `[env]` table in `ven.toml`.
+///
+/// - Rejects keys that aren't a legal env name (returns `None`).
+/// - Escapes embedded `"` to `""` (PowerShell string-literal escape).
+/// - Prefixes a leading `$` or backtick with a backtick so PowerShell
+///   doesn't try to expand them.
+pub fn env_assignment_powershell(key: &str, val: &str) -> Option<String> {
+    if !is_valid_env_key(key) {
+        return None;
+    }
+    let mut escaped = String::with_capacity(val.len());
+    let mut prev = '\0';
+    for c in val.chars() {
+        if c == '`' || (c == '$' && prev != '`') {
+            escaped.push('`');
+        }
+        if c == '"' {
+            escaped.push('"');
+        }
+        escaped.push(c);
+        prev = c;
+    }
+    Some(format!("$env:{} = \"{}\"", key, escaped))
+}
+
+/// Produce a single POSIX `export KEY="value"` line for the `[env]`
+/// table in `ven.toml`.
+///
+/// - Rejects keys that aren't a legal env name (returns `None`).
+/// - Wraps the value in single quotes and escapes any embedded `'`
+///   with the canonical `'\''` sequence, which is the only safe form
+///   inside a single-quoted POSIX string.
+pub fn env_assignment_posix(key: &str, val: &str) -> Option<String> {
+    if !is_valid_env_key(key) {
+        return None;
+    }
+    let escaped = val.replace('\'', "'\\''");
+    Some(format!("export {}='{}'", key, escaped))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_valid_env_key_accepts_normal_names() {
+        assert!(is_valid_env_key("FOO"));
+        assert!(is_valid_env_key("_PRIVATE"));
+        assert!(is_valid_env_key("PATH"));
+        assert!(is_valid_env_key("CamelCase"));
+        assert!(is_valid_env_key("MIXED_case_123"));
+    }
+
+    #[test]
+    fn is_valid_env_key_rejects_injection_payloads() {
+        assert!(!is_valid_env_key(""));
+        assert!(!is_valid_env_key("1FOO"));            // leading digit
+        assert!(!is_valid_env_key("FOO BAR"));          // space
+        assert!(!is_valid_env_key("FOO;rm -rf /"));    // shell metachar
+        assert!(!is_valid_env_key("FOO$(whoami)"));     // command sub
+        assert!(!is_valid_env_key("FOO`bar"));          // backtick
+        assert!(!is_valid_env_key("FOO\nBAR"));         // newline
+        assert!(!is_valid_env_key("FOO'BAR"));          // single quote
+    }
+
+    /// A value containing a single quote must be escaped with the standard
+    /// `'\''` sequence so a shell that re-evaluates the line still ends up
+    /// with the original string. Without this, a `[env] FOO = "x'; rm -rf /"`
+    /// would execute `rm -rf /` at the next `eval`.
+    #[test]
+    fn posix_escapes_embedded_single_quote() {
+        let line = env_assignment_posix("FOO", "x'; rm -rf /").unwrap();
+        // The escape replaces ' with '\''  (close, literal ', reopen).
+        // Hand-evaluated: opens with ', then x, then ' closes; '\'' opens a
+        // new quoted string with one literal ', then '; rm -rf /' is plain.
+        // Net result: variable holds "x'; rm -rf /" verbatim.
+        assert_eq!(line, "export FOO='x'\\'' rm -rf /'");
+    }
+
+    /// A value with a leading `$` or backtick must be escaped so PowerShell
+    /// doesn't try to expand a sub-expression. Embedded `"` doubles to `""`.
+    #[test]
+    fn powershell_escapes_dollar_and_doublequote() {
+        let line = env_assignment_powershell("FOO", "a\"b$(evil)").unwrap();
+        // embedded " -> "", $ at start of a sub-expression -> `$
+        assert_eq!(line, "$env:FOO = \"a\"\"b`$(evil)\"");
+    }
+
+    #[test]
+    fn powershell_escapes_leading_dollar() {
+        let line = env_assignment_powershell("X", "$danger").unwrap();
+        assert_eq!(line, "$env:X = \"`$danger\"");
+    }
+
+    #[test]
+    fn posix_happy_path() {
+        assert_eq!(
+            env_assignment_posix("FOO", "bar").unwrap(),
+            "export FOO='bar'"
+        );
+        assert_eq!(
+            env_assignment_posix("EMPTY", "").unwrap(),
+            "export EMPTY=''"
+        );
+    }
+
+    #[test]
+    fn powershell_happy_path() {
+        assert_eq!(
+            env_assignment_powershell("FOO", "bar").unwrap(),
+            "$env:FOO = \"bar\""
+        );
+    }
+
+    #[test]
+    fn invalid_keys_return_none_for_both_shells() {
+        assert!(env_assignment_powershell("FOO BAR", "x").is_none());
+        assert!(env_assignment_posix("FOO;BAR", "x").is_none());
+        assert!(env_assignment_powershell("1FOO", "x").is_none());
+        assert!(env_assignment_posix("", "x").is_none());
+    }
 }
