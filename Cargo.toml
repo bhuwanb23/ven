@@ -62,7 +62,7 @@ indicatif = "0.17"
 # Interactive prompts
 dialoguer = "0.11"
 # Semver parsing
-semver = "1"
+semver = { version = "1", features = ["serde"] }
 # File system
 dirs = "5"
 walkdir = "2"

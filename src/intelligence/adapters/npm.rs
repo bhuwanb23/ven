@@ -63,7 +63,10 @@ impl NpmGraphBuilder {
             // multi-version storage, the same root with a different constraint
             // is a legitimate conflict — we *want* to record both. We only
             // skip if the exact (name, version) pair is already present.
-            if self.nodes.get(*name).map_or(false, |m| m.values().any(|n| n.version == version))
+            if self
+                .nodes
+                .get(name)
+                .map_or(false, |m| m.values().any(|n| n.version == version))
             {
                 continue;
             }

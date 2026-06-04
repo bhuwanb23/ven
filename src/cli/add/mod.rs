@@ -308,8 +308,7 @@ pub fn cmd_add(
             let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
             let resolved_version = result
                 .graph
-                .nodes
-                .get(pkg_name)
+                .first_node(pkg_name)
                 .map(|n| n.version.clone())
                 .unwrap_or_else(|| "unknown".to_string());
 
@@ -479,8 +478,7 @@ pub fn cmd_add(
 
         let version_to_install = result
             .graph
-            .nodes
-            .get(pkg_name)
+            .first_node(pkg_name)
             .map(|node| node.version.clone())
             .unwrap_or_else(|| {
                 if let Some(ref v) = pkg.pinned_version {

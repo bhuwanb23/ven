@@ -29,8 +29,7 @@ pub fn cmd_why(package: &str) -> Result<()> {
     // Find the package in the graph (exact match)
     let graph_key = package.to_string();
     let node = graph
-        .nodes
-        .get(&graph_key)
+        .first_node(&graph_key)
         .ok_or_else(|| anyhow::anyhow!("Package '{}' not found in dependency graph", package))?;
 
     println!();

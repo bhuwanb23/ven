@@ -38,7 +38,7 @@ pub fn path_separator() -> &'static str {
 
 /// Split a `PATH`-style string into entries, dropping empty strings
 /// (the leading or trailing separator produces one).
-fn split_path_entries(path: &str, sep: &str) -> Vec<&str> {
+fn split_path_entries<'a>(path: &'a str, sep: &'a str) -> Vec<&'a str> {
     path.split(sep).filter(|s| !s.is_empty()).collect()
 }
 
