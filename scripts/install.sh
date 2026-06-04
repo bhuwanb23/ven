@@ -563,6 +563,25 @@ do_verify() {
 }
 run_step 'Verifying installation' do_verify
 
+warn_path_shadowing() {
+    if [ "$ven_dry_run" = 'true' ]; then
+        return 0
+    fi
+    winner=$(command -v ven 2>/dev/null || true)
+    if [ -z "$winner" ]; then
+        return 0
+    fi
+    winner_dir=$(dirname "$winner")
+    if [ "$winner_dir" = "$install_dir" ]; then
+        return 0
+    fi
+    printf '\n[!] PATH warning: a different ven will run when you type `ven` in a new shell.\n' >&2
+    printf '    Installed to: %s\n' "$install_dir" >&2
+    printf '    PATH winner:  %s\n' "$winner" >&2
+    printf '    Fix: remove the other install, re-run with VEN_FORCE_INSTALL=true, or run: ven doctor\n' >&2
+}
+warn_path_shadowing
+
 ven_version_line=''
 if [ "$ven_dry_run" != 'true' ]; then
     ven_version_line="$(head -n1 "$ven_log.verify" 2>/dev/null || echo '')"

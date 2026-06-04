@@ -518,6 +518,31 @@ try {
     }
 
     # ---------------------------------------------------------------------------
+    # PATH shadowing check (another ven may still win in a new shell)
+    # ---------------------------------------------------------------------------
+
+    if (-not $dryRun) {
+        $winner = $null
+        try {
+            $whereLine = (& cmd.exe /c 'where ven' 2>$null | Select-Object -First 1)
+            if ($whereLine) { $winner = $whereLine.Trim() }
+        } catch { }
+        if ($winner) {
+            $winnerDir = (Split-Path -Parent $winner).TrimEnd('\').ToLowerInvariant()
+            $installedNorm = $installDir.TrimEnd('\').ToLowerInvariant()
+            if ($winnerDir -ne $installedNorm) {
+                Write-Host ''
+                Write-Host '[!] PATH warning: a different ven will run when you type `ven` in a new terminal.' -ForegroundColor Yellow
+                Write-Host ('    Installed to: {0}' -f $installDir)
+                Write-Host ('    PATH winner:  {0}' -f $winner)
+                Write-Host '    Fix: remove the other install, re-run this installer with -Force for that mode,'
+                Write-Host '    or on Windows run: pwsh -File scripts/sync-system-ven-windows.ps1'
+                Write-Host '    After upgrading, run: ven doctor'
+            }
+        }
+    }
+
+    # ---------------------------------------------------------------------------
     # Done banner
     # ---------------------------------------------------------------------------
 
