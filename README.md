@@ -510,6 +510,15 @@ ven update --yes --json         # scripted: no prompt, machine-readable
 > release. SHA256-verified, auto-elevates via UAC / `sudo` for system
 > installs. Distinct from `ven upgrade`, which touches **project packages**.
 
+**On ven &lt; 0.1.7?** Re-run the [install one-liner](docs/install-scripts.md)
+or `ven-setup` once — those builds do not include `ven update`. If
+`ven --version` stays old after installing, run `ven doctor` (PATH is likely
+using a different copy).
+
+```bash
+ven doctor                      # list installs + PATH winner + hints
+```
+
 ### Uninstall (since v0.1.7)
 
 ```bash
