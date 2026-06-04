@@ -62,7 +62,7 @@ pub fn cmd_why(package: &str) -> Result<()> {
             let prefix = if is_last { "└─" } else { "├─" };
 
             // Get the dependent's version from graph
-            let dep_node = graph.nodes.get(dependent);
+            let dep_node = graph.first_node(dependent);
             let dep_version = dep_node.map(|n| n.version.clone()).unwrap_or_default();
 
             // Find the constraint
@@ -163,7 +163,7 @@ fn trace_to_root(
         let is_last = idx == direct_deps.len() - 1;
         let prefix = if is_last { "└─" } else { "├─" };
 
-        let dep_node = graph.nodes.get(dep);
+        let dep_node = graph.first_node(dep);
         let dep_version = dep_node.map(|n| n.version.clone()).unwrap_or_default();
 
         println!("{}  {} requires {}@{}", indent, prefix, dep, dep_version);

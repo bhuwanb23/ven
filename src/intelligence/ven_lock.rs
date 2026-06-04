@@ -5,7 +5,7 @@ use crate::intelligence::graph::{EdgeKind, IntelEdge, IntelGraph, IntelNode, Run
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -117,7 +117,7 @@ impl VenLockFile {
         let mut merged = IntelGraph {
             runtime_kind: runtime_kind.clone(),
             runtime_version: runtime_version.clone(),
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             edges: Vec::new(),
         };
         for g in graphs {
@@ -129,15 +129,22 @@ impl VenLockFile {
         roots.dedup();
 
         let mut packages = HashMap::new();
-        for (name, node) in &merged.nodes {
-            packages.insert(
-                name.clone(),
-                VenLockPackage {
-                    version: node.version.clone(),
-                    integrity: node.integrity.clone(),
-                    metadata: None,
-                },
-            );
+        // The lockfile's `packages` map is keyed by "name@version" so a
+        // diamond dep yields *two* entries (`a@1.0.0` and `a@2.0.0`) rather
+        // than clobbering. `validate_lock_graph` then checks the edges
+        // point at the correct `name@version` key.
+        for (name, versions) in &merged.nodes {
+            for (_, node) in versions {
+                let key = format!("{}@{}", name, node.version);
+                packages.insert(
+                    key,
+                    VenLockPackage {
+                        version: node.version.clone(),
+                        integrity: node.integrity.clone(),
+                        metadata: None,
+                    },
+                );
+            }
         }
 
         let edges: Vec<VenLockEdge> = merged
@@ -178,27 +185,38 @@ impl VenLockFile {
 
 /// Rebuild an [`IntelGraph`] from a validated lock (for peer / pin analysis).
 pub fn lock_to_intel_graph(lock: &VenLockFile) -> IntelGraph {
-    let nodes: HashMap<String, IntelNode> = lock
-        .packages
-        .iter()
-        .map(|(name, p)| {
-            (
-                name.clone(),
-                IntelNode {
-                    name: name.clone(),
-                    version: p.version.clone(),
-                    depth: 0,
-                    dependencies: HashMap::new(),
-                    engines_node: None,
-                    deprecated: None,
-                    license: None,
-                    size_bytes: None,
-                    required_by: Vec::new(),
-                    integrity: p.integrity.clone(),
-                },
-            )
-        })
-        .collect();
+    // The lockfile's `packages` map is keyed by "name@version" (the merge
+    // step in `from_merged_simulations` produces these composite keys so
+    // diamond deps get *two* entries). We split each key back into
+    // (name, version) and rebuild the multi-version IntelGraph.nodes.
+    let mut nodes: BTreeMap<String, BTreeMap<semver::Version, IntelNode>> = BTreeMap::new();
+    for (key, p) in &lock.packages {
+        let (name, version) = match key.rsplit_once('@') {
+            Some((n, v)) => (n.to_string(), v.to_string()),
+            None => (key.clone(), p.version.clone()),
+        };
+        let v = semver::Version::parse(&version).unwrap_or_else(|_| {
+            let mut fallback = semver::Version::new(0, 0, 0);
+            fallback.pre = semver::Prerelease::new(&format!("ven-{}", version.replace('.', "_")))
+                .unwrap();
+            fallback
+        });
+        nodes.entry(name.clone()).or_default().insert(
+            v,
+            IntelNode {
+                name,
+                version,
+                depth: 0,
+                dependencies: HashMap::new(),
+                engines_node: None,
+                deprecated: None,
+                license: None,
+                size_bytes: None,
+                required_by: Vec::new(),
+                integrity: p.integrity.clone(),
+            },
+        );
+    }
     let edges: Vec<IntelEdge> = lock
         .edges
         .iter()
@@ -218,18 +236,19 @@ pub fn lock_to_intel_graph(lock: &VenLockFile) -> IntelGraph {
 }
 
 fn merge_intel_graph(dst: &mut IntelGraph, src: &IntelGraph) -> Result<()> {
-    for (name, node) in &src.nodes {
-        if let Some(existing) = dst.nodes.get(name) {
-            if existing.version != node.version {
-                return Err(anyhow!(
-                    "Cannot merge lock graph: package `{}` appears as {} and {}",
-                    name,
-                    existing.version,
-                    node.version
-                ));
+    for (name, versions) in &src.nodes {
+        for (v, node) in versions {
+            let entry = dst.nodes.entry(name.clone()).or_default();
+            if let Some(existing) = entry.get(v) {
+                if existing.version != node.version {
+                    return Err(anyhow!(
+                        "Cannot merge lock graph: package `{}` has version drift inside the same semver key",
+                        name
+                    ));
+                }
+            } else {
+                entry.insert(v.clone(), node.clone());
             }
-        } else {
-            dst.nodes.insert(name.clone(), node.clone());
         }
     }
     for e in &src.edges {

@@ -59,7 +59,7 @@ pub fn analyze_npm_graph(
             .rsplit_once('@')
             .map(|(p, _)| p)
             .unwrap_or(edge.to.as_str());
-        let Some(resolved) = graph.nodes.get(dep_pkg) else {
+        let Some(versions) = graph.nodes.get(dep_pkg) else {
             chains.push(ConflictChain {
                 steps: vec![format!(
                     "{} declares peer {} ({}) but it is not resolved in the graph",
@@ -69,7 +69,17 @@ pub fn analyze_npm_graph(
             });
             continue;
         };
-        if !version_satisfies_constraint(&resolved.version, &edge.constraint) {
+        // With multi-version storage, check *every* resolved version against
+        // the constraint — not just the first. A peer declared as "^1.0.0"
+        // is satisfied if ANY of the resolved versions is in [1.0.0, 2.0.0).
+        let any_satisfies = versions
+            .values()
+            .any(|n| version_satisfies_constraint(&n.version, &edge.constraint));
+        if !any_satisfies {
+            let resolved_list: Vec<String> = versions
+                .values()
+                .map(|n| n.version.clone())
+                .collect();
             chains.push(ConflictChain {
                 steps: vec![
                     format!(
@@ -78,7 +88,13 @@ pub fn analyze_npm_graph(
                     ),
                     format!(
                         "Resolved {}@{} does not satisfy {}",
-                        dep_pkg, resolved.version, edge.constraint
+                        dep_pkg,
+                        if resolved_list.len() == 1 {
+                            resolved_list[0].clone()
+                        } else {
+                            format!("[{}]", resolved_list.join(", "))
+                        },
+                        edge.constraint
                     ),
                 ],
                 package: dep_pkg.to_string(),
@@ -98,20 +114,52 @@ pub fn analyze_npm_graph(
         }
     }
 
+    // Surface diamond-dep version conflicts as their own conflict chains so
+    // `ven add` doesn't silently pick the first version seen.
+    for name in graph.conflicted_names() {
+        if let Some(versions) = graph.nodes.get(&name) {
+            let mut resolved: Vec<&str> = versions.values().map(|n| n.version.as_str()).collect();
+            resolved.sort();
+            chains.push(ConflictChain {
+                steps: vec![format!(
+                    "Package `{}` is resolved to multiple versions by different parents: [{}]",
+                    name,
+                    resolved.join(", ")
+                )],
+                package: name.clone(),
+            });
+        }
+    }
+
     for (existing_name, existing_ver) in existing_packages {
-        if let Some(n) = graph.nodes.get(existing_name) {
-            if &n.version != existing_ver
+        if let Some(versions) = graph.nodes.get(existing_name) {
+            let any_satisfies = versions
+                .values()
+                .any(|n| version_satisfies_constraint(&n.version, existing_ver));
+            if !any_satisfies
                 && !existing_ver.contains('*')
                 && existing_ver != "latest"
-                && !version_satisfies_constraint(&n.version, existing_ver)
             {
+                let resolved_list: Vec<String> = versions
+                    .values()
+                    .map(|n| n.version.clone())
+                    .collect();
                 chains.push(ConflictChain {
                     steps: vec![
                         format!("ven.toml pins {} = \"{}\"", existing_name, existing_ver),
-                        format!("Simulated graph resolves {}@{}", existing_name, n.version),
                         format!(
-                            "Constraint \"{}\" is not satisfied by {}",
-                            existing_ver, n.version
+                            "Simulated graph resolves {}@{}",
+                            existing_name,
+                            if resolved_list.len() == 1 {
+                                resolved_list[0].clone()
+                            } else {
+                                format!("[{}]", resolved_list.join(", "))
+                            }
+                        ),
+                        format!(
+                            "Constraint \"{}\" is not satisfied by any of [{}]",
+                            existing_ver,
+                            resolved_list.join(", ")
                         ),
                     ],
                     package: existing_name.clone(),
@@ -131,15 +179,19 @@ pub fn analyze_npm_graph(
 
 pub fn engine_checks(graph: &IntelGraph) -> Vec<EngineIncompatibility> {
     let mut out = Vec::new();
-    for (name, node) in &graph.nodes {
-        if let Some(ref eng) = node.engines_node {
-            if !node_engine_satisfies(&graph.runtime_version, eng) {
-                out.push(EngineIncompatibility {
-                    package: name.clone(),
-                    version: node.version.clone(),
-                    required_node: eng.clone(),
-                    current_node: graph.runtime_version.clone(),
-                });
+    // Iterate every (name, version) pair so an engine mismatch on a
+    // secondary resolved version is still surfaced.
+    for (name, versions) in &graph.nodes {
+        for (_, node) in versions {
+            if let Some(ref eng) = node.engines_node {
+                if !node_engine_satisfies(&graph.runtime_version, eng) {
+                    out.push(EngineIncompatibility {
+                        package: name.clone(),
+                        version: node.version.clone(),
+                        required_node: eng.clone(),
+                        current_node: graph.runtime_version.clone(),
+                    });
+                }
             }
         }
     }

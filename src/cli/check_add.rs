@@ -37,7 +37,7 @@ pub fn cmd_check_add(package_specs: &[String], json: bool) -> Result<()> {
                 "version_spec": ver,
                 "check_add": check,
                 "simulation_compatible": sim.compatible,
-                "graph_nodes": sim.graph.nodes.len(),
+                "graph_nodes": sim.graph.node_count(),
                 "graph_edges": sim.graph.edges.len(),
             });
             println!("{}", serde_json::to_string_pretty(&out)?);

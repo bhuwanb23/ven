@@ -57,7 +57,7 @@ pub fn cmd_resolve() -> Result<()> {
                 resolved.current.dimmed(),
                 resolved.suggested.green()
             );
-        } else if let Some(node) = graph.nodes.get(&pkg) {
+        } else if let Some(node) = graph.first_node(&pkg) {
             println!("    {}: unchanged ({})", pkg, node.version.dimmed());
         } else {
             println!("    {}: unchanged", pkg);
