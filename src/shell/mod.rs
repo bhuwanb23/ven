@@ -8,6 +8,15 @@ pub use activation::{
     ActivationResolve,
 };
 
+/// Canonical marker line that every `ven` shell hook prepends to its block.
+///
+/// Both `ven setup` (Windows) and `ven shell install` (PowerShell + bash) use
+/// this exact string as the "already installed?" sentinel so the installer
+/// doesn't append a *second* copy on re-run. Changing this string is a
+/// breaking change for users with a prior install — the new install code
+/// will then not detect the old block and may append a duplicate.
+pub const HOOK_MARKER: &str = "# ven-managed-hook-v2";
+
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
 // On Unix: read $SHELL env var
@@ -54,6 +63,7 @@ fn bash_zsh_hook() -> String {
 
     format!(
         r#"
+{HOOK_MARKER}
 # ven shell hook (bash/zsh) - Auto-switches runtimes on cd
 __VEN_ORIGINAL_PATH="$PATH"
 __VEN_LAST_DIR=""
@@ -134,7 +144,9 @@ __ven_activate  # activate for current directory on shell start
 }
 
 fn fish_hook() -> String {
-    r#"
+    format!(
+        r#"
+{HOOK_MARKER}
 # ven shell hook (fish) — re-check on each prompt so new ven.toml in same dir is picked up
 set -g __VEN_ORIGINAL_PATH $PATH
 set -g __VEN_LAST_SIG ""
@@ -207,7 +219,7 @@ function __ven_on_prompt --on-event fish_prompt
     end
 end
 "#
-    .to_string()
+    )
 }
 
 // PowerShell hook — Invoke-Expression + $env:PATH; Set-Location + prompt so
@@ -220,6 +232,7 @@ fn powershell_hook() -> String {
 
     format!(
         r#"
+{HOOK_MARKER}
 # ven shell hook (PowerShell) - Auto-switches runtimes on cd / Set-Location
 if (-not $global:VEN_ORIGINAL_PATH) {{
     $global:VEN_ORIGINAL_PATH = $env:PATH
@@ -430,5 +443,50 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         ActivationResolve::Ready(parts) => Ok(ComputeExportsOutcome::Success(
             activation::format_activation_shell_script(&parts),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Hook-marker must be a single source of truth. Changing it must break
+    /// this test so we don't re-introduce duplicate installs.
+    #[test]
+    fn hook_marker_is_canonical() {
+        assert_eq!(HOOK_MARKER, "# ven-managed-hook-v2");
+        assert!(HOOK_MARKER.starts_with("# "));
+        assert!(!HOOK_MARKER.contains('\n'));
+    }
+
+    /// The bash hook must embed the canonical marker so that running
+    /// `ven setup` on Unix is idempotent.
+    #[test]
+    fn bash_hook_embeds_marker() {
+        let hook = generate_hook("bash");
+        assert!(
+            hook.contains(HOOK_MARKER),
+            "bash hook missing canonical marker"
+        );
+    }
+
+    /// The PowerShell hook must embed the canonical marker.
+    #[test]
+    fn powershell_hook_embeds_marker() {
+        let hook = generate_hook("powershell");
+        assert!(
+            hook.contains(HOOK_MARKER),
+            "powershell hook missing canonical marker"
+        );
+    }
+
+    /// The fish hook must embed the canonical marker.
+    #[test]
+    fn fish_hook_embeds_marker() {
+        let hook = generate_hook("fish");
+        assert!(
+            hook.contains(HOOK_MARKER),
+            "fish hook missing canonical marker"
+        );
     }
 }
