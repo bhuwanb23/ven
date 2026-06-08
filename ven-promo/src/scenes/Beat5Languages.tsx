@@ -33,9 +33,14 @@ const orbs: Orb[] = [
 const OrbNode: React.FC<{
   orb: Orb;
   glowProgress: number;
-}> = ({ orb, glowProgress }) => {
-  const x = cx + orbRadius * Math.cos(orb.angle);
-  const y = cy + orbRadius * Math.sin(orb.angle);
+  frame: number;
+  index: number;
+}> = ({ orb, glowProgress, frame, index }) => {
+  const orbitOffset = 4 * Math.sin(frame * 0.015 + index * 0.8);
+  const currentRadius = orbRadius + orbitOffset;
+  const currentAngle = orb.angle + 0.003 * Math.sin(frame * 0.02 + index * 1.2);
+  const x = cx + currentRadius * Math.cos(currentAngle);
+  const y = cy + currentRadius * Math.sin(currentAngle);
 
   const scale = interpolate(glowProgress, [0, 0.4, 1], [0, 1.15, 1], {
     extrapolateLeft: "clamp",
@@ -131,6 +136,8 @@ export const Beat5Languages: React.FC = () => {
         <OrbNode
           key={orb.label}
           orb={orb}
+          frame={frame}
+          index={i}
           glowProgress={
             i < activeOrbCount
               ? spring({
@@ -148,13 +155,13 @@ export const Beat5Languages: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            left: cx - 70,
-            top: cy - 70,
-            width: 140,
-            height: 140,
+            left: cx - 70 + 2 * Math.sin(frame * 0.02),
+            top: cy - 70 + 2 * Math.cos(frame * 0.025),
+            width: 140 + 4 * Math.sin(frame * 0.03),
+            height: 140 + 4 * Math.sin(frame * 0.03),
             borderRadius: "50%",
             background: "rgba(74, 222, 128, 0.12)",
-            boxShadow: `0 0 120px rgba(74, 222, 128, ${0.08 + 0.06 * Math.sin(frame * 0.04)})`,
+            boxShadow: `0 0 ${120 + 20 * Math.sin(frame * 0.04)}px rgba(74, 222, 128, ${0.08 + 0.06 * Math.sin(frame * 0.04)})`,
             opacity: interpolate(
               activeOrbCount,
               [0, 1, 8],
