@@ -6,16 +6,20 @@ export const Beat2Reframe: React.FC = () => {
   const frame = useCurrentFrame();
 
   const dotProgress = spring({
-    frame,
+    frame: Math.max(0, frame - 10),
     fps: 30,
     config: { damping: 14, stiffness: 100, mass: 0.6 },
   });
 
-  const dotPulse = 0.6 + 0.4 * Math.sin(frame * 0.08);
-
+  const dotPulse = 0.5 + 0.5 * Math.sin(frame * 0.06);
   const dotScale = dotProgress * dotPulse;
 
-  const fadeOut = interpolate(frame, [80, 90], [1, 0], {
+  const dotOpacity = interpolate(frame, [0, 25], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const fadeOut = interpolate(frame, [165, 180], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -41,33 +45,30 @@ export const Beat2Reframe: React.FC = () => {
             justifyContent: "center",
             alignItems: "center",
             flexDirection: "column",
-            gap: 40,
+            gap: 50,
           }}
         >
           <div
             style={{
-              width: 8 * dotScale,
-              height: 8 * dotScale,
+              width: 10 * dotScale,
+              height: 10 * dotScale,
               borderRadius: "50%",
               background: "#00c8ff",
-              boxShadow: `0 0 ${40 * dotScale}px rgba(0, 200, 255, ${0.3 * dotScale})`,
-              opacity: interpolate(frame, [0, 15], [0, 1], {
-                extrapolateLeft: "clamp",
-                extrapolateRight: "clamp",
-              }),
+              opacity: dotOpacity,
+              boxShadow: `0 0 ${50 * dotScale}px rgba(0, 200, 255, ${0.3 * dotScale})`,
             }}
           />
 
-          {frame >= 30 && (
-            <div style={{ maxWidth: 800, marginTop: 20 }}>
+          {frame >= 60 && (
+            <div style={{ maxWidth: 900, marginTop: 10 }}>
               <KineticText
                 text="What if your tool could predict conflicts before they happen?"
-                startFrame={30}
+                startFrame={60}
                 currentFrame={frame}
-                fontSize={36}
+                fontSize={34}
                 color="rgba(255,255,255,0.85)"
                 fontWeight="500"
-                staggerDelay={4}
+                staggerDelay={5}
                 highlightWords={["predict", "conflicts"]}
                 highlightColor="rgba(0, 200, 255, 0.2)"
                 style={{ lineHeight: 1.5, textAlign: "center" }}
