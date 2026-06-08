@@ -7,13 +7,14 @@ import {
 } from "remotion";
 import { Cursor } from "../components/Cursor";
 import { ParticleBg } from "../components/ParticleBg";
+import { SoundFX } from "../components/SoundFX";
 
 const width = 1920;
 
-const ghostX = 700;
-const ghostY = 240;
-const ghostW = 520;
-const ghostH = 380;
+const ghostX = 560;
+const ghostY = 200;
+const ghostW = 800;
+const ghostH = 480;
 
 const GhostBox: React.FC<{
   label: string;
@@ -33,12 +34,12 @@ const GhostBox: React.FC<{
         position: "absolute",
         left: x,
         top: y,
-        width: 480,
-        padding: "16px 20px",
+        width: 680,
+        padding: "18px 24px",
         borderRadius: 10,
-        border: "1px solid rgba(0, 200, 255, 0.15)",
+        border: "1px solid rgba(56, 189, 248, 0.15)",
         background: revealed
-          ? `rgba(0, 200, 255, ${0.04 * progress})`
+          ? `rgba(56, 189, 248, ${0.05 * progress})`
           : "rgba(255,255,255,0.02)",
         transform: revealed ? `translateY(${slideY}px)` : "translateY(-8px)",
         opacity: revealed ? progress : 0.3,
@@ -47,9 +48,9 @@ const GhostBox: React.FC<{
       <span
         style={{
           fontFamily: "monospace",
-          fontSize: 15,
+          fontSize: 20,
           color: revealed
-            ? `rgba(0, 200, 255, ${0.5 + 0.5 * progress})`
+            ? `rgba(56, 189, 248, ${0.5 + 0.5 * progress})`
             : "rgba(255,255,255,0.15)",
         }}
       >
@@ -60,11 +61,11 @@ const GhostBox: React.FC<{
 };
 
 const ghostDirs = [
-  { label: "node_modules/.cache/ghost", y: ghostY + 0 },
-  { label: "venv/lib/.venv-track", y: ghostY + 60 },
-  { label: ".npm/_cacache/ghost", y: ghostY + 120 },
-  { label: "target/.rustc_info", y: ghostY + 180 },
-  { label: ".gradle/ghost-jars", y: ghostY + 240 },
+  { label: "node_modules/.cache/ghost", y: 0 },
+  { label: "venv/lib/.venv-track", y: 60 },
+  { label: ".npm/_cacache/ghost", y: 120 },
+  { label: "target/.rustc_info", y: 180 },
+  { label: ".gradle/ghost-jars", y: 240 },
 ];
 
 export const Beat6Ghost: React.FC = () => {
@@ -82,8 +83,13 @@ export const Beat6Ghost: React.FC = () => {
   });
 
   return (
-    <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={25} />
+    <AbsoluteFill
+      style={{
+        background:
+          "linear-gradient(180deg, #0d0f12 0%, #111318 30%, #131313 100%)",
+      }}
+    >
+      <ParticleBg count={25} color="56, 189, 248" baseOpacity={0.04} />
 
       {/* Scan line effect */}
       <div
@@ -92,9 +98,9 @@ export const Beat6Ghost: React.FC = () => {
           left: 0,
           top: 0,
           width,
-          height: 2,
-          background: "linear-gradient(90deg, transparent, rgba(0,200,255,0.15), transparent)",
-          filter: "blur(1px)",
+          height: 3,
+          background: "linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)",
+          filter: "blur(2px)",
           transform: `translateY(${interpolate(frame, [0, 240], [0, ghostH + 320])}px)`,
           opacity: interpolate(frame, [0, 20, 220, 240], [0.6, 0.8, 0.8, 0]),
         }}
@@ -104,7 +110,7 @@ export const Beat6Ghost: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: 120,
+          top: 100,
           left: 0,
           right: 0,
           textAlign: "center",
@@ -114,9 +120,9 @@ export const Beat6Ghost: React.FC = () => {
         <span
           style={{
             fontFamily: "monospace",
-            fontSize: 20,
+            fontSize: 24,
             color: "rgba(255,255,255,0.5)",
-            letterSpacing: 2,
+            letterSpacing: 3,
           }}
         >
           Scanning for orphaned environments...
@@ -128,7 +134,7 @@ export const Beat6Ghost: React.FC = () => {
         style={{
           position: "absolute",
           left: ghostX,
-          top: ghostY + 60,
+          top: ghostY + 80,
         }}
       >
         {ghostDirs.map((d, i) => {
@@ -149,7 +155,7 @@ export const Beat6Ghost: React.FC = () => {
               key={d.label}
               label={d.label}
               x={0}
-              y={d.y - ghostY - 60}
+              y={d.y}
               revealed={revealed}
               progress={progress}
             />
@@ -160,17 +166,17 @@ export const Beat6Ghost: React.FC = () => {
       {/* Cursor scans through lines */}
       <Cursor
         waypoints={[
-          { x: ghostX + ghostW + 40, y: ghostY + 40, frame: 0 },
-          { x: ghostX + ghostW - 20, y: ghostY + 60, frame: 35 },
-          { x: ghostX + ghostW - 20, y: ghostY + 60, frame: 55 },
-          { x: ghostX + ghostW - 20, y: ghostY + 120, frame: 75 },
-          { x: ghostX + ghostW - 20, y: ghostY + 120, frame: 95 },
-          { x: ghostX + ghostW - 20, y: ghostY + 180, frame: 115 },
-          { x: ghostX + ghostW - 20, y: ghostY + 180, frame: 135 },
-          { x: ghostX + ghostW - 20, y: ghostY + 240, frame: 155 },
-          { x: ghostX + ghostW - 20, y: ghostY + 240, frame: 175 },
-          { x: ghostX + ghostW - 20, y: ghostY + 300, frame: 195 },
-          { x: width + 40, y: ghostY + 300, frame: 215 },
+          { x: ghostX + ghostW + 40, y: ghostY + 20, frame: 0 },
+          { x: ghostX + ghostW - 20, y: ghostY + 75, frame: 35 },
+          { x: ghostX + ghostW - 20, y: ghostY + 75, frame: 55 },
+          { x: ghostX + ghostW - 20, y: ghostY + 135, frame: 75 },
+          { x: ghostX + ghostW - 20, y: ghostY + 135, frame: 95 },
+          { x: ghostX + ghostW - 20, y: ghostY + 195, frame: 115 },
+          { x: ghostX + ghostW - 20, y: ghostY + 195, frame: 135 },
+          { x: ghostX + ghostW - 20, y: ghostY + 255, frame: 155 },
+          { x: ghostX + ghostW - 20, y: ghostY + 255, frame: 175 },
+          { x: ghostX + ghostW - 20, y: ghostY + 315, frame: 195 },
+          { x: width + 40, y: ghostY + 315, frame: 215 },
         ]}
         currentFrame={frame}
         showTrail
@@ -181,7 +187,7 @@ export const Beat6Ghost: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            bottom: 160,
+            bottom: 140,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -192,17 +198,17 @@ export const Beat6Ghost: React.FC = () => {
               display: "inline-flex",
               alignItems: "center",
               gap: 14,
-              background: "rgba(74, 222, 128, 0.08)",
-              border: "1px solid rgba(74, 222, 128, 0.2)",
-              borderRadius: 12,
-              padding: "14px 36px",
+              background: "rgba(74, 222, 128, 0.1)",
+              border: "1px solid rgba(74, 222, 128, 0.25)",
+              borderRadius: 14,
+              padding: "18px 44px",
               transform: `scale(${dotsProgress})`,
             }}
           >
             <span
               style={{
                 fontFamily: "monospace",
-                fontSize: 24,
+                fontSize: 28,
                 color: "#4ade80",
                 fontWeight: "600",
               }}
@@ -212,6 +218,15 @@ export const Beat6Ghost: React.FC = () => {
           </div>
         </div>
       )}
+
+      <SoundFX type="whoosh" startFrame={0} />
+      <SoundFX type="scanWobble" startFrame={35} />
+      <SoundFX type="typing" startFrame={50} />
+      <SoundFX type="typing" startFrame={75} />
+      <SoundFX type="typing" startFrame={100} />
+      <SoundFX type="typing" startFrame={125} />
+      <SoundFX type="typing" startFrame={150} />
+      <SoundFX type="success" startFrame={195} />
     </AbsoluteFill>
   );
 };
