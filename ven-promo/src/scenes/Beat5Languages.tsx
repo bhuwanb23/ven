@@ -46,7 +46,7 @@ export const Beat5Languages: React.FC = () => {
   const cursorWaypoints = orbPositions.map((pos, i) => ({
     x: pos.x,
     y: pos.y,
-    frame: 30 + i * 10,
+    frame: 20 + i * 15,
   }));
 
   const activeOrbIndex = (() => {
@@ -114,7 +114,7 @@ export const Beat5Languages: React.FC = () => {
       {/* Orb nodes */}
       {languages.map((lang, i) => {
         const pos = orbPositions[i];
-        const nodeFrame = 10 + i * 5;
+        const nodeFrame = 10 + i * 8;
         const nodeProgress = spring({
           frame: Math.max(0, frame - nodeFrame),
           fps: 30,
@@ -212,7 +212,7 @@ export const Beat5Languages: React.FC = () => {
       />
 
       {/* Closing text */}
-      {frame >= 110 && (
+      {frame >= 140 && (
         <div
           style={{
             position: "absolute",
@@ -224,7 +224,7 @@ export const Beat5Languages: React.FC = () => {
         >
           <KineticText
             text="8 languages. One interface."
-            startFrame={110}
+            startFrame={140}
             currentFrame={frame}
             fontSize={28}
             color="rgba(255,255,255,0.6)"
