@@ -5,6 +5,7 @@ import { TerminalLine } from "../components/TerminalLine";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
 import { PulseRing } from "../components/PulseRing";
+import { SoundFX } from "../components/SoundFX";
 
 export const Beat1Chaos: React.FC = () => {
   const frame = useCurrentFrame();
@@ -22,8 +23,15 @@ export const Beat1Chaos: React.FC = () => {
   const redFlash = frame < 185 ? redPeak : redFade;
 
   return (
-    <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={20} />
+    <AbsoluteFill
+      style={{
+        background:
+          frame < 165
+            ? "#131313"
+            : `linear-gradient(180deg, #1a0808 0%, #0d0505 50%, #131313 100%)`,
+      }}
+    >
+      <ParticleBg count={25} color="255, 50, 50" baseOpacity={0.08} />
 
       <div
         style={{
@@ -39,8 +47,9 @@ export const Beat1Chaos: React.FC = () => {
         startFrame={0}
         currentFrame={frame}
         typingDelay={3}
-        y={280}
-        x={250}
+        y={300}
+        x={420}
+        fontSize={36}
         success
       />
       <TerminalLine
@@ -48,8 +57,9 @@ export const Beat1Chaos: React.FC = () => {
         startFrame={80}
         currentFrame={frame}
         typingDelay={3}
-        y={350}
-        x={250}
+        y={390}
+        x={420}
+        fontSize={36}
         success
       />
       <TerminalLine
@@ -57,46 +67,47 @@ export const Beat1Chaos: React.FC = () => {
         startFrame={155}
         currentFrame={frame}
         typingDelay={1}
-        y={420}
-        x={250}
+        y={480}
+        x={420}
+        fontSize={36}
         success={false}
       />
 
       <Cursor
         waypoints={[
-          { x: 200, y: 260, frame: 0 },
-          { x: 450, y: 296, frame: 38 },
-          { x: 200, y: 260, frame: 48 },
-          { x: 200, y: 260, frame: 68 },
-          { x: 450, y: 366, frame: 113 },
-          { x: 200, y: 260, frame: 125 },
-          { x: 200, y: 260, frame: 140 },
-          { x: 480, y: 436, frame: 158 },
-          { x: 200, y: 260, frame: 178 },
-          { x: 200, y: 360, frame: 195 },
+          { x: 350, y: 270, frame: 0 },
+          { x: 750, y: 316, frame: 38 },
+          { x: 350, y: 270, frame: 48 },
+          { x: 350, y: 270, frame: 68 },
+          { x: 750, y: 406, frame: 113 },
+          { x: 350, y: 270, frame: 125 },
+          { x: 350, y: 270, frame: 140 },
+          { x: 820, y: 496, frame: 158 },
+          { x: 350, y: 270, frame: 178 },
+          { x: 350, y: 400, frame: 195 },
         ]}
         currentFrame={frame}
         clicks={[
-          { frame: 45, x: 480, y: 296 },
-          { frame: 120, x: 480, y: 366 },
-          { frame: 165, x: 520, y: 436 },
+          { frame: 45, x: 780, y: 316 },
+          { frame: 120, x: 780, y: 406 },
+          { frame: 165, x: 860, y: 496 },
         ]}
         showTrail
       />
 
       {frame >= 165 && frame < 195 && (
         <PulseRing
-          x={520}
-          y={436}
+          x={860}
+          y={496}
           startFrame={165}
           currentFrame={frame}
           color="rgba(255, 50, 50, 0.5)"
-          maxRadius={140}
+          maxRadius={200}
         />
       )}
 
       {frame >= 178 && (
-        <div style={{ position: "absolute", bottom: 180, left: 0, right: 0 }}>
+        <div style={{ position: "absolute", bottom: 160, left: 0, right: 0 }}>
           <KineticText
             text="You install first. And pray it works."
             startFrame={178}
@@ -108,6 +119,16 @@ export const Beat1Chaos: React.FC = () => {
           />
         </div>
       )}
+
+      <SoundFX type="typing" startFrame={0} />
+      <SoundFX type="whooshShort" startFrame={38} />
+      <SoundFX type="click" startFrame={45} />
+      <SoundFX type="typing" startFrame={80} />
+      <SoundFX type="whooshShort" startFrame={113} />
+      <SoundFX type="click" startFrame={120} />
+      <SoundFX type="typing" startFrame={155} />
+      <SoundFX type="error" startFrame={165} />
+      <SoundFX type="click" startFrame={165} />
     </AbsoluteFill>
   );
 };
