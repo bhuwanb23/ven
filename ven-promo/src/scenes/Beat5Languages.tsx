@@ -32,8 +32,7 @@ const orbs: Orb[] = [
 const OrbNode: React.FC<{
   orb: Orb;
   glowProgress: number;
-  isClicked: boolean;
-}> = ({ orb, glowProgress, isClicked }) => {
+}> = ({ orb, glowProgress }) => {
   const x = cx + orbRadius * Math.cos(orb.angle);
   const y = cy + orbRadius * Math.sin(orb.angle);
 
@@ -134,7 +133,6 @@ export const Beat5Languages: React.FC = () => {
                 })
               : 0
           }
-          isClicked={i < 2}
         />
       ))}
 
