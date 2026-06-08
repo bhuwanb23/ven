@@ -9,229 +9,192 @@ import { Cursor } from "../components/Cursor";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
 
-const languages = [
-  "Node.js", "Python", "Java", "Go",
-  "Rust", "PHP", "Ruby", "C#",
-];
-
-const orbCount = languages.length;
+const orbRadius = 220;
 const cx = 960;
-const cy = 480;
-const ringR = 260;
+const cy = 460;
 
-interface OrbPosition {
-  x: number;
-  y: number;
+interface Orb {
+  label: string;
+  angle: number;
 }
 
-const orbPositions: OrbPosition[] = languages.map((_, i) => ({
-  x: cx + ringR * Math.cos((2 * Math.PI * i) / orbCount - Math.PI / 2),
-  y: cy + ringR * Math.sin((2 * Math.PI * i) / orbCount - Math.PI / 2),
-}));
+const orbs: Orb[] = [
+  { label: "js", angle: 0 },
+  { label: "py", angle: Math.PI / 4 },
+  { label: "java", angle: Math.PI / 2 },
+  { label: "go", angle: (3 * Math.PI) / 4 },
+  { label: "rs", angle: Math.PI },
+  { label: "php", angle: (5 * Math.PI) / 4 },
+  { label: "rb", angle: (3 * Math.PI) / 2 },
+  { label: "ts", angle: (7 * Math.PI) / 4 },
+];
 
-export const Beat5Languages: React.FC = () => {
-  const frame = useCurrentFrame();
+const OrbNode: React.FC<{
+  orb: Orb;
+  glowProgress: number;
+  isClicked: boolean;
+}> = ({ orb, glowProgress, isClicked }) => {
+  const x = cx + orbRadius * Math.cos(orb.angle);
+  const y = cy + orbRadius * Math.sin(orb.angle);
 
-  const ringProgress = spring({
-    frame: Math.max(0, frame - 10),
-    fps: 30,
-    config: { damping: 18, stiffness: 100, mass: 0.6 },
-  });
-
-  const ringOpacity = interpolate(ringProgress, [0, 0.3, 1], [0, 0.5, 1], {
+  const scale = interpolate(glowProgress, [0, 0.4, 1], [0, 1.15, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const cursorWaypoints = orbPositions.map((pos, i) => ({
-    x: pos.x,
-    y: pos.y,
-    frame: 20 + i * 15,
-  }));
+  const glow = interpolate(glowProgress, [0, 0.6, 1], [0, 0.5, 0.2], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
-  const activeOrbIndex = (() => {
-    for (let i = cursorWaypoints.length - 1; i >= 0; i--) {
-      if (frame >= cursorWaypoints[i].frame) return i;
-    }
-    return -1;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: x - 28,
+        top: y - 28,
+        width: 56,
+        height: 56,
+        borderRadius: "50%",
+        border: `2px solid rgba(0, 200, 255, ${0.3 + 0.7 * glowProgress})`,
+        background: `rgba(0, 200, 255, ${0.05 * glowProgress})`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transform: `scale(${scale})`,
+        boxShadow:
+          glowProgress > 0
+            ? `0 0 ${40 * glow}px rgba(0, 200, 255, ${0.3 * glow})`
+            : "none",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "monospace",
+          fontSize: 13,
+          color: `rgba(255,255,255,${0.4 + 0.6 * glowProgress})`,
+          fontWeight: "600",
+        }}
+      >
+        {orb.label}
+      </span>
+    </div>
+  );
+};
+
+export const Beat5Languages: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  const activeOrbCount = (() => {
+    if (frame < 45) return 0;
+    if (frame < 75) return 1;
+    if (frame < 95) return 2;
+    if (frame < 110) return 4;
+    if (frame < 125) return 6;
+    return 8;
   })();
 
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={35} />
+      <ParticleBg count={30} />
 
-      {/* Connection ring border */}
-      <svg
-        width="1920"
-        height="1080"
-        style={{ position: "absolute", inset: 0 }}
-      >
-        <circle
-          cx={cx}
-          cy={cy}
-          r={ringR + 40}
-          fill="none"
-          stroke="rgba(0, 200, 255, 0.05)"
-          strokeWidth={1}
-          strokeDasharray="4 8"
-          opacity={ringOpacity}
-        />
-        <circle
-          cx={cx}
-          cy={cy}
-          r={ringR}
-          fill="none"
-          stroke="rgba(0, 200, 255, 0.08)"
-          strokeWidth={1}
-          opacity={ringOpacity * 0.5}
-        />
-      </svg>
-
-      {/* Center text */}
+      {/* Title */}
       <div
         style={{
           position: "absolute",
-          left: cx,
-          top: cy,
-          transform: "translate(-50%, -50%)",
+          top: 100,
+          left: 0,
+          right: 0,
           textAlign: "center",
-          opacity: ringOpacity,
         }}
       >
-        <div
-          style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: 14,
-            color: "rgba(0, 200, 255, 0.5)",
-            letterSpacing: 3,
-            textTransform: "uppercase",
-          }}
-        >
-          ven
-        </div>
+        <KineticText
+          text="ven speaks your language"
+          startFrame={0}
+          currentFrame={frame}
+          fontSize={38}
+          color="rgba(255,255,255,0.9)"
+          fontWeight="600"
+          staggerDelay={5}
+          letterSpacing={1}
+        />
       </div>
 
-      {/* Orb nodes */}
-      {languages.map((lang, i) => {
-        const pos = orbPositions[i];
-        const nodeFrame = 10 + i * 8;
-        const nodeProgress = spring({
-          frame: Math.max(0, frame - nodeFrame),
-          fps: 30,
-          config: { damping: 16, stiffness: 150, mass: 0.4 },
-        });
+      {/* Orbs */}
+      {orbs.map((orb, i) => (
+        <OrbNode
+          key={orb.label}
+          orb={orb}
+          glowProgress={
+            i < activeOrbCount
+              ? spring({
+                  frame: Math.max(0, frame - (45 + i * 10)),
+                  fps: 30,
+                  config: { damping: 14, stiffness: 140, mass: 0.5 },
+                })
+              : 0
+          }
+          isClicked={i < 2}
+        />
+      ))}
 
-        const isActive = i <= activeOrbIndex && activeOrbIndex >= 0;
-        const activeGlow = isActive
-          ? 0.5 + 0.5 * Math.sin(frame * 0.1 + i)
-          : 0;
+      {/* Center glow */}
+      {activeOrbCount > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            left: cx - 30,
+            top: cy - 30,
+            width: 60,
+            height: 60,
+            borderRadius: "50%",
+            background: "rgba(0, 200, 255, 0.15)",
+            boxShadow: `0 0 80px rgba(0, 200, 255, ${0.1 + 0.08 * Math.sin(frame * 0.04)})`,
+            opacity: interpolate(
+              activeOrbCount,
+              [0, 1, 8],
+              [0, 0.6, 1]
+            ),
+          }}
+        />
+      )}
 
-        return (
-          <div
-            key={lang}
-            style={{
-              position: "absolute",
-              left: pos.x - 25,
-              top: pos.y - 25,
-              width: 50,
-              height: 50,
-              borderRadius: "50%",
-              background: isActive
-                ? "radial-gradient(circle, rgba(0,200,255,0.3) 0%, rgba(0,200,255,0.05) 100%)"
-                : "radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
-              border: `1px solid ${
-                isActive
-                  ? `rgba(0, 200, 255, ${0.3 + activeGlow * 0.5})`
-                  : "rgba(255,255,255,0.1)"
-              }`,
-              transform: `scale(${nodeProgress})`,
-              opacity: 0.3 + 0.7 * nodeProgress,
-              boxShadow: isActive
-                ? `0 0 ${20 + activeGlow * 30}px rgba(0, 200, 255, ${0.1 + activeGlow * 0.3})`
-                : "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "none",
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: isActive ? "#00c8ff" : "rgba(255,255,255,0.2)",
-                opacity: isActive ? 0.8 + 0.2 * activeGlow : 0.3,
-              }}
-            />
-          </div>
-        );
-      })}
-
-      {/* Language labels */}
-      {languages.map((lang, i) => {
-        const pos = orbPositions[i];
-        const labelFrame = 10 + i * 5;
-        const labelProgress = spring({
-          frame: Math.max(0, frame - labelFrame),
-          fps: 30,
-          config: { damping: 20, stiffness: 100, mass: 0.5 },
-        });
-        const isActive = i <= activeOrbIndex && activeOrbIndex >= 0;
-
-        return (
-          <div
-            key={`label-${lang}`}
-            style={{
-              position: "absolute",
-              left: pos.x - 40,
-              top: pos.y + 35,
-              width: 80,
-              textAlign: "center",
-              fontFamily: "Inter, sans-serif",
-              fontSize: 12,
-              fontWeight: "500",
-              color: isActive ? "rgba(0, 200, 255, 0.8)" : "rgba(255,255,255,0.25)",
-              opacity: 0.7 * labelProgress,
-              transform: `translateY(${(1 - labelProgress) * 8}px)`,
-            }}
-          >
-            {lang}
-          </div>
-        );
-      })}
-
-      {/* Cursor orbiting */}
+      {/* Cursor clicks orb 0 and orb 2 */}
       <Cursor
         waypoints={[
-          { x: cx, y: cy - ringR - 40, frame: 0 },
-          ...cursorWaypoints,
+          { x: cx, y: cy - orbRadius - 60, frame: 0 },
+          { x: cx + orbRadius + 10, y: cy - 10, frame: 40 },
+          { x: cx + orbRadius + 10, y: cy - 10, frame: 75 },
+          { x: cx - 10, y: cy - orbRadius - 10, frame: 95 },
+          { x: 1920 + 40, y: 400, frame: 130 },
         ]}
         currentFrame={frame}
+        clicks={[
+          { frame: 55, x: cx + orbRadius, y: cy },
+          { frame: 85, x: cx, y: cy - orbRadius },
+        ]}
         showTrail
       />
 
       {/* Closing text */}
-      {frame >= 140 && (
+      {frame >= 145 && (
         <div
           style={{
             position: "absolute",
-            bottom: 140,
+            bottom: 130,
             left: 0,
             right: 0,
             textAlign: "center",
           }}
         >
           <KineticText
-            text="8 languages. One interface."
-            startFrame={140}
+            text="Switch between any runtime in seconds."
+            startFrame={145}
             currentFrame={frame}
-            fontSize={28}
-            color="rgba(255,255,255,0.6)"
-            fontWeight="500"
-            staggerDelay={4}
-            highlightWords={["8", "One"]}
-            highlightColor="rgba(0, 200, 255, 0.15)"
+            fontSize={24}
+            color="rgba(255,255,255,0.5)"
+            fontWeight="400"
+            staggerDelay={5}
           />
         </div>
       )}
