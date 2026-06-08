@@ -6,7 +6,6 @@ import {
   spring,
 } from "remotion";
 import { Cursor } from "../components/Cursor";
-import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
 
 const width = 1920;

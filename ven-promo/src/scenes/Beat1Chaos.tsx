@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, interpolate, spring } from "remotion";
+import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";
 import { Cursor } from "../components/Cursor";
 import { TerminalLine } from "../components/TerminalLine";
 import { KineticText } from "../components/KineticText";
