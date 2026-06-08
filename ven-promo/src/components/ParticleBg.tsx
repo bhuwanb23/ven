@@ -16,7 +16,6 @@ interface ParticleBgProps {
   count?: number;
   color?: string;
   baseOpacity?: number;
-  speed?: number;
 }
 
 const seededRandom = (seed: number) => {
@@ -28,7 +27,6 @@ export const ParticleBg: React.FC<ParticleBgProps> = ({
   count = 30,
   color = "0, 200, 255",
   baseOpacity = 0.15,
-  speed = 0.2,
 }) => {
   const frame = useCurrentFrame();
   const particles = useMemo<Particle[]>(() => {

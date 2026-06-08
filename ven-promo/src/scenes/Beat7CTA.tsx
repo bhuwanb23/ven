@@ -34,7 +34,7 @@ export const Beat7CTA: React.FC = () => {
   );
   const isTyped = frame >= typeStart;
 
-  const fadeOut = interpolate(frame, 110, 120, [1, 0], {
+  const fadeOut = interpolate(frame, [110, 120], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
