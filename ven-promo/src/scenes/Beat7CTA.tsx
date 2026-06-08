@@ -8,215 +8,168 @@ import {
   Img,
 } from "remotion";
 import { Cursor } from "../components/Cursor";
+import { TerminalLine } from "../components/TerminalLine";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
 
 export const Beat7CTA: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const logoProgress = spring({
-    frame: Math.max(0, frame - 5),
+  const logoScale = spring({
+    frame: Math.max(0, frame - 15),
     fps: 30,
-    config: { damping: 16, stiffness: 150, mass: 0.4 },
+    config: { damping: 18, stiffness: 150, mass: 0.4 },
   });
 
-  const logoGlow = interpolate(logoProgress, [0.5, 1], [0, 1], {
+  const buttonSpring = spring({
+    frame: Math.max(0, frame - 140),
+    fps: 30,
+    config: { damping: 14, stiffness: 200, mass: 0.35 },
+  });
+
+  const buttonGlow = interpolate(buttonSpring, [0.5, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const installCmdChars = [..."npm install -g ven"];
-  const typeStart = 65;
-  const typeSpeed = 3;
-  const typedCount = Math.min(
-    installCmdChars.length,
-    Math.max(0, Math.floor((frame - typeStart) / typeSpeed)),
-  );
-  const isTyped = frame >= typeStart;
-
-  const fadeOut = interpolate(frame, [110, 120], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const taglineSpring = spring({
+    frame: Math.max(0, frame - 55),
+    fps: 30,
+    config: { damping: 16, stiffness: 140, mass: 0.5 },
   });
 
   return (
-    <AbsoluteFill
-      style={{
-        background: "#131313",
-        opacity: fadeOut,
-      }}
-    >
-      <ParticleBg count={30} />
+    <AbsoluteFill style={{ background: "#131313" }}>
+      <ParticleBg count={35} />
 
       <div
         style={{
           position: "absolute",
-          top: "38%",
+          top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 16,
+          gap: 30,
         }}
       >
+        {/* Logo */}
         <Img
           src={staticFile("Ven_logo.png")}
           style={{
-            width: 80 * logoProgress,
-            height: 80 * logoProgress,
-            opacity: logoProgress,
-            filter: `drop-shadow(0 0 ${40 * logoGlow}px rgba(0, 200, 255, ${0.5 * logoGlow}))`,
+            width: 80 * logoScale,
+            height: 80 * logoScale,
+            opacity: logoScale,
           }}
         />
-      </div>
 
-      {/* Tagline */}
-      <div
-        style={{
-          position: "absolute",
-          top: "52%",
-          left: 0,
-          right: 0,
-          textAlign: "center",
-        }}
-      >
-        <KineticText
-          text="Install once. Switch automatically. Never break."
-          startFrame={30}
-          currentFrame={frame}
-          fontSize={30}
-          color="rgba(255,255,255,0.75)"
-          fontWeight="500"
-          staggerDelay={5}
-          highlightWords={["automatically"]}
-          highlightColor="rgba(0, 200, 255, 0.15)"
-          style={{ lineHeight: 1.5 }}
-        />
-      </div>
-
-      {/* Install command with cursor trace */}
-      {isTyped && (
         <div
           style={{
-            position: "absolute",
-            top: "65%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontFamily: "monospace",
-            fontSize: 20,
-            color: "rgba(255,255,255,0.3)",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 10,
-            padding: "16px 28px",
+            textAlign: "center",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            gap: 12,
-            opacity: interpolate(frame, [typeStart, typeStart + 10], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            }),
+            gap: 16,
           }}
         >
-          <span style={{ color: "rgba(0, 200, 255, 0.5)" }}>$</span>
-          <span>
-            <span style={{ color: "rgba(255,255,255,0.6)" }}>
-              {installCmdChars.slice(0, typedCount).join("")}
-            </span>
-            {typedCount < installCmdChars.length && (
-              <span
-                style={{
-                  color: "#00c8ff",
-                  opacity: Math.floor(frame / 8) % 2 ? 1 : 0,
-                }}
-              >
-                ▌
-              </span>
-            )}
-          </span>
-        </div>
-      )}
+          <KineticText
+            text="Ready to ship confident?"
+            startFrame={50}
+            currentFrame={frame}
+            fontSize={42}
+            color="rgba(255,255,255,0.95)"
+            fontWeight="700"
+            staggerDelay={5}
+            letterSpacing={1}
+          />
 
-      {/* Badges */}
-      {frame >= 85 && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "18%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: 24,
-            opacity: spring({
-              frame: Math.max(0, frame - 85),
-              fps: 30,
-              config: { damping: 20, stiffness: 150 },
-            }),
-          }}
-        >
-          {[
-            { label: "GitHub", value: "☆ 4.2k" },
-            { label: "npm", value: "↓ 120k/mo" },
-            { label: "v2.1.0", value: "Latest" },
-          ].map((badge, i) => (
+          {/* Tagline */}
+          {frame >= 55 && (
             <div
-              key={badge.label}
               style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 4,
-                padding: "10px 20px",
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                opacity: spring({
-                  frame: Math.max(0, frame - 85 - i * 5),
-                  fps: 30,
-                  config: { damping: 18, stiffness: 120 },
-                }),
+                transform: `translateY(${(1 - taglineSpring) * -12}px)`,
+                opacity: taglineSpring,
               }}
             >
               <span
                 style={{
                   fontFamily: "Inter, sans-serif",
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.3)",
-                }}
-              >
-                {badge.label}
-              </span>
-              <span
-                style={{
-                  fontFamily: "Inter, sans-serif",
                   fontSize: 16,
-                  fontWeight: "600",
-                  color: "rgba(255,255,255,0.7)",
+                  color: "rgba(255,255,255,0.35)",
+                  letterSpacing: 3,
+                  textTransform: "uppercase",
                 }}
               >
-                {badge.value}
+                ven — environment management, evolved
               </span>
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* Cursor traces install command */}
+          {/* Terminal line explaining CTA */}
+          {frame >= 100 && (
+            <div style={{ marginTop: 10 }}>
+              <TerminalLine
+                text="ven init my-project"
+                startFrame={100}
+                currentFrame={frame}
+                typingDelay={5}
+                y={0}
+                x={0}
+                success
+              />
+            </div>
+          )}
+
+          {/* Action button */}
+          {frame >= 130 && (
+            <div
+              style={{
+                marginTop: 10,
+                transform: `scale(${buttonSpring})`,
+                opacity: buttonSpring,
+              }}
+            >
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #00c8ff, #0090ff)",
+                  color: "#fff",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: 20,
+                  fontWeight: "600",
+                  padding: "16px 48px",
+                  borderRadius: 12,
+                  border: "none",
+                  cursor: "pointer",
+                  boxShadow: `0 0 ${40 * buttonGlow}px rgba(0, 200, 255, ${0.4 * buttonGlow})`,
+                  letterSpacing: 1,
+                }}
+              >
+                Get Started with ven
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Cursor: idle entrance then exits */}
       <Cursor
         waypoints={[
-          {
-            x: 960 - 200,
-            y: 1080 * 0.65 + 10,
-            frame: typeStart + installCmdChars.length * typeSpeed + 5,
-          },
-          {
-            x: 960 + 200,
-            y: 1080 * 0.65 + 10,
-            frame: typeStart + installCmdChars.length * typeSpeed + 20,
-          },
+          { x: 1920 - 100, y: 500, frame: 0 },
+          { x: 700, y: 440, frame: 30 },
+          { x: 700, y: 440, frame: 60 },
+          { x: 480, y: 440, frame: 70 },
+          { x: 480, y: 440, frame: 115 },
+          { x: 850, y: 580, frame: 145 },
+          { x: 850, y: 580, frame: 175 },
+          { x: 1920 + 40, y: 600, frame: 195 },
         ]}
         currentFrame={frame}
+        clicks={[
+          { frame: 65, x: 640, y: 440 },
+          { frame: 145, x: 850, y: 580 },
+          { frame: 170, x: 860, y: 580 },
+        ]}
         showTrail
       />
     </AbsoluteFill>
