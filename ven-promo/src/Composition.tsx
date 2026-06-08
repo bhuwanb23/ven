@@ -1,10 +1,9 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { TransitionSeries, springTiming } from "@remotion/transitions";
-import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
-import { iris } from "@remotion/transitions/iris";
+import { zoomBlur } from "@remotion/transitions/zoom-blur";
 import { linearBlur } from "@remotion/transitions/linear-blur";
 import { crossZoom } from "@remotion/transitions/cross-zoom";
 import { dissolve } from "@remotion/transitions/dissolve";
@@ -16,9 +15,6 @@ import { Beat5Languages } from "./scenes/Beat5Languages";
 import { Beat6Ghost } from "./scenes/Beat6Ghost";
 import { Beat7CTA } from "./scenes/Beat7CTA";
 import { AmbientDrone } from "./components/SoundFX";
-
-const trans = () =>
-  springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 15 });
 
 export const VenPromo: React.FC = () => {
   return (
@@ -54,7 +50,7 @@ export const VenPromo: React.FC = () => {
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={iris({ type: "diamond" })}
+          presentation={zoomBlur()}
         />
 
         <TransitionSeries.Sequence durationInFrames={210}>
