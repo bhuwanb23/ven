@@ -31,8 +31,6 @@ export const Scene2Solution: React.FC = () => {
   const line2op = interpolate(frame, [125, 140], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const line3op = interpolate(frame, [155, 170], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const line4op = interpolate(frame, [185, 200], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const resultOp = interpolate(frame, [200, 215], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
   const taglineOpacity = interpolate(frame, [220, 240], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const containerOpacity = interpolate(frame, [0, 270], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });

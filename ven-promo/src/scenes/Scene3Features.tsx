@@ -1,8 +1,7 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Easing } from "remotion";
+import { AbsoluteFill, interpolate, spring, useCurrentFrame } from "remotion";
 import { Terminal } from "../components/Terminal";
 import { Checkmark } from "../components/Checkmark";
-import { HLine } from "../components/HLine";
 
 const languages = [
   "Node.js", "Python", "Go", "Rust",
@@ -20,7 +19,6 @@ const featureLabel: React.CSSProperties = {
 
 const AutoSwitch: React.FC<{ frame: number; startFrame: number }> = ({ frame, startFrame }) => {
   const localFrame = Math.max(0, frame - startFrame);
-  const { fps } = useVideoConfig();
 
   const opacity = interpolate(localFrame, [0, 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
@@ -133,7 +131,6 @@ const typeStyle: React.CSSProperties = {
 
 const Security: React.FC<{ frame: number; startFrame: number }> = ({ frame, startFrame }) => {
   const localFrame = Math.max(0, frame - startFrame);
-  const { fps } = useVideoConfig();
 
   const opacity = interpolate(localFrame, [0, 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
@@ -182,7 +179,6 @@ const Security: React.FC<{ frame: number; startFrame: number }> = ({ frame, star
 
 export const Scene3Features: React.FC = () => {
   const frame = useCurrentFrame();
-  const totalDuration = 300; // 450-750 (10s total for scene 3)
 
   const beatDuration = 100;
 
