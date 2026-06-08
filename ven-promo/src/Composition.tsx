@@ -1,75 +1,58 @@
-import React, { useEffect, useState } from "react";
-import { AbsoluteFill, Sequence, continueRender, delayRender, staticFile } from "remotion";
-import { Audio } from "@remotion/media";
-import { loadFont } from "@remotion/fonts";
-import { Scene1Problem } from "./scenes/Scene1Problem";
-import { Scene2Solution } from "./scenes/Scene2Solution";
-import { Scene3Features } from "./scenes/Scene3Features";
-import { Scene4CTA } from "./scenes/Scene4CTA";
+import React from "react";
+import { AbsoluteFill } from "remotion";
+import { TransitionSeries, springTiming } from "@remotion/transitions";
+import { fade } from "@remotion/transitions/fade";
+import { Beat1Chaos } from "./scenes/Beat1Chaos";
+import { Beat2Reframe } from "./scenes/Beat2Reframe";
+import { Beat3Graph } from "./scenes/Beat3Graph";
+import { Beat4Autoswitch } from "./scenes/Beat4Autoswitch";
+import { Beat5Languages } from "./scenes/Beat5Languages";
+import { Beat6Ghost } from "./scenes/Beat6Ghost";
+import { Beat7CTA } from "./scenes/Beat7CTA";
+
+const trans = () =>
+  springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 15 });
+
+const fadePres = fade({ shouldFadeOutExitingScene: true });
 
 export const VenPromo: React.FC = () => {
-  const [handle] = useState(() => delayRender("LoadingFonts"));
-  const [fontsLoaded, setFontsLoaded] = useState(false);
-
-  useEffect(() => {
-    Promise.all([
-      loadFont({
-        family: "Geist",
-        url: staticFile("fonts/Geist-Regular.woff2"),
-        weight: "400",
-      }),
-      loadFont({
-        family: "Geist",
-        url: staticFile("fonts/Geist-SemiBold.woff2"),
-        weight: "600",
-      }),
-      loadFont({
-        family: "Geist",
-        url: staticFile("fonts/Geist-Bold.woff2"),
-        weight: "700",
-      }),
-      loadFont({
-        family: "JetBrains Mono",
-        url: staticFile("fonts/JetBrainsMono-Regular.ttf"),
-        weight: "400",
-      }),
-    ]).then(() => {
-      setFontsLoaded(true);
-      continueRender(handle);
-    });
-  }, [handle]);
-
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
-      <Sequence from={0} durationInFrames={180}>
-        <Scene1Problem />
-      </Sequence>
-      <Sequence from={180} durationInFrames={270}>
-        <Scene2Solution />
-      </Sequence>
-      <Sequence from={450} durationInFrames={300}>
-        <Scene3Features />
-      </Sequence>
-      <Sequence from={750} durationInFrames={150}>
-        <Scene4CTA />
-      </Sequence>
+      <TransitionSeries>
+        <TransitionSeries.Sequence durationInFrames={120}>
+          <Beat1Chaos />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-      {/* Scene 1: tense music */}
-      <Sequence from={0} durationInFrames={180}>
-        <Audio src={staticFile("assets/music-tense.mp3")} volume={0.35} />
-      </Sequence>
-      {/* Scene 2+3: hopeful music */}
-      <Sequence from={180} durationInFrames={570}>
-        <Audio src={staticFile("assets/music-hopeful.mp3")} volume={0.35} />
-      </Sequence>
-      {/* Scene 4: triumphant overlay */}
-      <Sequence from={750} durationInFrames={150}>
-        <Audio src={staticFile("assets/music-triumphant.mp3")} volume={0.45} />
-      </Sequence>
+        <TransitionSeries.Sequence durationInFrames={90}>
+          <Beat2Reframe />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+
+        <TransitionSeries.Sequence durationInFrames={240}>
+          <Beat3Graph />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+
+        <TransitionSeries.Sequence durationInFrames={90}>
+          <Beat4Autoswitch />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+
+        <TransitionSeries.Sequence durationInFrames={90}>
+          <Beat5Languages />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+
+        <TransitionSeries.Sequence durationInFrames={150}>
+          <Beat6Ghost />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+
+        <TransitionSeries.Sequence durationInFrames={120}>
+          <Beat7CTA />
+        </TransitionSeries.Sequence>
+      </TransitionSeries>
     </AbsoluteFill>
   );
 };
