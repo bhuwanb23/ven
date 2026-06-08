@@ -23,22 +23,86 @@ const dirs = [
   { name: "packages/", version: "v3.2.1", y: 230 },
 ];
 
+const VersionRow: React.FC<{
+  dir: typeof dirs[0];
+  showVersion: boolean;
+  progress: number;
+}> = ({ dir, showVersion, progress }) => {
+  const yOffset = interpolate(progress, [0, 0.3, 1], [24, -6, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        padding: "10px 14px",
+        borderRadius: 8,
+        background:
+          showVersion && progress > 0
+            ? "rgba(0, 200, 255, 0.06)"
+            : "transparent",
+        opacity: showVersion
+          ? interpolate(progress, [0, 0.5, 1], [0, 0.3, 1])
+          : 0.15,
+        transform: showVersion ? `translateY(${yOffset}px)` : "translateY(0)",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "monospace",
+          fontSize: 14,
+          color: "rgba(255,255,255,0.4)",
+          minWidth: 120,
+        }}
+      >
+        {dir.name}
+      </span>
+      {showVersion && (
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 22,
+            fontWeight: "700",
+            color: "#00c8ff",
+          }}
+        >
+          {dir.version}
+        </span>
+      )}
+      {!showVersion && (
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 14,
+            color: "rgba(255,255,255,0.15)",
+          }}
+        >
+          ---
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const Beat4Autoswitch: React.FC = () => {
   const frame = useCurrentFrame();
 
   const panelSlide = spring({
-    frame: Math.max(0, frame - 10),
+    frame: Math.max(0, frame - 8),
     fps: 30,
-    config: { damping: 20, stiffness: 100, mass: 0.7 },
+    config: { damping: 22, stiffness: 110, mass: 0.6 },
   });
   const panelOpacity = interpolate(panelSlide, [0, 1], [0, 1]);
 
-  const versionProgress = (targetFrame: number) =>
-    spring({
-      frame: Math.max(0, frame - targetFrame),
-      fps: 30,
-      config: { damping: 14, stiffness: 180, mass: 0.5 },
-    });
+  const isActive = (i: number) => {
+    if (i === 0) return frame >= 60 && frame < 120;
+    if (i === 1) return frame >= 120 && frame < 185;
+    return false;
+  };
 
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
@@ -57,7 +121,7 @@ export const Beat4Autoswitch: React.FC = () => {
           background: "rgba(255,255,255,0.03)",
           padding: "28px 30px",
           opacity: panelOpacity,
-          transform: `translateX(${(1 - panelSlide) * -40}px)`,
+          transform: `translateX(${(1 - panelSlide) * -30}px)`,
         }}
       >
         <div
@@ -74,9 +138,7 @@ export const Beat4Autoswitch: React.FC = () => {
         </div>
         <div style={{ position: "relative" }}>
           {dirs.map((dir, i) => {
-            const isFrontendActive = i === 0 && frame >= 60 && frame < 90;
-            const isBackendActive = i === 1 && frame >= 100;
-
+            const active = isActive(i);
             return (
               <div
                 key={dir.name}
@@ -86,10 +148,10 @@ export const Beat4Autoswitch: React.FC = () => {
                   gap: 12,
                   padding: "8px 12px",
                   borderRadius: 6,
-                  background: isFrontendActive || isBackendActive
+                  background: active
                     ? "rgba(0, 200, 255, 0.1)"
                     : "transparent",
-                  border: isFrontendActive || isBackendActive
+                  border: active
                     ? "1px solid rgba(0, 200, 255, 0.2)"
                     : "1px solid transparent",
                   marginBottom: 4,
@@ -98,8 +160,7 @@ export const Beat4Autoswitch: React.FC = () => {
                 <span
                   style={{
                     fontSize: 16,
-                    color: isFrontendActive || isBackendActive
-                      ? "#00c8ff" : "rgba(255,255,255,0.2)",
+                    color: active ? "#00c8ff" : "rgba(255,255,255,0.2)",
                   }}
                 >
                   📁
@@ -108,8 +169,9 @@ export const Beat4Autoswitch: React.FC = () => {
                   style={{
                     fontFamily: "monospace",
                     fontSize: 16,
-                    color: isFrontendActive || isBackendActive
-                      ? "#ffffff" : "rgba(255,255,255,0.5)",
+                    color: active
+                      ? "#ffffff"
+                      : "rgba(255,255,255,0.5)",
                   }}
                 >
                   {dir.name}
@@ -133,7 +195,7 @@ export const Beat4Autoswitch: React.FC = () => {
           background: "rgba(255,255,255,0.03)",
           padding: "28px 30px",
           opacity: panelOpacity,
-          transform: `translateX(${(1 - panelSlide) * 40}px)`,
+          transform: `translateX(${(1 - panelSlide) * 30}px)`,
         }}
       >
         <div
@@ -150,68 +212,23 @@ export const Beat4Autoswitch: React.FC = () => {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {dirs.map((dir, i) => {
-            const showVersion = (i === 0 && frame >= 75) || (i === 1 && frame >= 115);
-            const progress = i === 0
-              ? versionProgress(65)
+            const showVersion = i === 0
+              ? frame >= 80
               : i === 1
-                ? versionProgress(105)
-                : 0;
-
+                ? frame >= 140
+                : false;
+            const progress = i === 0
+              ? spring({ frame: Math.max(0, frame - 70), fps: 30, config: { damping: 16, stiffness: 160, mass: 0.4 } })
+              : i === 1
+                ? spring({ frame: Math.max(0, frame - 130), fps: 30, config: { damping: 16, stiffness: 160, mass: 0.4 } })
+                : 1;
             return (
-              <div
+              <VersionRow
                 key={dir.name}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  background: showVersion && progress > 0
-                    ? "rgba(0, 200, 255, 0.06)"
-                    : "transparent",
-                  opacity: i <= 1
-                    ? showVersion
-                      ? interpolate(progress, [0, 0.5, 1], [0, 0.4, 1])
-                      : 0.15
-                    : 0.12,
-                  transform: showVersion
-                    ? `translateY(${interpolate(progress, [0, 0.3, 1], [20, -10, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px)`
-                    : "translateY(0)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "monospace",
-                    fontSize: 14,
-                    color: "rgba(255,255,255,0.4)",
-                    minWidth: 120,
-                  }}
-                >
-                  {dir.name}
-                </span>
-                {showVersion ? (
-                  <span
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: 22,
-                      fontWeight: "700",
-                      color: "#00c8ff",
-                    }}
-                  >
-                    {dir.version}
-                  </span>
-                ) : (
-                  <span
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: 14,
-                      color: "rgba(255,255,255,0.15)",
-                    }}
-                  >
-                    ---
-                  </span>
-                )}
-              </div>
+                dir={dir}
+                showVersion={showVersion}
+                progress={progress}
+              />
             );
           })}
         </div>
@@ -220,26 +237,27 @@ export const Beat4Autoswitch: React.FC = () => {
       {/* Cursor */}
       <Cursor
         waypoints={[
-          { x: panelRight + panelW - 60, y: panelTop + 30, frame: 0 },
-          { x: panelLeft + 300, y: panelTop + 112, frame: 55 },
-          { x: panelLeft + 300, y: panelTop + 112, frame: 78 },
-          { x: panelLeft + 300, y: panelTop + 162, frame: 90 },
-          { x: panelLeft + 300, y: panelTop + 162, frame: 115 },
+          { x: panelRight + panelW + 40, y: panelTop + 100, frame: 0 },
+          { x: panelLeft + 300, y: panelTop + 112, frame: 50 },
+          { x: panelLeft + 300, y: panelTop + 112, frame: 80 },
+          { x: panelLeft + 300, y: panelTop + 162, frame: 110 },
+          { x: panelLeft + 300, y: panelTop + 162, frame: 140 },
+          { x: panelRight + panelW, y: panelTop + 300, frame: 170 },
         ]}
         currentFrame={frame}
         clicks={[
           { frame: 70, x: panelLeft + 300, y: panelTop + 112 },
-          { frame: 110, x: panelLeft + 300, y: panelTop + 162 },
+          { frame: 130, x: panelLeft + 300, y: panelTop + 162 },
         ]}
         showTrail
       />
 
       {/* Subtitle */}
-      {frame >= 135 && (
+      {frame >= 170 && (
         <div
           style={{
             position: "absolute",
-            bottom: 170,
+            bottom: 140,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -247,7 +265,7 @@ export const Beat4Autoswitch: React.FC = () => {
         >
           <KineticText
             text="Auto-switch versions. Seamlessly."
-            startFrame={135}
+            startFrame={170}
             currentFrame={frame}
             fontSize={26}
             color="rgba(255,255,255,0.5)"
