@@ -11,6 +11,7 @@ import { Cursor } from "../components/Cursor";
 import { TerminalLine } from "../components/TerminalLine";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
+import { SoundFX } from "../components/SoundFX";
 
 export const Beat7CTA: React.FC = () => {
   const frame = useCurrentFrame();
@@ -38,14 +39,59 @@ export const Beat7CTA: React.FC = () => {
     config: { damping: 16, stiffness: 140, mass: 0.5 },
   });
 
+  const decorRing1 = spring({
+    frame: Math.max(0, frame - 10),
+    fps: 30,
+    config: { damping: 30, stiffness: 40, mass: 2 },
+  });
+
+  const decorRing2 = spring({
+    frame: Math.max(0, frame - 20),
+    fps: 30,
+    config: { damping: 30, stiffness: 40, mass: 2 },
+  });
+
   return (
-    <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={35} />
+    <AbsoluteFill
+      style={{
+        background:
+          "linear-gradient(180deg, #060d1a 0%, #0c1a30 40%, #131313 100%)",
+      }}
+    >
+      <ParticleBg count={40} color="0, 150, 255" baseOpacity={0.06} accentColor="#00c8ff" />
+
+      {/* Decorative rings */}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          width: 800 * decorRing1,
+          height: 800 * decorRing1,
+          borderRadius: "50%",
+          border: "1px solid rgba(0, 200, 255, 0.04)",
+          transform: "translate(-50%, -50%)",
+          opacity: 0.6 * (1 - decorRing1),
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          width: 1100 * decorRing2,
+          height: 1100 * decorRing2,
+          borderRadius: "50%",
+          border: "1px solid rgba(0, 200, 255, 0.025)",
+          transform: "translate(-50%, -50%)",
+          opacity: 0.4 * (1 - decorRing2),
+        }}
+      />
 
       <div
         style={{
           position: "absolute",
-          top: "50%",
+          top: "48%",
           left: "50%",
           transform: "translate(-50%, -50%)",
           display: "flex",
@@ -58,9 +104,10 @@ export const Beat7CTA: React.FC = () => {
         <Img
           src={staticFile("Ven_logo.png")}
           style={{
-            width: 80 * logoScale,
-            height: 80 * logoScale,
+            width: 120 * logoScale,
+            height: 120 * logoScale,
             opacity: logoScale,
+            filter: `drop-shadow(0 0 40px rgba(0, 200, 255, ${0.3 * logoScale}))`,
           }}
         />
 
@@ -70,14 +117,14 @@ export const Beat7CTA: React.FC = () => {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 16,
+            gap: 20,
           }}
         >
           <KineticText
             text="Ready to ship confident?"
             startFrame={50}
             currentFrame={frame}
-            fontSize={42}
+            fontSize={48}
             color="rgba(255,255,255,0.95)"
             fontWeight="700"
             staggerDelay={5}
@@ -95,9 +142,9 @@ export const Beat7CTA: React.FC = () => {
               <span
                 style={{
                   fontFamily: "Inter, sans-serif",
-                  fontSize: 16,
+                  fontSize: 18,
                   color: "rgba(255,255,255,0.35)",
-                  letterSpacing: 3,
+                  letterSpacing: 4,
                   textTransform: "uppercase",
                 }}
               >
@@ -116,6 +163,7 @@ export const Beat7CTA: React.FC = () => {
                 typingDelay={5}
                 y={0}
                 x={0}
+                fontSize={28}
                 success
               />
             </div>
@@ -135,14 +183,14 @@ export const Beat7CTA: React.FC = () => {
                   background: "linear-gradient(135deg, #00c8ff, #0090ff)",
                   color: "#fff",
                   fontFamily: "Inter, sans-serif",
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: "600",
-                  padding: "16px 48px",
-                  borderRadius: 12,
+                  padding: "20px 56px",
+                  borderRadius: 14,
                   border: "none",
                   cursor: "pointer",
-                  boxShadow: `0 0 ${40 * buttonGlow}px rgba(0, 200, 255, ${0.4 * buttonGlow})`,
-                  letterSpacing: 1,
+                  boxShadow: `0 0 ${50 * buttonGlow}px rgba(0, 200, 255, ${0.4 * buttonGlow})`,
+                  letterSpacing: 2,
                 }}
               >
                 Get Started with ven
@@ -172,6 +220,11 @@ export const Beat7CTA: React.FC = () => {
         ]}
         showTrail
       />
+
+      <SoundFX type="whoosh" startFrame={0} />
+      <SoundFX type="whooshShort" startFrame={50} />
+      <SoundFX type="typing" startFrame={100} />
+      <SoundFX type="success" startFrame={170} />
     </AbsoluteFill>
   );
 };

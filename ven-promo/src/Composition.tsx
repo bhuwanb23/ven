@@ -9,6 +9,7 @@ import { Beat4Autoswitch } from "./scenes/Beat4Autoswitch";
 import { Beat5Languages } from "./scenes/Beat5Languages";
 import { Beat6Ghost } from "./scenes/Beat6Ghost";
 import { Beat7CTA } from "./scenes/Beat7CTA";
+import { AmbientDrone } from "./components/SoundFX";
 
 const trans = () =>
   springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 15 });
@@ -18,6 +19,7 @@ const fadePres = fade({ shouldFadeOutExitingScene: true });
 export const VenPromo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
+      <AmbientDrone />
       <TransitionSeries>
         <TransitionSeries.Sequence durationInFrames={210}>
           <Beat1Chaos />
