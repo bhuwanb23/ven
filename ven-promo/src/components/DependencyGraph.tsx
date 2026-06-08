@@ -121,10 +121,10 @@ export const DependencyGraph: React.FC<DependencyGraphProps> = ({
             )}
             <text
               x={node.x}
-              y={node.y + size + 16}
+              y={node.y + size + 24}
               textAnchor="middle"
               fill={isCenter ? "#ffffff" : "rgba(255,255,255,0.6)"}
-              fontSize={isCenter ? 16 : 13}
+              fontSize={isCenter ? 22 : 18}
               fontFamily="Inter, sans-serif"
               fontWeight={isCenter ? "600" : "400"}
               opacity={0.8 * progress}
