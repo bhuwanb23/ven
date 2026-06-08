@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, useCurrentFrame, interpolate, staticFile } from "remotion";
+import { Audio } from "@remotion/media";
 import { TransitionSeries, springTiming } from "@remotion/transitions";
 import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
@@ -16,10 +17,24 @@ import { Beat6Ghost } from "./scenes/Beat6Ghost";
 import { Beat7CTA } from "./scenes/Beat7CTA";
 import { AmbientDrone } from "./components/SoundFX";
 
+const CLAMP = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+
 export const VenPromo: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  const tenseVol = interpolate(frame, [400, 430], [0.5, 0], CLAMP);
+  const hopefulVol = Math.min(
+    interpolate(frame, [420, 430], [0, 0.6], CLAMP),
+    interpolate(frame, [1250, 1270], [0.6, 0], CLAMP),
+  );
+  const triumphantVol = interpolate(frame, [1255, 1270], [0, 0.65], CLAMP);
+
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
       <AmbientDrone />
+      <Audio src={staticFile("assets/music-tense.mp3")} volume={tenseVol} />
+      <Audio src={staticFile("assets/music-hopeful.mp3")} volume={hopefulVol} />
+      <Audio src={staticFile("assets/music-triumphant.mp3")} volume={triumphantVol} />
       <TransitionSeries>
         <TransitionSeries.Sequence durationInFrames={210}>
           <Beat1Chaos />

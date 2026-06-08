@@ -77,6 +77,6 @@ export const OrbChime: React.FC<{ startFrame: number; index: number }> = ({
 };
 
 export const AmbientDrone: React.FC = () => {
-  const src = useMemo(() => generateAmbientDrone(1620), []);
-  return <Audio src={src} volume={0.15} />;
+  const src = useMemo(() => generateAmbientDrone(1740), []);
+  return <Audio src={src} volume={0.03} />;
 };
