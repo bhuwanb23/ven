@@ -8,10 +8,11 @@ import {
 import { Cursor } from "../components/Cursor";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
+import { SoundFX, OrbChime } from "../components/SoundFX";
 
-const orbRadius = 220;
+const orbRadius = 400;
 const cx = 960;
-const cy = 460;
+const cy = 480;
 
 interface Orb {
   label: string;
@@ -50,27 +51,27 @@ const OrbNode: React.FC<{
     <div
       style={{
         position: "absolute",
-        left: x - 28,
-        top: y - 28,
-        width: 56,
-        height: 56,
+        left: x - 45,
+        top: y - 45,
+        width: 90,
+        height: 90,
         borderRadius: "50%",
-        border: `2px solid rgba(0, 200, 255, ${0.3 + 0.7 * glowProgress})`,
-        background: `rgba(0, 200, 255, ${0.05 * glowProgress})`,
+        border: `2px solid rgba(74, 222, 128, ${0.3 + 0.7 * glowProgress})`,
+        background: `rgba(74, 222, 128, ${0.06 * glowProgress})`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         transform: `scale(${scale})`,
         boxShadow:
           glowProgress > 0
-            ? `0 0 ${40 * glow}px rgba(0, 200, 255, ${0.3 * glow})`
+            ? `0 0 ${60 * glow}px rgba(74, 222, 128, ${0.3 * glow})`
             : "none",
       }}
     >
       <span
         style={{
           fontFamily: "monospace",
-          fontSize: 13,
+          fontSize: 20,
           color: `rgba(255,255,255,${0.4 + 0.6 * glowProgress})`,
           fontWeight: "600",
         }}
@@ -94,24 +95,30 @@ export const Beat5Languages: React.FC = () => {
   })();
 
   return (
-    <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={30} />
+    <AbsoluteFill
+      style={{
+        background:
+          "linear-gradient(180deg, #0a140a 0%, #0f1a0f 30%, #131313 100%)",
+      }}
+    >
+      <ParticleBg count={30} color="74, 222, 128" baseOpacity={0.05} />
 
       {/* Title */}
       <div
         style={{
           position: "absolute",
-          top: 100,
+          top: 80,
           left: 0,
           right: 0,
           textAlign: "center",
+          zIndex: 10,
         }}
       >
         <KineticText
           text="ven speaks your language"
           startFrame={0}
           currentFrame={frame}
-          fontSize={38}
+          fontSize={40}
           color="rgba(255,255,255,0.9)"
           fontWeight="600"
           staggerDelay={5}
@@ -141,13 +148,13 @@ export const Beat5Languages: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            left: cx - 30,
-            top: cy - 30,
-            width: 60,
-            height: 60,
+            left: cx - 70,
+            top: cy - 70,
+            width: 140,
+            height: 140,
             borderRadius: "50%",
-            background: "rgba(0, 200, 255, 0.15)",
-            boxShadow: `0 0 80px rgba(0, 200, 255, ${0.1 + 0.08 * Math.sin(frame * 0.04)})`,
+            background: "rgba(74, 222, 128, 0.12)",
+            boxShadow: `0 0 120px rgba(74, 222, 128, ${0.08 + 0.06 * Math.sin(frame * 0.04)})`,
             opacity: interpolate(
               activeOrbCount,
               [0, 1, 8],
@@ -160,7 +167,7 @@ export const Beat5Languages: React.FC = () => {
       {/* Cursor clicks orb 0 and orb 2 */}
       <Cursor
         waypoints={[
-          { x: cx, y: cy - orbRadius - 60, frame: 0 },
+          { x: cx, y: cy - orbRadius - 80, frame: 0 },
           { x: cx + orbRadius + 10, y: cy - 10, frame: 40 },
           { x: cx + orbRadius + 10, y: cy - 10, frame: 75 },
           { x: cx - 10, y: cy - orbRadius - 10, frame: 95 },
@@ -179,7 +186,7 @@ export const Beat5Languages: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            bottom: 130,
+            bottom: 100,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -189,13 +196,25 @@ export const Beat5Languages: React.FC = () => {
             text="Switch between any runtime in seconds."
             startFrame={145}
             currentFrame={frame}
-            fontSize={24}
+            fontSize={26}
             color="rgba(255,255,255,0.5)"
             fontWeight="400"
             staggerDelay={5}
           />
         </div>
       )}
+
+      <SoundFX type="whoosh" startFrame={0} />
+      <SoundFX type="click" startFrame={55} />
+      <OrbChime startFrame={55} index={0} />
+      <OrbChime startFrame={65} index={1} />
+      <SoundFX type="click" startFrame={85} />
+      <OrbChime startFrame={85} index={2} />
+      <OrbChime startFrame={100} index={3} />
+      <OrbChime startFrame={110} index={4} />
+      <OrbChime startFrame={120} index={5} />
+      <OrbChime startFrame={125} index={6} />
+      <OrbChime startFrame={130} index={7} />
     </AbsoluteFill>
   );
 };
