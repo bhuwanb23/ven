@@ -8,12 +8,13 @@ import {
 import { Cursor } from "../components/Cursor";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
+import { SoundFX } from "../components/SoundFX";
 
-const panelLeft = 260;
-const panelTop = 200;
-const panelW = 580;
-const panelH = 520;
-const panelGap = 80;
+const panelLeft = 180;
+const panelTop = 180;
+const panelW = 760;
+const panelH = 600;
+const panelGap = 40;
 const panelRight = panelLeft + panelW + panelGap;
 
 const dirs = [
@@ -38,12 +39,12 @@ const VersionRow: React.FC<{
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 16,
-        padding: "10px 14px",
+        gap: 20,
+        padding: "14px 18px",
         borderRadius: 8,
         background:
           showVersion && progress > 0
-            ? "rgba(0, 200, 255, 0.06)"
+            ? "rgba(168, 85, 247, 0.08)"
             : "transparent",
         opacity: showVersion
           ? interpolate(progress, [0, 0.5, 1], [0, 0.3, 1])
@@ -54,9 +55,9 @@ const VersionRow: React.FC<{
       <span
         style={{
           fontFamily: "monospace",
-          fontSize: 14,
-          color: "rgba(255,255,255,0.4)",
-          minWidth: 120,
+          fontSize: 18,
+          color: "rgba(255,255,255,0.5)",
+          minWidth: 160,
         }}
       >
         {dir.name}
@@ -65,9 +66,9 @@ const VersionRow: React.FC<{
         <span
           style={{
             fontFamily: "monospace",
-            fontSize: 22,
+            fontSize: 30,
             fontWeight: "700",
-            color: "#00c8ff",
+            color: "#a855f7",
           }}
         >
           {dir.version}
@@ -77,8 +78,8 @@ const VersionRow: React.FC<{
         <span
           style={{
             fontFamily: "monospace",
-            fontSize: 14,
-            color: "rgba(255,255,255,0.15)",
+            fontSize: 18,
+            color: "rgba(255,255,255,0.12)",
           }}
         >
           ---
@@ -105,8 +106,13 @@ export const Beat4Autoswitch: React.FC = () => {
   };
 
   return (
-    <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={25} />
+    <AbsoluteFill
+      style={{
+        background:
+          "linear-gradient(180deg, #10081a 0%, #160e24 30%, #131313 100%)",
+      }}
+    >
+      <ParticleBg count={25} color="168, 85, 247" baseOpacity={0.06} />
 
       {/* Left Panel - Directory */}
       <div
@@ -116,10 +122,10 @@ export const Beat4Autoswitch: React.FC = () => {
           top: panelTop,
           width: panelW,
           height: panelH,
-          borderRadius: 12,
-          border: "1px solid rgba(255,255,255,0.08)",
-          background: "rgba(255,255,255,0.03)",
-          padding: "28px 30px",
+          borderRadius: 14,
+          border: "1px solid rgba(168, 85, 247, 0.1)",
+          background: "rgba(168, 85, 247, 0.035)",
+          padding: "30px 34px",
           opacity: panelOpacity,
           transform: `translateX(${(1 - panelSlide) * -30}px)`,
         }}
@@ -127,10 +133,10 @@ export const Beat4Autoswitch: React.FC = () => {
         <div
           style={{
             fontFamily: "Inter, sans-serif",
-            fontSize: 14,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 20,
-            letterSpacing: 1,
+            fontSize: 16,
+            color: "rgba(168, 85, 247, 0.5)",
+            marginBottom: 24,
+            letterSpacing: 2,
             textTransform: "uppercase",
           }}
         >
@@ -145,22 +151,22 @@ export const Beat4Autoswitch: React.FC = () => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
-                  padding: "8px 12px",
-                  borderRadius: 6,
+                  gap: 14,
+                  padding: "12px 16px",
+                  borderRadius: 8,
                   background: active
-                    ? "rgba(0, 200, 255, 0.1)"
+                    ? "rgba(168, 85, 247, 0.12)"
                     : "transparent",
                   border: active
-                    ? "1px solid rgba(0, 200, 255, 0.2)"
+                    ? "1px solid rgba(168, 85, 247, 0.3)"
                     : "1px solid transparent",
-                  marginBottom: 4,
+                  marginBottom: 6,
                 }}
               >
                 <span
                   style={{
-                    fontSize: 16,
-                    color: active ? "#00c8ff" : "rgba(255,255,255,0.2)",
+                    fontSize: 20,
+                    color: active ? "#a855f7" : "rgba(255,255,255,0.2)",
                   }}
                 >
                   📁
@@ -168,7 +174,7 @@ export const Beat4Autoswitch: React.FC = () => {
                 <span
                   style={{
                     fontFamily: "monospace",
-                    fontSize: 16,
+                    fontSize: 20,
                     color: active
                       ? "#ffffff"
                       : "rgba(255,255,255,0.5)",
@@ -190,10 +196,10 @@ export const Beat4Autoswitch: React.FC = () => {
           top: panelTop,
           width: panelW,
           height: panelH,
-          borderRadius: 12,
-          border: "1px solid rgba(255,255,255,0.08)",
-          background: "rgba(255,255,255,0.03)",
-          padding: "28px 30px",
+          borderRadius: 14,
+          border: "1px solid rgba(168, 85, 247, 0.1)",
+          background: "rgba(168, 85, 247, 0.035)",
+          padding: "30px 34px",
           opacity: panelOpacity,
           transform: `translateX(${(1 - panelSlide) * 30}px)`,
         }}
@@ -201,10 +207,10 @@ export const Beat4Autoswitch: React.FC = () => {
         <div
           style={{
             fontFamily: "Inter, sans-serif",
-            fontSize: 14,
-            color: "rgba(255,255,255,0.3)",
-            marginBottom: 20,
-            letterSpacing: 1,
+            fontSize: 16,
+            color: "rgba(168, 85, 247, 0.5)",
+            marginBottom: 24,
+            letterSpacing: 2,
             textTransform: "uppercase",
           }}
         >
@@ -238,16 +244,16 @@ export const Beat4Autoswitch: React.FC = () => {
       <Cursor
         waypoints={[
           { x: panelRight + panelW + 40, y: panelTop + 100, frame: 0 },
-          { x: panelLeft + 300, y: panelTop + 112, frame: 50 },
-          { x: panelLeft + 300, y: panelTop + 112, frame: 80 },
-          { x: panelLeft + 300, y: panelTop + 162, frame: 110 },
-          { x: panelLeft + 300, y: panelTop + 162, frame: 140 },
+          { x: panelLeft + 380, y: panelTop + 112, frame: 50 },
+          { x: panelLeft + 380, y: panelTop + 112, frame: 80 },
+          { x: panelLeft + 380, y: panelTop + 162, frame: 110 },
+          { x: panelLeft + 380, y: panelTop + 162, frame: 140 },
           { x: panelRight + panelW, y: panelTop + 300, frame: 170 },
         ]}
         currentFrame={frame}
         clicks={[
-          { frame: 70, x: panelLeft + 300, y: panelTop + 112 },
-          { frame: 130, x: panelLeft + 300, y: panelTop + 162 },
+          { frame: 70, x: panelLeft + 380, y: panelTop + 112 },
+          { frame: 130, x: panelLeft + 380, y: panelTop + 162 },
         ]}
         showTrail
       />
@@ -257,7 +263,7 @@ export const Beat4Autoswitch: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            bottom: 140,
+            bottom: 120,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -267,15 +273,19 @@ export const Beat4Autoswitch: React.FC = () => {
             text="Auto-switch versions. Seamlessly."
             startFrame={170}
             currentFrame={frame}
-            fontSize={26}
+            fontSize={28}
             color="rgba(255,255,255,0.5)"
             fontWeight="400"
             staggerDelay={5}
             highlightWords={["Auto-switch"]}
-            highlightColor="rgba(0, 200, 255, 0.15)"
+            highlightColor="rgba(168, 85, 247, 0.15)"
           />
         </div>
       )}
+
+      <SoundFX type="whoosh" startFrame={0} />
+      <SoundFX type="click" startFrame={70} />
+      <SoundFX type="click" startFrame={130} />
     </AbsoluteFill>
   );
 };
