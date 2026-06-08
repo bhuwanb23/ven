@@ -102,6 +102,7 @@ export const Beat4Autoswitch: React.FC = () => {
   const isActive = (i: number) => {
     if (i === 0) return frame >= 60 && frame < 120;
     if (i === 1) return frame >= 120 && frame < 185;
+    if (i === 2) return frame >= 185;
     return false;
   };
 
@@ -222,12 +223,16 @@ export const Beat4Autoswitch: React.FC = () => {
               ? frame >= 80
               : i === 1
                 ? frame >= 140
-                : false;
+                : i === 2
+                  ? frame >= 200
+                  : false;
             const progress = i === 0
               ? spring({ frame: Math.max(0, frame - 70), fps: 30, config: { damping: 16, stiffness: 160, mass: 0.4 } })
               : i === 1
                 ? spring({ frame: Math.max(0, frame - 130), fps: 30, config: { damping: 16, stiffness: 160, mass: 0.4 } })
-                : 1;
+                : i === 2
+                  ? spring({ frame: Math.max(0, frame - 190), fps: 30, config: { damping: 16, stiffness: 160, mass: 0.4 } })
+                  : 1;
             return (
               <VersionRow
                 key={dir.name}
@@ -248,18 +253,21 @@ export const Beat4Autoswitch: React.FC = () => {
           { x: panelLeft + 380, y: panelTop + 112, frame: 80 },
           { x: panelLeft + 380, y: panelTop + 162, frame: 110 },
           { x: panelLeft + 380, y: panelTop + 162, frame: 140 },
-          { x: panelRight + panelW, y: panelTop + 300, frame: 170 },
+          { x: panelLeft + 380, y: panelTop + 212, frame: 170 },
+          { x: panelLeft + 380, y: panelTop + 212, frame: 200 },
+          { x: panelRight + panelW, y: panelTop + 300, frame: 215 },
         ]}
         currentFrame={frame}
         clicks={[
           { frame: 70, x: panelLeft + 380, y: panelTop + 112 },
           { frame: 130, x: panelLeft + 380, y: panelTop + 162 },
+          { frame: 190, x: panelLeft + 380, y: panelTop + 212 },
         ]}
         showTrail
       />
 
       {/* Subtitle */}
-      {frame >= 170 && (
+      {frame >= 180 && (
         <div
           style={{
             position: "absolute",
@@ -271,7 +279,7 @@ export const Beat4Autoswitch: React.FC = () => {
         >
           <KineticText
             text="Auto-switch versions. Seamlessly."
-            startFrame={170}
+            startFrame={180}
             currentFrame={frame}
             fontSize={28}
             color="rgba(255,255,255,0.5)"
@@ -286,6 +294,7 @@ export const Beat4Autoswitch: React.FC = () => {
       <SoundFX type="whoosh" startFrame={0} />
       <SoundFX type="click" startFrame={70} />
       <SoundFX type="click" startFrame={130} />
+      <SoundFX type="click" startFrame={190} />
     </AbsoluteFill>
   );
 };

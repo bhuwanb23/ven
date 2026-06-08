@@ -189,7 +189,7 @@ export const Beat5Languages: React.FC = () => {
       />
 
       {/* Closing text */}
-      {frame >= 145 && (
+      {frame >= 130 && (
         <div
           style={{
             position: "absolute",
@@ -201,7 +201,7 @@ export const Beat5Languages: React.FC = () => {
         >
           <KineticText
             text="Switch between any runtime in seconds."
-            startFrame={145}
+            startFrame={130}
             currentFrame={frame}
             fontSize={26}
             color="rgba(255,255,255,0.5)"

@@ -21,12 +21,12 @@ export const Beat2Reframe: React.FC = () => {
 
   const dotPulse = 0.5 + 0.5 * Math.sin(frame * 0.06);
 
-  const dotOpacity = interpolate(frame, [0, 35], [0, 1], {
+  const dotOpacity = interpolate(frame, [0, 25], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const fadeOut = interpolate(frame, [160, 180], [1, 0], {
+  const fadeOut = interpolate(frame, [130, 150], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -69,16 +69,16 @@ export const Beat2Reframe: React.FC = () => {
             }}
           />
 
-          {frame >= 50 && (
+          {frame >= 35 && (
             <div style={{ maxWidth: 1400, marginTop: 20 }}>
               <KineticText
                 text="What if your tool could predict conflicts before they happen?"
-                startFrame={50}
+                startFrame={35}
                 currentFrame={frame}
                 fontSize={42}
                 color="rgba(255,255,255,0.85)"
                 fontWeight="500"
-                staggerDelay={6}
+                staggerDelay={4}
                 highlightWords={["predict", "conflicts"]}
                 highlightColor="rgba(0, 150, 255, 0.15)"
                 style={{ lineHeight: 1.5, textAlign: "center" }}

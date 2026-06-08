@@ -15,7 +15,7 @@ import { SoundFX } from "../components/SoundFX";
 
 const centerX = 960;
 const centerY = 500;
-const radius = 500;
+const radius = 420;
 
 const langNodes = [
   { label: "Node.js", angle: -Math.PI / 2 },
@@ -43,9 +43,9 @@ const graphEdges = langNodes.map((_, i) => ({
 }));
 
 const subNodes = [
-  { x: centerX - 280, y: centerY - 300, label: "Express", color: "rgba(0, 200, 255, 0.5)", size: 40 },
-  { x: centerX + 280, y: centerY - 300, label: "Next.js", color: "rgba(0, 200, 255, 0.5)", size: 40 },
-  { x: centerX, y: centerY - 440, label: "Prisma", color: "rgba(0, 200, 255, 0.5)", size: 40 },
+  { x: 500, y: 700, label: "Express", color: "rgba(0, 200, 255, 0.5)", size: 40 },
+  { x: 380, y: 620, label: "Next.js", color: "rgba(0, 200, 255, 0.5)", size: 40 },
+  { x: 620, y: 620, label: "Prisma", color: "rgba(0, 200, 255, 0.5)", size: 40 },
 ];
 
 const subEdges = [
@@ -161,14 +161,14 @@ export const Beat3Graph: React.FC = () => {
       <Cursor
         waypoints={[
           { x: centerX + 100, y: centerY + 100, frame: 0 },
-          { x: centerX + radius + 20, y: centerY - radius + 10, frame: 220 },
-          { x: centerX + radius + 20, y: centerY - radius + 10, frame: 285 },
+          { x: langNodes[1].x + 20, y: langNodes[1].y + 10, frame: 220 },
+          { x: langNodes[1].x + 20, y: langNodes[1].y + 10, frame: 285 },
           { x: centerX + 100, y: centerY + 100, frame: 300 },
           { x: centerX + 100, y: centerY + 100, frame: 340 },
         ]}
         currentFrame={frame}
         clicks={[
-          { frame: 275, x: langNodes[0].x, y: langNodes[0].y },
+          { frame: 275, x: langNodes[1].x, y: langNodes[1].y },
         ]}
         showTrail
       />

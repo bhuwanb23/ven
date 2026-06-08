@@ -32,9 +32,9 @@ const CrossfadeScene: React.FC<{
 export const VenPromo: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const tenseVol = interpolate(frame, [390, 410], [0.5, 0], CLAMP);
+  const tenseVol = interpolate(frame, [360, 380], [0.5, 0], CLAMP);
   const hopefulVol = Math.min(
-    interpolate(frame, [390, 410], [0, 0.6], CLAMP),
+    interpolate(frame, [360, 380], [0, 0.6], CLAMP),
     interpolate(frame, [1170, 1190], [0.6, 0], CLAMP),
   );
   const triumphantVol = interpolate(frame, [1170, 1190], [0, 0.65], CLAMP);
@@ -52,14 +52,14 @@ export const VenPromo: React.FC = () => {
         </CrossfadeScene>
       </Sequence>
 
-      <Sequence from={210} durationInFrames={200}>
-        <CrossfadeScene sceneDuration={180} fadeIn fadeOut>
+      <Sequence from={210} durationInFrames={170}>
+        <CrossfadeScene sceneDuration={150} fadeIn fadeOut>
           <Beat2Reframe />
         </CrossfadeScene>
       </Sequence>
 
-      <Sequence from={390} durationInFrames={380}>
-        <CrossfadeScene sceneDuration={360} fadeIn fadeOut>
+      <Sequence from={360} durationInFrames={410}>
+        <CrossfadeScene sceneDuration={390} fadeIn fadeOut>
           <Beat3Graph />
         </CrossfadeScene>
       </Sequence>

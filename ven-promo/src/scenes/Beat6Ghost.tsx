@@ -48,7 +48,7 @@ const GhostBox: React.FC<{
       <span
         style={{
           fontFamily: "monospace",
-          fontSize: 20,
+          fontSize: 24,
           color: revealed
             ? `rgba(56, 189, 248, ${0.5 + 0.5 * progress})`
             : "rgba(255,255,255,0.15)",
@@ -62,10 +62,10 @@ const GhostBox: React.FC<{
 
 const ghostDirs = [
   { label: "node_modules/.cache/ghost", y: 0 },
-  { label: "venv/lib/.venv-track", y: 60 },
-  { label: ".npm/_cacache/ghost", y: 120 },
-  { label: "target/.rustc_info", y: 180 },
-  { label: ".gradle/ghost-jars", y: 240 },
+  { label: "venv/lib/.venv-track", y: 70 },
+  { label: ".npm/_cacache/ghost", y: 140 },
+  { label: "target/.rustc_info", y: 210 },
+  { label: ".gradle/ghost-jars", y: 280 },
 ];
 
 export const Beat6Ghost: React.FC = () => {

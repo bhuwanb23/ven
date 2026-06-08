@@ -215,7 +215,7 @@ export const Beat7CTA: React.FC = () => {
         currentFrame={frame}
         clicks={[
           { frame: 65, x: 640, y: 440 },
-          { frame: 145, x: 850, y: 580 },
+          { frame: 160, x: 850, y: 580 },
           { frame: 170, x: 860, y: 580 },
         ]}
         showTrail

@@ -120,11 +120,11 @@ export const Beat1Chaos: React.FC = () => {
         />
       )}
 
-      {frame >= 178 && (
+      {frame >= 150 && (
         <div style={{ position: "absolute", bottom: 160, left: 0, right: 0 }}>
           <KineticText
             text="You install first. And pray it works."
-            startFrame={178}
+            startFrame={150}
             currentFrame={frame}
             fontSize={28}
             color="rgba(255,255,255,0.5)"
