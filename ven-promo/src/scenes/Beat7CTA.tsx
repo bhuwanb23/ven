@@ -169,12 +169,12 @@ export const Beat7CTA: React.FC = () => {
             </div>
           )}
 
-          {/* Action button */}
+            {/* Action button */}
           {frame >= 130 && (
             <div
               style={{
                 marginTop: 10,
-                transform: `scale(${buttonSpring})`,
+                transform: `scale(${buttonSpring * (1 + 0.02 * Math.sin(frame * 0.06))})`,
                 opacity: buttonSpring,
               }}
             >
@@ -189,7 +189,7 @@ export const Beat7CTA: React.FC = () => {
                   borderRadius: 14,
                   border: "none",
                   cursor: "pointer",
-                  boxShadow: `0 0 ${50 * buttonGlow}px rgba(0, 200, 255, ${0.4 * buttonGlow})`,
+                  boxShadow: `0 0 ${(50 + 10 * Math.sin(frame * 0.06)) * buttonGlow}px rgba(0, 200, 255, ${0.4 * buttonGlow})`,
                   letterSpacing: 2,
                 }}
               >
