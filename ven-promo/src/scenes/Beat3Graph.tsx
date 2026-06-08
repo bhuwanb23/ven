@@ -11,10 +11,11 @@ import { Cursor } from "../components/Cursor";
 import { DependencyGraph } from "../components/DependencyGraph";
 import { KineticText } from "../components/KineticText";
 import { ParticleBg } from "../components/ParticleBg";
+import { SoundFX } from "../components/SoundFX";
 
 const centerX = 960;
 const centerY = 500;
-const radius = 280;
+const radius = 500;
 
 const langNodes = [
   { label: "Node.js", angle: -Math.PI / 2 },
@@ -28,11 +29,11 @@ const langNodes = [
   y: centerY + radius * Math.sin(n.angle),
   label: n.label,
   color: "rgba(0, 200, 255, 0.4)",
-  size: 30,
+  size: 60,
 }));
 
 const graphNodes = [
-  { x: centerX, y: centerY, label: "ven", color: "#00c8ff", size: 55 },
+  { x: centerX, y: centerY, label: "ven", color: "#00c8ff", size: 120 },
   ...langNodes,
 ];
 
@@ -42,9 +43,9 @@ const graphEdges = langNodes.map((_, i) => ({
 }));
 
 const subNodes = [
-  { x: centerX - 180, y: centerY - 200, label: "Express", color: "rgba(0, 200, 255, 0.5)", size: 22 },
-  { x: centerX + 180, y: centerY - 200, label: "Next.js", color: "rgba(0, 200, 255, 0.5)", size: 22 },
-  { x: centerX, y: centerY - 320, label: "Prisma", color: "rgba(0, 200, 255, 0.5)", size: 22 },
+  { x: centerX - 280, y: centerY - 300, label: "Express", color: "rgba(0, 200, 255, 0.5)", size: 40 },
+  { x: centerX + 280, y: centerY - 300, label: "Next.js", color: "rgba(0, 200, 255, 0.5)", size: 40 },
+  { x: centerX, y: centerY - 440, label: "Prisma", color: "rgba(0, 200, 255, 0.5)", size: 40 },
 ];
 
 const subEdges = [
@@ -73,18 +74,24 @@ export const Beat3Graph: React.FC = () => {
   });
 
   return (
-    <AbsoluteFill style={{ background: "#131313" }}>
-      <ParticleBg count={40} />
+    <AbsoluteFill
+      style={{
+        background:
+          "linear-gradient(180deg, #080f0f 0%, #0a1414 30%, #131313 100%)",
+      }}
+    >
+      <ParticleBg count={50} color="0, 180, 120" baseOpacity={0.05} />
 
       <div
         style={{
           position: "absolute",
-          top: "50%",
+          top: 100,
           left: "50%",
-          transform: "translate(-50%, -50%)",
+          transform: "translateX(-50%)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          zIndex: 10,
         }}
       >
         <Img
@@ -97,7 +104,7 @@ export const Beat3Graph: React.FC = () => {
           }}
         />
 
-        <div style={{ marginTop: 24 }}>
+        <div style={{ marginTop: 20 }}>
           <KineticText
             text="One tool to rule them all"
             startFrame={45}
@@ -135,11 +142,11 @@ export const Beat3Graph: React.FC = () => {
 
       <Cursor
         waypoints={[
-          { x: centerX + 80, y: centerY + 80, frame: 0 },
+          { x: centerX + 100, y: centerY + 100, frame: 0 },
           { x: centerX + radius + 20, y: centerY - radius + 10, frame: 220 },
           { x: centerX + radius + 20, y: centerY - radius + 10, frame: 285 },
-          { x: centerX + 80, y: centerY + 80, frame: 300 },
-          { x: centerX + 80, y: centerY + 80, frame: 340 },
+          { x: centerX + 100, y: centerY + 100, frame: 300 },
+          { x: centerX + 100, y: centerY + 100, frame: 340 },
         ]}
         currentFrame={frame}
         clicks={[
@@ -152,7 +159,7 @@ export const Beat3Graph: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            bottom: 140,
+            bottom: 120,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -163,22 +170,27 @@ export const Beat3Graph: React.FC = () => {
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 12,
-              background: "rgba(74, 222, 128, 0.1)",
+              gap: 14,
+              background: "rgba(74, 222, 128, 0.12)",
               border: "1px solid rgba(74, 222, 128, 0.3)",
-              borderRadius: 12,
-              padding: "14px 32px",
+              borderRadius: 14,
+              padding: "18px 40px",
               color: "#4ade80",
-              fontSize: 22,
+              fontSize: 26,
               fontFamily: "Inter, sans-serif",
               fontWeight: "600",
             }}
           >
             <span>All dependencies compatible</span>
-            <span style={{ fontSize: 26 }}>✓</span>
+            <span style={{ fontSize: 30 }}>✓</span>
           </div>
         </div>
       )}
+
+      <SoundFX type="whoosh" startFrame={0} />
+      <SoundFX type="whoosh" startFrame={90} volume={0.5} />
+      <SoundFX type="click" startFrame={275} />
+      <SoundFX type="success" startFrame={300} />
     </AbsoluteFill>
   );
 };
