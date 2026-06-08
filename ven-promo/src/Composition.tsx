@@ -2,6 +2,12 @@ import React from "react";
 import { AbsoluteFill } from "remotion";
 import { TransitionSeries, springTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
+import { slide } from "@remotion/transitions/slide";
+import { wipe } from "@remotion/transitions/wipe";
+import { iris } from "@remotion/transitions/iris";
+import { linearBlur } from "@remotion/transitions/linear-blur";
+import { crossZoom } from "@remotion/transitions/cross-zoom";
+import { dissolve } from "@remotion/transitions/dissolve";
 import { Beat1Chaos } from "./scenes/Beat1Chaos";
 import { Beat2Reframe } from "./scenes/Beat2Reframe";
 import { Beat3Graph } from "./scenes/Beat3Graph";
@@ -14,8 +20,6 @@ import { AmbientDrone } from "./components/SoundFX";
 const trans = () =>
   springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 15 });
 
-const fadePres = fade({ shouldFadeOutExitingScene: true });
-
 export const VenPromo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
@@ -24,32 +28,50 @@ export const VenPromo: React.FC = () => {
         <TransitionSeries.Sequence durationInFrames={210}>
           <Beat1Chaos />
         </TransitionSeries.Sequence>
-        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+        <TransitionSeries.Transition
+          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
+          presentation={dissolve()}
+        />
 
         <TransitionSeries.Sequence durationInFrames={180}>
           <Beat2Reframe />
         </TransitionSeries.Sequence>
-        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+        <TransitionSeries.Transition
+          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
+          presentation={slide({ direction: "from-bottom" })}
+        />
 
         <TransitionSeries.Sequence durationInFrames={360}>
           <Beat3Graph />
         </TransitionSeries.Sequence>
-        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+        <TransitionSeries.Transition
+          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
+          presentation={wipe({ direction: "from-left" })}
+        />
 
         <TransitionSeries.Sequence durationInFrames={210}>
           <Beat4Autoswitch />
         </TransitionSeries.Sequence>
-        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+        <TransitionSeries.Transition
+          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
+          presentation={iris({ type: "diamond" })}
+        />
 
         <TransitionSeries.Sequence durationInFrames={210}>
           <Beat5Languages />
         </TransitionSeries.Sequence>
-        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+        <TransitionSeries.Transition
+          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
+          presentation={linearBlur({ overlayColor: "#131313", kernel: 20 })}
+        />
 
         <TransitionSeries.Sequence durationInFrames={240}>
           <Beat6Ghost />
         </TransitionSeries.Sequence>
-        <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
+        <TransitionSeries.Transition
+          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
+          presentation={crossZoom()}
+        />
 
         <TransitionSeries.Sequence durationInFrames={210}>
           <Beat7CTA />
