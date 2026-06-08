@@ -22,6 +22,13 @@ export const Beat1Chaos: React.FC = () => {
 
   const redFlash = frame < 185 ? redPeak : redFade;
 
+  const shakeIntensity = interpolate(frame, [165, 172, 185, 200], [0, 3, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const shakeX = shakeIntensity * Math.sin(frame * 1.7) * 2;
+  const shakeY = shakeIntensity * Math.cos(frame * 1.3) * 1.5;
+
   return (
     <AbsoluteFill
       style={{
@@ -31,6 +38,13 @@ export const Beat1Chaos: React.FC = () => {
             : `linear-gradient(180deg, #1a0808 0%, #0d0505 50%, #131313 100%)`,
       }}
     >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `translate(${shakeX}px, ${shakeY}px)`,
+        }}
+      >
       <ParticleBg count={25} color="255, 50, 50" baseOpacity={0.08} />
 
       <div
@@ -129,6 +143,7 @@ export const Beat1Chaos: React.FC = () => {
       <SoundFX type="typing" startFrame={155} />
       <SoundFX type="error" startFrame={165} />
       <SoundFX type="click" startFrame={165} />
+      </div>
     </AbsoluteFill>
   );
 };
