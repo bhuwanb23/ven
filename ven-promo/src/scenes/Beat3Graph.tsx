@@ -42,9 +42,9 @@ const graphEdges = langNodes.map((_, i) => ({
 }));
 
 const subNodes = [
-  { x: centerX - 180, y: centerY - 200, label: "Express", color: "rgba(0, 200, 255, 0.5)", size: 22 },
-  { x: centerX + 180, y: centerY - 200, label: "Next.js", color: "rgba(0, 200, 255, 0.5)", size: 22 },
-  { x: centerX, y: centerY - 320, label: "Prisma", color: "rgba(0, 200, 255, 0.5)", size: 22 },
+  { x: centerX - 190, y: centerY - 210, label: "Express", color: "rgba(0, 200, 255, 0.5)", size: 22 },
+  { x: centerX + 190, y: centerY - 210, label: "Next.js", color: "rgba(0, 200, 255, 0.5)", size: 22 },
+  { x: centerX, y: centerY - 340, label: "Prisma", color: "rgba(0, 200, 255, 0.5)", size: 22 },
 ];
 
 const subEdges = [
@@ -57,22 +57,17 @@ export const Beat3Graph: React.FC = () => {
   const frame = useCurrentFrame();
 
   const logoProgress = spring({
-    frame: Math.max(0, frame - 10),
+    frame: Math.max(0, frame - 30),
     fps: 30,
-    config: { damping: 16, stiffness: 150, mass: 0.4 },
+    config: { damping: 16, stiffness: 120, mass: 0.5 },
   });
 
-  const logoGlow = interpolate(logoProgress, [0.5, 1], [0, 1], {
+  const logoGlow = interpolate(logoProgress, [0.4, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const subtitleFade = interpolate(frame, [210, 230], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const allGreenStart = 190;
+  const allGreenStart = 290;
   const allGreenProgress = spring({
     frame: Math.max(0, frame - allGreenStart),
     fps: 30,
@@ -86,13 +81,13 @@ export const Beat3Graph: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: "50%",
+          top: 160,
           left: "50%",
-          transform: "translate(-50%, -50%)",
+          transform: "translateX(-50%)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 0,
+          gap: 12,
         }}
       >
         <Img
@@ -105,57 +100,56 @@ export const Beat3Graph: React.FC = () => {
           }}
         />
 
-        <div
-          style={{
-            opacity: subtitleFade,
-            marginTop: 20,
-          }}
-        >
+        <div style={{ marginTop: 8 }}>
           <KineticText
             text="One tool to rule them all"
-            startFrame={30}
+            startFrame={70}
             currentFrame={frame}
-            fontSize={24}
-            color="rgba(255,255,255,0.4)"
+            fontSize={22}
+            color="rgba(255,255,255,0.35)"
             fontWeight="400"
-            staggerDelay={3}
+            staggerDelay={4}
             letterSpacing={3}
           />
         </div>
       </div>
 
-      <DependencyGraph
-        nodes={graphNodes}
-        edges={graphEdges}
-        startFrame={60}
-        currentFrame={frame}
-        nodeStagger={6}
-        edgeStagger={3}
-        centerIndex={0}
-      />
-
-      {frame >= 140 && (
+      <div style={{ position: "absolute", inset: 0, top: 60 }}>
         <DependencyGraph
-          nodes={subNodes}
-          edges={subEdges}
-          startFrame={140}
+          nodes={graphNodes}
+          edges={graphEdges}
+          startFrame={120}
           currentFrame={frame}
-          nodeStagger={3}
-          edgeStagger={2}
+          nodeStagger={8}
+          edgeStagger={4}
           centerIndex={0}
         />
+      </div>
+
+      {frame >= 240 && (
+        <div style={{ position: "absolute", inset: 0, top: 60 }}>
+          <DependencyGraph
+            nodes={subNodes}
+            edges={subEdges}
+            startFrame={240}
+            currentFrame={frame}
+            nodeStagger={4}
+            edgeStagger={3}
+            centerIndex={0}
+          />
+        </div>
       )}
 
       <Cursor
         waypoints={[
           { x: centerX + 50, y: centerY + 60, frame: 0 },
-          { x: centerX + radius + 40, y: centerY - radius - 10, frame: 110 },
-          { x: centerX + 50, y: centerY + 60, frame: 135 },
-          { x: centerX + 50, y: centerY + 60, frame: 180 },
+          { x: langNodes[0].x - 50, y: langNodes[0].y - 30, frame: 200 },
+          { x: langNodes[0].x - 50, y: langNodes[0].y - 30, frame: 235 },
+          { x: centerX + 50, y: centerY + 60, frame: 270 },
         ]}
         currentFrame={frame}
         clicks={[
-          { frame: 115, x: langNodes[0].x, y: langNodes[0].y },
+          { frame: 230, x: langNodes[0].x, y: langNodes[0].y },
         ]}
         showTrail
       />
@@ -164,7 +158,7 @@ export const Beat3Graph: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            bottom: 160,
+            bottom: 180,
             left: 0,
             right: 0,
             textAlign: "center",
@@ -179,7 +173,7 @@ export const Beat3Graph: React.FC = () => {
               background: "rgba(74, 222, 128, 0.1)",
               border: "1px solid rgba(74, 222, 128, 0.3)",
               borderRadius: 12,
-              padding: "12px 28px",
+              padding: "14px 32px",
               color: "#4ade80",
               fontSize: 20,
               fontFamily: "Inter, sans-serif",
