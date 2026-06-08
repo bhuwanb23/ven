@@ -19,37 +19,37 @@ export const VenPromo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
       <TransitionSeries>
-        <TransitionSeries.Sequence durationInFrames={120}>
+        <TransitionSeries.Sequence durationInFrames={210}>
           <Beat1Chaos />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-        <TransitionSeries.Sequence durationInFrames={90}>
+        <TransitionSeries.Sequence durationInFrames={180}>
           <Beat2Reframe />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-        <TransitionSeries.Sequence durationInFrames={240}>
+        <TransitionSeries.Sequence durationInFrames={360}>
           <Beat3Graph />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-        <TransitionSeries.Sequence durationInFrames={90}>
+        <TransitionSeries.Sequence durationInFrames={210}>
           <Beat4Autoswitch />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-        <TransitionSeries.Sequence durationInFrames={90}>
+        <TransitionSeries.Sequence durationInFrames={210}>
           <Beat5Languages />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-        <TransitionSeries.Sequence durationInFrames={150}>
+        <TransitionSeries.Sequence durationInFrames={240}>
           <Beat6Ghost />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition timing={trans()} presentation={fadePres} />
 
-        <TransitionSeries.Sequence durationInFrames={120}>
+        <TransitionSeries.Sequence durationInFrames={210}>
           <Beat7CTA />
         </TransitionSeries.Sequence>
       </TransitionSeries>
