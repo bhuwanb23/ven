@@ -9,18 +9,17 @@ import { PulseRing } from "../components/PulseRing";
 export const Beat1Chaos: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const redFlash = interpolate(
-    frame,
-    [195, 198, 210],
-    [0, 0.5, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  );
-
-  const recoilX = spring({
-    frame: Math.max(0, frame - 198),
-    fps: 30,
-    config: { damping: 10, stiffness: 250, mass: 0.9 },
+  const redPeak = interpolate(frame, [165, 172, 185], [0, 0.55, 0.55], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
+
+  const redFade = interpolate(frame, [185, 200], [0.55, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const redFlash = frame < 185 ? redPeak : redFade;
 
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
@@ -39,7 +38,7 @@ export const Beat1Chaos: React.FC = () => {
         text="npm install"
         startFrame={0}
         currentFrame={frame}
-        typingDelay={5}
+        typingDelay={3}
         y={280}
         x={250}
         success
@@ -48,17 +47,17 @@ export const Beat1Chaos: React.FC = () => {
         text="pip install"
         startFrame={80}
         currentFrame={frame}
-        typingDelay={5}
-        y={360}
+        typingDelay={3}
+        y={350}
         x={250}
         success
       />
       <TerminalLine
         text="npm install react"
-        startFrame={160}
+        startFrame={155}
         currentFrame={frame}
-        typingDelay={5}
-        y={440}
+        typingDelay={1}
+        y={420}
         x={250}
         success={false}
       />
@@ -66,63 +65,44 @@ export const Beat1Chaos: React.FC = () => {
       <Cursor
         waypoints={[
           { x: 200, y: 260, frame: 0 },
-          { x: 450, y: 295, frame: 58 },
-          { x: 200, y: 260, frame: 78 },
-          { x: 450, y: 375, frame: 148 },
-          { x: 200, y: 260, frame: 168 },
-          { x: 500, y: 455, frame: 193 },
-          { x: 150, y: 240, frame: 198 + recoilX * 40 },
+          { x: 450, y: 296, frame: 38 },
+          { x: 200, y: 260, frame: 48 },
+          { x: 200, y: 260, frame: 68 },
+          { x: 450, y: 366, frame: 113 },
+          { x: 200, y: 260, frame: 125 },
+          { x: 200, y: 260, frame: 140 },
+          { x: 480, y: 436, frame: 158 },
+          { x: 200, y: 260, frame: 178 },
+          { x: 200, y: 360, frame: 195 },
         ]}
         currentFrame={frame}
         clicks={[
-          { frame: 68, x: 490, y: 295 },
-          { frame: 158, x: 490, y: 375 },
-          { frame: 195, x: 540, y: 455 },
+          { frame: 45, x: 480, y: 296 },
+          { frame: 120, x: 480, y: 366 },
+          { frame: 165, x: 520, y: 436 },
         ]}
         showTrail
       />
 
-      {frame >= 195 && frame < 195 + 30 && (
+      {frame >= 165 && frame < 195 && (
         <PulseRing
-          x={540}
-          y={455}
-          startFrame={195}
+          x={520}
+          y={436}
+          startFrame={165}
           currentFrame={frame}
           color="rgba(255, 50, 50, 0.5)"
-          maxRadius={100}
+          maxRadius={140}
         />
       )}
 
-      {frame >= 80 && frame < 80 + 25 && (
-        <PulseRing
-          x={490}
-          y={295}
-          startFrame={80}
-          currentFrame={frame}
-          color="rgba(74, 222, 128, 0.4)"
-          maxRadius={60}
-        />
-      )}
-
-      {frame >= 170 && frame < 170 + 25 && (
-        <PulseRing
-          x={490}
-          y={375}
-          startFrame={170}
-          currentFrame={frame}
-          color="rgba(74, 222, 128, 0.4)"
-          maxRadius={60}
-        />
-      )}
-
-      {frame >= 200 && (
+      {frame >= 178 && (
         <div style={{ position: "absolute", bottom: 180, left: 0, right: 0 }}>
           <KineticText
             text="You install first. And pray it works."
-            startFrame={200}
+            startFrame={178}
             currentFrame={frame}
             fontSize={28}
-            color="rgba(255,255,255,0.45)"
+            color="rgba(255,255,255,0.5)"
             fontWeight="400"
             staggerDelay={5}
           />
