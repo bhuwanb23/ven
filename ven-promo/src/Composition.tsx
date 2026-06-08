@@ -1,12 +1,6 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, interpolate, staticFile } from "remotion";
+import { AbsoluteFill, useCurrentFrame, interpolate, Sequence, staticFile } from "remotion";
 import { Audio } from "@remotion/media";
-import { TransitionSeries, springTiming } from "@remotion/transitions";
-import { slide } from "@remotion/transitions/slide";
-import { wipe } from "@remotion/transitions/wipe";
-import { zoomBlur } from "@remotion/transitions/zoom-blur";
-import { linearBlur } from "@remotion/transitions/linear-blur";
-import { crossZoom } from "@remotion/transitions/cross-zoom";
 import { Beat1Chaos } from "./scenes/Beat1Chaos";
 import { Beat2Reframe } from "./scenes/Beat2Reframe";
 import { Beat3Graph } from "./scenes/Beat3Graph";
@@ -18,15 +12,32 @@ import { AmbientDrone } from "./components/SoundFX";
 
 const CLAMP = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 
+const CrossfadeScene: React.FC<{
+  children: React.ReactNode;
+  sceneDuration: number;
+  fadeIn?: boolean;
+  fadeOut?: boolean;
+}> = ({ children, sceneDuration, fadeIn, fadeOut }) => {
+  const frame = useCurrentFrame();
+  let opacity = 1;
+  if (fadeIn) {
+    opacity = Math.min(opacity, interpolate(frame, [0, 20], [0, 1], CLAMP));
+  }
+  if (fadeOut) {
+    opacity = Math.min(opacity, interpolate(frame, [sceneDuration, sceneDuration + 20], [1, 0], CLAMP));
+  }
+  return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>;
+};
+
 export const VenPromo: React.FC = () => {
   const frame = useCurrentFrame();
 
-  const tenseVol = interpolate(frame, [400, 430], [0.5, 0], CLAMP);
+  const tenseVol = interpolate(frame, [390, 410], [0.5, 0], CLAMP);
   const hopefulVol = Math.min(
-    interpolate(frame, [420, 430], [0, 0.6], CLAMP),
-    interpolate(frame, [1250, 1270], [0.6, 0], CLAMP),
+    interpolate(frame, [390, 410], [0, 0.6], CLAMP),
+    interpolate(frame, [1170, 1190], [0.6, 0], CLAMP),
   );
-  const triumphantVol = interpolate(frame, [1255, 1270], [0, 0.65], CLAMP);
+  const triumphantVol = interpolate(frame, [1170, 1190], [0, 0.65], CLAMP);
 
   return (
     <AbsoluteFill style={{ background: "#131313" }}>
@@ -34,59 +45,48 @@ export const VenPromo: React.FC = () => {
       <Audio src={staticFile("assets/music-tense.mp3")} volume={tenseVol} />
       <Audio src={staticFile("assets/music-hopeful.mp3")} volume={hopefulVol} />
       <Audio src={staticFile("assets/music-triumphant.mp3")} volume={triumphantVol} />
-      <TransitionSeries>
-        <TransitionSeries.Sequence durationInFrames={210}>
+
+      <Sequence from={0} durationInFrames={230}>
+        <CrossfadeScene sceneDuration={210} fadeOut>
           <Beat1Chaos />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={wipe({ direction: "from-top" })}
-        />
+        </CrossfadeScene>
+      </Sequence>
 
-        <TransitionSeries.Sequence durationInFrames={180}>
+      <Sequence from={210} durationInFrames={200}>
+        <CrossfadeScene sceneDuration={180} fadeIn fadeOut>
           <Beat2Reframe />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={slide({ direction: "from-bottom" })}
-        />
+        </CrossfadeScene>
+      </Sequence>
 
-        <TransitionSeries.Sequence durationInFrames={360}>
+      <Sequence from={390} durationInFrames={380}>
+        <CrossfadeScene sceneDuration={360} fadeIn fadeOut>
           <Beat3Graph />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={wipe({ direction: "from-left" })}
-        />
+        </CrossfadeScene>
+      </Sequence>
 
-        <TransitionSeries.Sequence durationInFrames={210}>
+      <Sequence from={750} durationInFrames={230}>
+        <CrossfadeScene sceneDuration={210} fadeIn fadeOut>
           <Beat4Autoswitch />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={zoomBlur()}
-        />
+        </CrossfadeScene>
+      </Sequence>
 
-        <TransitionSeries.Sequence durationInFrames={210}>
+      <Sequence from={960} durationInFrames={230}>
+        <CrossfadeScene sceneDuration={210} fadeIn fadeOut>
           <Beat5Languages />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={linearBlur({ overlayColor: "#131313", kernel: 20 })}
-        />
+        </CrossfadeScene>
+      </Sequence>
 
-        <TransitionSeries.Sequence durationInFrames={240}>
+      <Sequence from={1170} durationInFrames={260}>
+        <CrossfadeScene sceneDuration={240} fadeIn fadeOut>
           <Beat6Ghost />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={crossZoom()}
-        />
+        </CrossfadeScene>
+      </Sequence>
 
-        <TransitionSeries.Sequence durationInFrames={210}>
+      <Sequence from={1410} durationInFrames={210}>
+        <CrossfadeScene sceneDuration={210} fadeIn>
           <Beat7CTA />
-        </TransitionSeries.Sequence>
-      </TransitionSeries>
+        </CrossfadeScene>
+      </Sequence>
     </AbsoluteFill>
   );
 };
