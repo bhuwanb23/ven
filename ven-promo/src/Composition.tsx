@@ -7,7 +7,6 @@ import { wipe } from "@remotion/transitions/wipe";
 import { zoomBlur } from "@remotion/transitions/zoom-blur";
 import { linearBlur } from "@remotion/transitions/linear-blur";
 import { crossZoom } from "@remotion/transitions/cross-zoom";
-import { dissolve } from "@remotion/transitions/dissolve";
 import { Beat1Chaos } from "./scenes/Beat1Chaos";
 import { Beat2Reframe } from "./scenes/Beat2Reframe";
 import { Beat3Graph } from "./scenes/Beat3Graph";
@@ -41,7 +40,7 @@ export const VenPromo: React.FC = () => {
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition
           timing={springTiming({ config: { damping: 30, stiffness: 200 }, durationInFrames: 20 })}
-          presentation={dissolve()}
+          presentation={wipe({ direction: "from-top" })}
         />
 
         <TransitionSeries.Sequence durationInFrames={180}>
