@@ -717,7 +717,7 @@ fn done(ui: &mut Ui, state: &WizardState) {
 
         ui.add_space(16.0);
         ui.label(theme::caption(
-            "Open a new terminal and run `ven --version` to confirm.",
+            "Open a new terminal and run `ven --version` to confirm. If it still shows an old version, run `ven doctor` — another install may be winning on PATH.",
         ));
     });
 }

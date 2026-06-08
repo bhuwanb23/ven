@@ -902,8 +902,7 @@ fn build_upgrade_impact(
             continue;
         }
         let version = graph
-            .nodes
-            .get(from_pkg)
+            .first_node(from_pkg)
             .map(|n| n.version.clone())
             .unwrap_or_else(|| from_ver.to_string());
         let breaks = conflict_packages.contains(from_pkg);

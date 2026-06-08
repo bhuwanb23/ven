@@ -8,6 +8,15 @@ pub use activation::{
     ActivationResolve,
 };
 
+/// Canonical marker line that every `ven` shell hook prepends to its block.
+///
+/// Both `ven setup` (Windows) and `ven shell install` (PowerShell + bash) use
+/// this exact string as the "already installed?" sentinel so the installer
+/// doesn't append a *second* copy on re-run. Changing this string is a
+/// breaking change for users with a prior install — the new install code
+/// will then not detect the old block and may append a duplicate.
+pub const HOOK_MARKER: &str = "# ven-managed-hook-v2";
+
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
 // On Unix: read $SHELL env var
@@ -54,8 +63,12 @@ fn bash_zsh_hook() -> String {
 
     format!(
         r#"
+{HOOK_MARKER}
 # ven shell hook (bash/zsh) - Auto-switches runtimes on cd
-__VEN_ORIGINAL_PATH="$PATH"
+# __VEN_ORIGINAL_PATH is captured LAZILY on first __ven_activate call
+# (not at hook source time) so re-sourcing .bashrc mid-session cannot
+# pollute it with ven-prepended entries.
+__VEN_ORIGINAL_PATH=""
 __VEN_LAST_DIR=""
 __VEN_LAST_TOML_SIG=""
 __VEN_BIN="{ven_path}"
@@ -86,6 +99,9 @@ ven-use() {{
 }}
 
 __ven_activate() {{
+    if [ -z "$__VEN_ORIGINAL_PATH" ]; then
+        __VEN_ORIGINAL_PATH="$PATH"
+    fi
     local current_dir="$PWD"
     local sig
     sig=$(__ven_toml_sig "$current_dir")
@@ -105,6 +121,12 @@ __ven_activate() {{
         eval "$exports"
     else
         export PATH="$__VEN_ORIGINAL_PATH"
+        # Only clear vars ven itself sets on activation. Non-ven vars
+        # (JAVA_HOME, GOROOT, GOPATH, CARGO_HOME, RUSTUP_HOME, GEM_HOME,
+        # GEM_PATH) are *only ever set* by ven, never clobbered by the
+        # hook on transition out — the user may have set them by hand
+        # before cd'ing into a ven project, and silently unsetting them
+        # was a footgun. Use `ven shell deactivate` to fully clean.
         unset VEN_NODE_VERSION 2>/dev/null
         unset VEN_PYTHON_VERSION 2>/dev/null
         unset VEN_GO_VERSION 2>/dev/null
@@ -113,15 +135,9 @@ __ven_activate() {{
         unset VEN_DENO_VERSION 2>/dev/null
         unset VEN_BUN_VERSION 2>/dev/null
         unset VEN_RUBY_VERSION 2>/dev/null
-        unset GEM_HOME 2>/dev/null
-        unset GEM_PATH 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
-        unset GOROOT 2>/dev/null
-        unset GOPATH 2>/dev/null
-        unset CARGO_HOME 2>/dev/null
-        unset RUSTUP_HOME 2>/dev/null
-        unset JAVA_HOME 2>/dev/null
+        unset NODE_PATH 2>/dev/null
         unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
     fi
 }}
@@ -134,7 +150,9 @@ __ven_activate  # activate for current directory on shell start
 }
 
 fn fish_hook() -> String {
-    r#"
+    format!(
+        r#"
+{HOOK_MARKER}
 # ven shell hook (fish) — re-check on each prompt so new ven.toml in same dir is picked up
 set -g __VEN_ORIGINAL_PATH $PATH
 set -g __VEN_LAST_SIG ""
@@ -186,6 +204,9 @@ function __ven_on_prompt --on-event fish_prompt
         eval $exports
     else
         set -gx PATH $__VEN_ORIGINAL_PATH
+        # Only clear vars ven itself sets on activation. Non-ven vars
+        # (JAVA_HOME, GOROOT, etc.) are never clobbered by the hook on
+        # transition out — see the matching note in the bash hook.
         set -e VEN_NODE_VERSION 2>/dev/null
         set -e VEN_PYTHON_VERSION 2>/dev/null
         set -e VEN_GO_VERSION 2>/dev/null
@@ -194,20 +215,13 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_DENO_VERSION 2>/dev/null
         set -e VEN_BUN_VERSION 2>/dev/null
         set -e VEN_RUBY_VERSION 2>/dev/null
-        set -e GEM_HOME 2>/dev/null
-        set -e GEM_PATH 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
-        set -e GOROOT 2>/dev/null
-        set -e GOPATH 2>/dev/null
-        set -e CARGO_HOME 2>/dev/null
-        set -e RUSTUP_HOME 2>/dev/null
-        set -e JAVA_HOME 2>/dev/null
         set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
     end
 end
 "#
-    .to_string()
+    )
 }
 
 // PowerShell hook — Invoke-Expression + $env:PATH; Set-Location + prompt so
@@ -220,6 +234,7 @@ fn powershell_hook() -> String {
 
     format!(
         r#"
+{HOOK_MARKER}
 # ven shell hook (PowerShell) - Auto-switches runtimes on cd / Set-Location
 if (-not $global:VEN_ORIGINAL_PATH) {{
     $global:VEN_ORIGINAL_PATH = $env:PATH
@@ -280,70 +295,39 @@ function global:__ven_activate {{
             Invoke-Expression $script
             $global:VEN_LAST_ACTIVATE_WARN = $null
         }} elseif ($exit -ne 0) {{
-            $env:PATH = $global:VEN_ORIGINAL_PATH
-            if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
-            if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
-            if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
-            if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
-            if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-            if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
-            if (Test-Path Env:VEN_BUN_VERSION) {{ Remove-Item Env:VEN_BUN_VERSION }}
-            if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
-            if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
-            if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
-            if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
-            if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
-            if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
-            if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
-            if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
-            if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
-            if (Test-Path Env:JAVA_HOME) {{ Remove-Item Env:JAVA_HOME }}
+            __ven_clear_ven_state
             $key = "$current_dir|$exit"
             if ($global:VEN_LAST_ACTIVATE_WARN -ne $key) {{
                 Write-Warning "ven: could not activate in `"$current_dir`" (exit $exit). Install required runtimes or fix ven.toml. Try: ven shell activate `"$current_dir`""
                 $global:VEN_LAST_ACTIVATE_WARN = $key
             }}
         }} else {{
-            $env:PATH = $global:VEN_ORIGINAL_PATH
-            if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
-            if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
-            if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
-            if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
-            if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-            if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
-            if (Test-Path Env:VEN_BUN_VERSION) {{ Remove-Item Env:VEN_BUN_VERSION }}
-            if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
-            if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
-            if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
-            if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
-            if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
-            if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
-            if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
-            if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
-            if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
-            if (Test-Path Env:JAVA_HOME) {{ Remove-Item Env:JAVA_HOME }}
-            if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
+            __ven_clear_ven_state
         }}
     }} catch {{
-        $env:PATH = $global:VEN_ORIGINAL_PATH
-        if (Test-Path Env:VEN_NODE_VERSION) {{ Remove-Item Env:VEN_NODE_VERSION }}
-        if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
-        if (Test-Path Env:VEN_GO_VERSION) {{ Remove-Item Env:VEN_GO_VERSION }}
-        if (Test-Path Env:VEN_RUST_VERSION) {{ Remove-Item Env:VEN_RUST_VERSION }}
-        if (Test-Path Env:VEN_JAVA_VERSION) {{ Remove-Item Env:VEN_JAVA_VERSION }}
-        if (Test-Path Env:VEN_DENO_VERSION) {{ Remove-Item Env:VEN_DENO_VERSION }}
-        if (Test-Path Env:VEN_BUN_VERSION) {{ Remove-Item Env:VEN_BUN_VERSION }}
-        if (Test-Path Env:VEN_RUBY_VERSION) {{ Remove-Item Env:VEN_RUBY_VERSION }}
-        if (Test-Path Env:GEM_HOME) {{ Remove-Item Env:GEM_HOME }}
-        if (Test-Path Env:GEM_PATH) {{ Remove-Item Env:GEM_PATH }}
-        if (Test-Path Env:VEN_TOML) {{ Remove-Item Env:VEN_TOML }}
-        if (Test-Path Env:VIRTUAL_ENV) {{ Remove-Item Env:VIRTUAL_ENV }}
-        if (Test-Path Env:GOROOT) {{ Remove-Item Env:GOROOT }}
-        if (Test-Path Env:GOPATH) {{ Remove-Item Env:GOPATH }}
-        if (Test-Path Env:CARGO_HOME) {{ Remove-Item Env:CARGO_HOME }}
-        if (Test-Path Env:RUSTUP_HOME) {{ Remove-Item Env:RUSTUP_HOME }}
-        if (Test-Path Env:JAVA_HOME) {{ Remove-Item Env:JAVA_HOME }}
+        __ven_clear_ven_state
     }}
+}}
+
+# Restore the shell to its pre-ven state. Only clears vars ven itself owns
+# (VEN_* and VIRTUAL_ENV). Non-ven vars (JAVA_HOME, GOROOT, GOPATH, etc.)
+# are NEVER touched here — they may have been set by the user in their
+# profile before the hook first fired, and clobbering them on cd-out was a
+# footgun. Use `ven shell deactivate` for a full clear.
+function global:__ven_clear_ven_state {{
+    $env:PATH = $global:VEN_ORIGINAL_PATH
+    if (Test-Path Env:VEN_NODE_VERSION)    {{ Remove-Item Env:VEN_NODE_VERSION }}
+    if (Test-Path Env:VEN_PYTHON_VERSION) {{ Remove-Item Env:VEN_PYTHON_VERSION }}
+    if (Test-Path Env:VEN_GO_VERSION)      {{ Remove-Item Env:VEN_GO_VERSION }}
+    if (Test-Path Env:VEN_RUST_VERSION)   {{ Remove-Item Env:VEN_RUST_VERSION }}
+    if (Test-Path Env:VEN_JAVA_VERSION)   {{ Remove-Item Env:VEN_JAVA_VERSION }}
+    if (Test-Path Env:VEN_DENO_VERSION)   {{ Remove-Item Env:VEN_DENO_VERSION }}
+    if (Test-Path Env:VEN_BUN_VERSION)     {{ Remove-Item Env:VEN_BUN_VERSION }}
+    if (Test-Path Env:VEN_RUBY_VERSION)   {{ Remove-Item Env:VEN_RUBY_VERSION }}
+    if (Test-Path Env:VEN_TOML)            {{ Remove-Item Env:VEN_TOML }}
+    if (Test-Path Env:VIRTUAL_ENV)         {{ Remove-Item Env:VIRTUAL_ENV }}
+    if (Test-Path Env:NODE_PATH)           {{ Remove-Item Env:NODE_PATH }}
+    if (Test-Path Env:VEN_SKIP_PROJECT_VENV) {{ Remove-Item Env:VEN_SKIP_PROJECT_VENV }}
 }}
 
 # Wrap Set-Location so `cd` / Set-Location always re-run activation (prompt alone misses some hosts)
@@ -430,5 +414,50 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
         ActivationResolve::Ready(parts) => Ok(ComputeExportsOutcome::Success(
             activation::format_activation_shell_script(&parts),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Hook-marker must be a single source of truth. Changing it must break
+    /// this test so we don't re-introduce duplicate installs.
+    #[test]
+    fn hook_marker_is_canonical() {
+        assert_eq!(HOOK_MARKER, "# ven-managed-hook-v2");
+        assert!(HOOK_MARKER.starts_with("# "));
+        assert!(!HOOK_MARKER.contains('\n'));
+    }
+
+    /// The bash hook must embed the canonical marker so that running
+    /// `ven setup` on Unix is idempotent.
+    #[test]
+    fn bash_hook_embeds_marker() {
+        let hook = generate_hook("bash");
+        assert!(
+            hook.contains(HOOK_MARKER),
+            "bash hook missing canonical marker"
+        );
+    }
+
+    /// The PowerShell hook must embed the canonical marker.
+    #[test]
+    fn powershell_hook_embeds_marker() {
+        let hook = generate_hook("powershell");
+        assert!(
+            hook.contains(HOOK_MARKER),
+            "powershell hook missing canonical marker"
+        );
+    }
+
+    /// The fish hook must embed the canonical marker.
+    #[test]
+    fn fish_hook_embeds_marker() {
+        let hook = generate_hook("fish");
+        assert!(
+            hook.contains(HOOK_MARKER),
+            "fish hook missing canonical marker"
+        );
     }
 }

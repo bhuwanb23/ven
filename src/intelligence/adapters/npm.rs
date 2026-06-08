@@ -6,10 +6,12 @@ use crate::intelligence::graph::{
     CheckAddResult, EdgeKind, IntelEdge, IntelGraph, IntelNode, RuntimeKind,
 };
 use anyhow::{anyhow, Result};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub struct NpmGraphBuilder {
-    pub nodes: HashMap<String, IntelNode>,
+    /// Multi-version node map: package name -> (resolved version -> IntelNode).
+    /// A package with more than one entry in the inner map is a diamond dep.
+    pub nodes: BTreeMap<String, BTreeMap<semver::Version, IntelNode>>,
     pub edges: Vec<IntelEdge>,
     registry: NpmRegistry,
     runtime_version: String,
@@ -19,7 +21,7 @@ pub struct NpmGraphBuilder {
 impl NpmGraphBuilder {
     pub fn new(runtime_version: String, runtime_kind: RuntimeKind) -> Result<Self> {
         Ok(Self {
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             edges: Vec::new(),
             registry: NpmRegistry::new()?,
             runtime_version,
@@ -57,7 +59,15 @@ impl NpmGraphBuilder {
                 .get(name)
                 .map(|s| s.as_str())
                 .unwrap_or("latest");
-            if self.nodes.contains_key(name) {
+            // Already-resolved means we have *some* version of `name`. With
+            // multi-version storage, the same root with a different constraint
+            // is a legitimate conflict — we *want* to record both. We only
+            // skip if the exact (name, version) pair is already present.
+            if self
+                .nodes
+                .get(name)
+                .map_or(false, |m| m.values().any(|n| n.version == version))
+            {
                 continue;
             }
             self.build_package(name, version, existing_packages).await?;
@@ -87,10 +97,11 @@ impl NpmGraphBuilder {
     }
 
     async fn add_peer_edges(&mut self) -> Result<()> {
+        // Snapshot: every (name, version) pair currently in the graph.
         let snapshot: Vec<(String, String)> = self
             .nodes
             .iter()
-            .map(|(k, n)| (k.clone(), n.version.clone()))
+            .flat_map(|(name, m)| m.values().map(|n| (name.clone(), n.version.clone())))
             .collect();
 
         for (pkg_name, pkg_version) in snapshot {
@@ -104,9 +115,13 @@ impl NpmGraphBuilder {
             let peers = vm.peer_dependencies.clone().unwrap_or_default();
             let from = format!("{}@{}", pkg_name, pkg_version);
             for (peer_name, constraint) in peers {
+                // For peer edges, point at the *first* resolved version we
+                // have for the peer. The conflict detector (conflicts.rs)
+                // will re-check every version against the constraint.
                 let resolved_ver = self
                     .nodes
                     .get(&peer_name)
+                    .and_then(|m| m.values().next())
                     .map(|n| n.version.clone())
                     .unwrap_or_else(|| "?".into());
                 let to = format!("{}@{}", peer_name, resolved_ver);
@@ -149,11 +164,29 @@ impl NpmGraphBuilder {
                 kind: EdgeKind::Dependency,
             });
 
-            if self.nodes.contains_key(dep_name) {
-                if let Some(node) = self.nodes.get_mut(dep_name) {
-                    node.required_by.push(edge_from);
+            // Parse the resolved version into semver (if possible — npm allows
+            // non-semver tags like "next" or "beta-1"; in that case the
+            // conflict check simply won't trigger but we still record the
+            // edge).
+            let parsed = semver::Version::parse(&dep_version).ok();
+
+            let already_same_version = parsed
+                .as_ref()
+                .and_then(|v| self.nodes.get(dep_name).and_then(|m| m.get(v)))
+                .is_some();
+
+            if already_same_version {
+                // Same name + same version is just another edge into the same
+                // node. Push to required_by.
+                if let (Some(v), Some(inner)) = (parsed.as_ref(), self.nodes.get_mut(dep_name)) {
+                    if let Some(node) = inner.get_mut(v) {
+                        node.required_by.push(edge_from);
+                    }
                 }
             } else {
+                // New name OR same name with a *different* resolved version.
+                // In the latter case, this is a diamond dep — record BOTH
+                // versions. The conflict detector will surface it.
                 self.add_node(
                     dep_name,
                     &dep_version,
@@ -200,7 +233,24 @@ impl NpmGraphBuilder {
             required_by: required_by.map(|s| vec![s.to_string()]).unwrap_or_default(),
             integrity,
         };
-        self.nodes.insert(name.to_string(), node);
+
+        // Insert at the (name, semver-Version) key. If the version is
+        // non-semver (e.g. "next"), use a fallback key under a
+        // pseudo-version derived from the string so we can still store
+        // it without panicking.
+        let key = semver::Version::parse(version).unwrap_or_else(|_| {
+            // Synthesise a Version with the original string baked into pre
+            // and a build metadata. This is only reached for non-semver
+            // tags, which are rare in practice.
+            let mut v = semver::Version::new(0, 0, 0);
+            v.pre = semver::Prerelease::new(&format!("ven-{}", version.replace('.', "_"))).unwrap();
+            v
+        });
+
+        self.nodes
+            .entry(name.to_string())
+            .or_default()
+            .insert(key, node);
         Ok(())
     }
 }

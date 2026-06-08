@@ -253,7 +253,7 @@ pub fn cmd_add(
                     "  {} {} will install: {} total packages",
                     "[OK]".green(),
                     pkg.name,
-                    result.graph.nodes.len()
+                    result.graph.node_count()
                 );
 
                 let key = DependencyIntelligenceService::project_key(&cwd);
@@ -293,7 +293,7 @@ pub fn cmd_add(
 
     let total_packages: u32 = all_results
         .iter()
-        .map(|(_, r)| r.graph.nodes.len() as u32)
+        .map(|(_, r)| r.graph.node_count() as u32)
         .sum();
     println!(
         "    {} {} packages to install",
@@ -308,8 +308,7 @@ pub fn cmd_add(
             let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
             let resolved_version = result
                 .graph
-                .nodes
-                .get(pkg_name)
+                .first_node(pkg_name)
                 .map(|n| n.version.clone())
                 .unwrap_or_else(|| "unknown".to_string());
 
@@ -320,14 +319,13 @@ pub fn cmd_add(
                 resolved_version.bold()
             );
 
-            let transitive_deps = result.graph.nodes.len().saturating_sub(1);
+            let transitive_deps = result.graph.node_count().saturating_sub(1);
             println!(
                 "      {} {} direct + {} transitive dependencies",
                 "├".dimmed(),
                 result
                     .graph
-                    .nodes
-                    .get(pkg_name)
+                    .first_node(pkg_name)
                     .map(|n| n.dependencies.len())
                     .unwrap_or(0),
                 transitive_deps
@@ -370,8 +368,10 @@ pub fn cmd_add(
     println!("\n  {}", "Security Audit".bold().cyan());
     let mut all_packages: HashMap<String, String> = HashMap::new();
     for (_, result) in &all_results {
-        for (name, node) in &result.graph.nodes {
-            all_packages.insert(name.clone(), node.version.clone());
+        for (name, versions) in &result.graph.nodes {
+            for (_, node) in versions {
+                all_packages.insert(name.clone(), node.version.clone());
+            }
         }
     }
 
@@ -478,8 +478,7 @@ pub fn cmd_add(
 
         let version_to_install = result
             .graph
-            .nodes
-            .get(pkg_name)
+            .first_node(pkg_name)
             .map(|node| node.version.clone())
             .unwrap_or_else(|| {
                 if let Some(ref v) = pkg.pinned_version {

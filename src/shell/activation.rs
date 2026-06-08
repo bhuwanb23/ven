@@ -31,6 +31,67 @@ pub fn path_for_env_value(p: &Path) -> String {
     }
 }
 
+/// Path-separator for `$PATH` on this platform. Windows uses `;`, Unix uses `:`.
+pub fn path_separator() -> &'static str {
+    if cfg!(target_os = "windows") { ";" } else { ":" }
+}
+
+/// Split a `PATH`-style string into entries, dropping empty strings
+/// (the leading or trailing separator produces one).
+fn split_path_entries<'a>(path: &'a str, sep: &'a str) -> Vec<&'a str> {
+    path.split(sep).filter(|s| !s.is_empty()).collect()
+}
+
+/// Remove duplicate entries from the **ven-prepended** region of `current`,
+/// leaving the user's tail (the suffix that contains an original-path entry)
+/// intact.
+///
+/// **Why this exists**: the bash/zsh/fish/powershell hook prepends a fixed
+/// list of bin dirs to `$PATH` on every `cd` that lands in a ven project.
+/// If the user cd's in and out repeatedly, `$PATH` grows by `N` entries per
+/// cd. A user that toggles between two projects 50 times ends up with 50
+/// copies of each ven bin dir, which (a) makes `$PATH` balloon, (b) slows
+/// every shell exec, and (c) obscures anything the user adds themselves.
+///
+/// **Algorithm**:
+///   1. Split `current` and `original` on the path separator.
+///   2. Find the first index in `current` whose entry also appears in
+///      `original` — everything up to that index is the "ven region".
+///   3. Deduplicate entries within the ven region (first occurrence wins).
+///   4. Append the tail (`current[ven_end..]`) unchanged.
+///
+/// This is robust to the user inserting new entries between ven and the
+/// original (they end up in the tail, untouched), and to the user
+/// rearranging entries in the original (we only test set membership for
+/// the boundary, not order).
+pub fn dedup_ven_path(current_path: &str, original_path: &str, sep: &str) -> String {
+    let current = split_path_entries(current_path, sep);
+    let original = split_path_entries(original_path, sep);
+
+    // Find the boundary: the first index in `current` whose entry is
+    // part of the original. Everything before is "ven's region".
+    let mut ven_end = current.len();
+    for (i, entry) in current.iter().enumerate() {
+        if original.contains(entry) {
+            ven_end = i;
+            break;
+        }
+    }
+
+    // Deduplicate within the ven region, preserving first-occurrence order.
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut deduped_ven: Vec<&str> = Vec::with_capacity(ven_end);
+    for entry in &current[..ven_end] {
+        if seen.insert(*entry) {
+            deduped_ven.push(*entry);
+        }
+    }
+
+    let mut result: Vec<&str> = deduped_ven;
+    result.extend_from_slice(&current[ven_end..]);
+    result.join(sep)
+}
+
 /// Resolved toolchain layout from a project directory (same inputs as shell activation).
 #[derive(Debug, Clone)]
 pub struct ActivationParts {
@@ -558,7 +619,10 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
         }
         out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", parts.toml_normalized));
         for (key, val) in &parts.ven_user_env {
-            out.push_str(&format!("$env:{} = \"{}\"\n", key, val));
+            if let Some(line) = env_assignment_powershell(key, val) {
+                out.push_str(&line);
+                out.push('\n');
+            }
         }
         out
     } else {
@@ -657,10 +721,218 @@ unset JAVA_HOME 2>/dev/null || true
         }
         out.push_str(&format!("export VEN_TOML=\"{}\"\n", parts.toml_normalized));
         for (key, val) in &parts.ven_user_env {
-            out.push_str(&format!("export {}=\"{}\"\n", key, val));
+            if let Some(line) = env_assignment_posix(key, val) {
+                out.push_str(&line);
+                out.push('\n');
+            }
         }
         out
     };
 
     exports
+}
+
+/// True iff `key` is a legal environment-variable name on every POSIX
+/// system we target (and also a legal PowerShell `$env:NAME`). Reject
+/// anything else: keys with `;`, `(`, `)`, newlines, or spaces would
+/// otherwise produce shell-injectable fragments when concatenated into
+/// the activation script.
+pub fn is_valid_env_key(key: &str) -> bool {
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(c) if c == '_' || c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+}
+
+/// Produce a single PowerShell `$env:KEY = "value"` line for the
+/// `[env]` table in `ven.toml`.
+///
+/// - Rejects keys that aren't a legal env name (returns `None`).
+/// - Escapes embedded `"` to `""` (PowerShell string-literal escape).
+/// - Prefixes a leading `$` or backtick with a backtick so PowerShell
+///   doesn't try to expand them.
+pub fn env_assignment_powershell(key: &str, val: &str) -> Option<String> {
+    if !is_valid_env_key(key) {
+        return None;
+    }
+    let mut escaped = String::with_capacity(val.len());
+    let mut prev = '\0';
+    for c in val.chars() {
+        if c == '`' || (c == '$' && prev != '`') {
+            escaped.push('`');
+        }
+        if c == '"' {
+            escaped.push('"');
+        }
+        escaped.push(c);
+        prev = c;
+    }
+    Some(format!("$env:{} = \"{}\"", key, escaped))
+}
+
+/// Produce a single POSIX `export KEY="value"` line for the `[env]`
+/// table in `ven.toml`.
+///
+/// - Rejects keys that aren't a legal env name (returns `None`).
+/// - Wraps the value in single quotes and escapes any embedded `'`
+///   with the canonical `'\''` sequence, which is the only safe form
+///   inside a single-quoted POSIX string.
+pub fn env_assignment_posix(key: &str, val: &str) -> Option<String> {
+    if !is_valid_env_key(key) {
+        return None;
+    }
+    let escaped = val.replace('\'', "'\\''");
+    Some(format!("export {}='{}'", key, escaped))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_valid_env_key_accepts_normal_names() {
+        assert!(is_valid_env_key("FOO"));
+        assert!(is_valid_env_key("_PRIVATE"));
+        assert!(is_valid_env_key("PATH"));
+        assert!(is_valid_env_key("CamelCase"));
+        assert!(is_valid_env_key("MIXED_case_123"));
+    }
+
+    #[test]
+    fn is_valid_env_key_rejects_injection_payloads() {
+        assert!(!is_valid_env_key(""));
+        assert!(!is_valid_env_key("1FOO"));            // leading digit
+        assert!(!is_valid_env_key("FOO BAR"));          // space
+        assert!(!is_valid_env_key("FOO;rm -rf /"));    // shell metachar
+        assert!(!is_valid_env_key("FOO$(whoami)"));     // command sub
+        assert!(!is_valid_env_key("FOO`bar"));          // backtick
+        assert!(!is_valid_env_key("FOO\nBAR"));         // newline
+        assert!(!is_valid_env_key("FOO'BAR"));          // single quote
+    }
+
+    /// A value containing a single quote must be escaped with the standard
+    /// `'\''` sequence so a shell that re-evaluates the line still ends up
+    /// with the original string. Without this, a `[env] FOO = "x'; rm -rf /"`
+    /// would execute `rm -rf /` at the next `eval`.
+    #[test]
+    fn posix_escapes_embedded_single_quote() {
+        let line = env_assignment_posix("FOO", "x'; rm -rf /").unwrap();
+        // The escape replaces ' with '\''  (close, literal ', reopen).
+        // Hand-evaluated: opens with ', then x, then ' closes; '\'' opens a
+        // new quoted string with one literal ', then '; rm -rf /' is plain.
+        // Net result: variable holds "x'; rm -rf /" verbatim.
+        assert_eq!(line, "export FOO='x'\\'' rm -rf /'");
+    }
+
+    /// A value with a leading `$` or backtick must be escaped so PowerShell
+    /// doesn't try to expand a sub-expression. Embedded `"` doubles to `""`.
+    #[test]
+    fn powershell_escapes_dollar_and_doublequote() {
+        let line = env_assignment_powershell("FOO", "a\"b$(evil)").unwrap();
+        // embedded " -> "", $ at start of a sub-expression -> `$
+        assert_eq!(line, "$env:FOO = \"a\"\"b`$(evil)\"");
+    }
+
+    #[test]
+    fn powershell_escapes_leading_dollar() {
+        let line = env_assignment_powershell("X", "$danger").unwrap();
+        assert_eq!(line, "$env:X = \"`$danger\"");
+    }
+
+    #[test]
+    fn posix_happy_path() {
+        assert_eq!(
+            env_assignment_posix("FOO", "bar").unwrap(),
+            "export FOO='bar'"
+        );
+        assert_eq!(
+            env_assignment_posix("EMPTY", "").unwrap(),
+            "export EMPTY=''"
+        );
+    }
+
+    #[test]
+    fn powershell_happy_path() {
+        assert_eq!(
+            env_assignment_powershell("FOO", "bar").unwrap(),
+            "$env:FOO = \"bar\""
+        );
+    }
+
+    #[test]
+    fn invalid_keys_return_none_for_both_shells() {
+        assert!(env_assignment_powershell("FOO BAR", "x").is_none());
+        assert!(env_assignment_posix("FOO;BAR", "x").is_none());
+        assert!(env_assignment_powershell("1FOO", "x").is_none());
+        assert!(env_assignment_posix("", "x").is_none());
+    }
+
+    // --- dedup_ven_path -------------------------------------------------
+
+    /// The ballooning scenario: hook has prepended ven-bin twice, original
+    /// is the user's startup PATH. After dedup, ven-bin should appear once
+    /// at the front.
+    #[test]
+    fn dedup_ven_path_removes_duplicate_ven_entries() {
+        let current = "/ven-bin:/a:/b:/ven-bin:/a:/b";
+        let original = "/a:/b";
+        let result = dedup_ven_path(current, original, ":");
+        assert_eq!(result, "/ven-bin:/a:/b");
+    }
+
+    /// If `current` already looks clean, leave it alone.
+    #[test]
+    fn dedup_ven_path_no_change_when_clean() {
+        let current = "/ven-bin:/a:/b";
+        let original = "/a:/b";
+        assert_eq!(dedup_ven_path(current, original, ":"), current);
+    }
+
+    /// User inserts a new entry between ven and the original: keep it.
+    #[test]
+    fn dedup_ven_path_preserves_user_inserted_entries() {
+        // current = [ven-region] [user-added] [original-tail]
+        // Here the user inserted /my-tool *after* ven-bin and *before* /a.
+        let current = "/ven-bin:/my-tool:/a:/b";
+        let original = "/a:/b";
+        assert_eq!(
+            dedup_ven_path(current, original, ":"),
+            "/ven-bin:/my-tool:/a:/b"
+        );
+    }
+
+    /// User wipes the original entirely (e.g., `export PATH=/x` in shell).
+    /// We can't know what they wanted, so just dedup within current.
+    #[test]
+    fn dedup_ven_path_handles_missing_original() {
+        let current = "/ven-bin:/x:/ven-bin";
+        let original = "/nope";
+        assert_eq!(dedup_ven_path(current, original, ":"), "/ven-bin:/x");
+    }
+
+    /// Windows path separator is `;`; smoke-test it.
+    #[test]
+    fn dedup_ven_path_uses_provided_separator() {
+        let current = "C:\\ven;C:\\a;C:\\ven;C:\\a";
+        let original = "C:\\a";
+        assert_eq!(dedup_ven_path(current, original, ";"), "C:\\ven;C:\\a");
+    }
+
+    /// Empty input is a no-op.
+    #[test]
+    fn dedup_ven_path_empty() {
+        assert_eq!(dedup_ven_path("", "", ":"), "");
+    }
+
+    #[test]
+    fn path_separator_matches_platform() {
+        let s = path_separator();
+        if cfg!(target_os = "windows") {
+            assert_eq!(s, ";");
+        } else {
+            assert_eq!(s, ":");
+        }
+    }
 }

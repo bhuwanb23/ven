@@ -1,5 +1,6 @@
 use crate::shell::{
     generate_hook, try_compute_exports, windows_powershell_profile_paths, ComputeExportsOutcome,
+    HOOK_MARKER,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -19,8 +20,6 @@ pub fn cmd_shell_hook(shell: &str) -> Result<()> {
 pub fn cmd_shell_install() -> Result<()> {
     println!("  {} Installing ven shell hook...", "🔧".cyan());
 
-    const PS_HOOK_MARKER: &str = "# ven shell hook (PowerShell)";
-
     if cfg!(target_os = "windows") {
         let home = PathBuf::from(std::env::var("USERPROFILE")?);
         let hook_code = generate_hook("powershell");
@@ -37,7 +36,7 @@ pub fn cmd_shell_install() -> Result<()> {
                 String::new()
             };
 
-            if existing_content.contains(PS_HOOK_MARKER) {
+            if existing_content.contains(HOOK_MARKER) {
                 continue;
             }
 
@@ -98,7 +97,7 @@ pub fn cmd_shell_install() -> Result<()> {
         String::new()
     };
 
-    if existing_content.contains("# ven shell hook") {
+    if existing_content.contains(HOOK_MARKER) {
         println!("  {} ven hook already installed in profile", "✅".green());
         println!("  {} {}", "Profile:".dimmed(), profile_path.display());
         return Ok(());

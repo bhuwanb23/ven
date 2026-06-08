@@ -14,7 +14,7 @@ use crate::intelligence::graph::{
 use crate::intelligence::suggestions::merge_suggestions;
 use anyhow::Result;
 use async_trait::async_trait;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Build a normalized dependency graph and run constraint checks (per ecosystem).
 ///
@@ -205,23 +205,22 @@ impl DependencyRuntimeAdapter for GenericStubAdapter {
         &self,
         manifest_packages: &HashMap<String, String>,
     ) -> Result<IntelGraph> {
-        let mut nodes = HashMap::new();
+        let mut nodes: BTreeMap<String, BTreeMap<semver::Version, IntelNode>> = BTreeMap::new();
         for (name, pinned) in manifest_packages {
-            nodes.insert(
-                name.clone(),
-                IntelNode {
-                    name: name.clone(),
-                    version: pinned.clone(),
-                    depth: 0,
-                    dependencies: HashMap::new(),
-                    engines_node: None,
-                    deprecated: None,
-                    license: None,
-                    size_bytes: None,
-                    required_by: Vec::new(),
-                    integrity: None,
-                },
-            );
+            let ver = semver::Version::parse(pinned).unwrap_or_else(|_| semver::Version::new(0, 0, 0));
+            let node = IntelNode {
+                name: name.clone(),
+                version: pinned.clone(),
+                depth: 0,
+                dependencies: HashMap::new(),
+                engines_node: None,
+                deprecated: None,
+                license: None,
+                size_bytes: None,
+                required_by: Vec::new(),
+                integrity: None,
+            };
+            nodes.entry(name.clone()).or_default().insert(ver, node);
         }
         Ok(IntelGraph {
             runtime_kind: self.kind.clone(),

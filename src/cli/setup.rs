@@ -1,4 +1,4 @@
-use crate::shell::{detect_shell, windows_powershell_profile_paths};
+use crate::shell::{detect_shell, windows_powershell_profile_paths, HOOK_MARKER};
 use anyhow::Result;
 use colored::Colorize;
 use std::io::Write;
@@ -13,13 +13,11 @@ pub fn cmd_setup() -> Result<()> {
 
     let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?;
 
-    const WIN_HOOK_MARKER: &str = "# ven-managed-hook-v2";
-
     if cfg!(target_os = "windows") {
         // Avoid Out-String (can mangle hook output); load hook lines then Invoke-Expression.
         // Install into every common profile so pwsh, Windows PowerShell, and Cursor/VS Code all load it.
         let hook_block = format!(
-            "\n{WIN_HOOK_MARKER}\n\
+            "\n{HOOK_MARKER}\n\
 # ven shell hook — requires `ven` on PATH\n\
 $_ven = Get-Command ven -ErrorAction SilentlyContinue\n\
 if ($_ven) {{\n\
@@ -35,7 +33,7 @@ if ($_ven) {{\n\
         let mut any_new = false;
         for rc_file in windows_powershell_profile_paths(&home) {
             let existing = std::fs::read_to_string(&rc_file).unwrap_or_default();
-            if existing.contains(WIN_HOOK_MARKER) {
+            if existing.contains(HOOK_MARKER) {
                 println!(
                     "  {} {}",
                     "✓".green(),
@@ -88,7 +86,7 @@ if ($_ven) {{\n\
     );
 
     let existing = std::fs::read_to_string(&rc_file).unwrap_or_default();
-    if existing.contains("ven shell hook") {
+    if existing.contains(HOOK_MARKER) {
         println!(
             "  {} {}",
             "✓".green(),

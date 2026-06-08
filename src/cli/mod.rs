@@ -6,6 +6,7 @@ pub mod add;
 pub mod check;
 pub mod check_add;
 pub mod delete;
+pub mod doctor;
 pub mod docs;
 pub mod graph;
 pub mod init;
@@ -557,6 +558,24 @@ pub enum Commands {
     )]
     Setup,
 
+    /// Diagnose multiple ven installs, PATH shadowing, and upgrade paths
+    ///
+    /// Scans known install locations and every `ven` on PATH, then prints
+    /// versions, writability, and actionable hints (e.g. old system install
+    /// shadowing a newer user copy).
+    ///
+    /// Examples:
+    ///   ven doctor
+    ///   ven doctor --json
+    #[command(
+        long_about = "Diagnose ven installation health.\n\nLists every ven binary found in known locations (~/.ven/bin,\n%ProgramFiles%\\ven\\bin, /usr/local/bin, and PATH), shows which one\nPATH resolves first, and prints hints when multiple versions coexist or\nwhen PATH points at a build too old for `ven update` (< v0.1.7).\n\nExamples:\n  ven doctor\n  ven doctor --json"
+    )]
+    Doctor {
+        /// Machine-readable report
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Update ven itself to the latest release (self-update)
     ///
     /// Detects the install location of the running `ven` binary, fetches the
@@ -772,6 +791,7 @@ pub fn run(cli: Cli) -> Result<()> {
             json,
         } => docs::cmd_docs(&package, browser, diff.as_deref(), json),
         Commands::Setup => setup::cmd_setup(),
+        Commands::Doctor { json } => doctor::cmd_doctor(json),
         Commands::Update {
             check,
             version,

@@ -51,7 +51,7 @@ const FAQ = [
   },
   {
     q: 'How do I upgrade ven once it\'s installed?',
-    a: 'Run `ven update`. Since v0.1.7 ven self-updates: it detects whether you installed in user-mode (`~/.ven/bin`) or system-mode (`%ProgramFiles%\\ven\\bin` / `/usr/local/bin`), downloads the platform-specific combined release asset, verifies it against the release\'s SHA256SUMS manifest, and swaps both `ven` and `ven-launcher` in place. System installs auto-elevate through UAC on Windows or `sudo` on Unix. Use `ven update --check` to see what\'s available without applying, or `ven update --version v0.1.6` to roll back. Do NOT confuse it with `ven upgrade` — that one upgrades project packages (npm / pip / cargo / …), not ven itself.',
+    a: 'Since v0.1.7, run `ven update` on a binary that already supports it — it swaps `ven` + `ven-launcher` in place (user or system install, SHA256-verified, UAC/sudo when needed). If you see `unrecognized subcommand update`, your PATH is hitting an older ven: bootstrap once with the install one-liner or `ven-setup`, then use `ven update`. When two installs exist (e.g. `%ProgramFiles%\\ven\\bin` and `~/.ven/bin`), Machine PATH on Windows can shadow the newer copy — run `ven doctor` for a full report. Do NOT confuse `ven update` with `ven upgrade` (project packages).',
   },
 ]
 
@@ -866,6 +866,34 @@ export default function Install() {
                 tone="cyan"
                 language="shell"
               />
+            </div>
+
+            <div>
+              <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+                <h3 className="font-headline-md text-lg font-bold text-primary-fixed-dim">
+                  Bootstrap from ven &lt; 0.1.7
+                </h3>
+                <span className="text-xs text-on-surface-variant opacity-70">
+                  no `ven update` subcommand yet
+                </span>
+              </header>
+              <CodeBlock
+                code={
+                  'powershell\n$env:VEN_FORCE_INSTALL = \'true\'\nirm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex\n\n# Unix\nVEN_FORCE_INSTALL=true curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh'
+                }
+                prompt=""
+                tone="cyan"
+                language="shell"
+              />
+            </div>
+
+            <div>
+              <header className="flex items-baseline gap-3 mb-3 flex-wrap">
+                <h3 className="font-headline-md text-lg font-bold text-primary-fixed-dim">
+                  Diagnose PATH / dual installs
+                </h3>
+              </header>
+              <CodeBlock code={'ven doctor'} prompt="$" tone="cyan" language="shell" />
             </div>
 
             <div>

@@ -5,7 +5,7 @@ use crate::intelligence::graph::{EdgeKind, IntelEdge, IntelGraph, IntelNode, Run
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -69,7 +69,14 @@ pub struct VenLockFile {
 }
 
 impl VenLockFile {
-    /// Read and verify `content_hash` when present.
+    /// Read and verify `content_hash`.
+    ///
+    /// **v2 lockfiles MUST carry a `content_hash`**. A missing hash on a v2
+    /// file is treated as tampering: an attacker who can edit the lockfile
+    /// can also strip the hash, so accepting an unverified v2 file defeats
+    /// the integrity guarantee. v1 lockfiles (the legacy format) are still
+    /// read successfully — they predate the hash field — and the caller is
+    /// expected to upgrade them via `ven lock`.
     pub fn read_path(path: &Path) -> Result<Self> {
         let raw = fs::read_to_string(path).with_context(|| format!("Failed to read {:?}", path))?;
         let lock: VenLockFile = serde_json::from_str(&raw)
@@ -87,6 +94,12 @@ impl VenLockFile {
                     recomputed
                 ));
             }
+        } else if lock.lock_format_version >= LOCK_FORMAT_VERSION {
+            return Err(anyhow!(
+                "ven.lock v{} is missing content_hash (required for v{}). Re-run `ven lock` to regenerate.",
+                lock.lock_format_version,
+                LOCK_FORMAT_VERSION
+            ));
         }
         Ok(lock)
     }
@@ -104,7 +117,7 @@ impl VenLockFile {
         let mut merged = IntelGraph {
             runtime_kind: runtime_kind.clone(),
             runtime_version: runtime_version.clone(),
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             edges: Vec::new(),
         };
         for g in graphs {
@@ -116,15 +129,22 @@ impl VenLockFile {
         roots.dedup();
 
         let mut packages = HashMap::new();
-        for (name, node) in &merged.nodes {
-            packages.insert(
-                name.clone(),
-                VenLockPackage {
-                    version: node.version.clone(),
-                    integrity: node.integrity.clone(),
-                    metadata: None,
-                },
-            );
+        // The lockfile's `packages` map is keyed by "name@version" so a
+        // diamond dep yields *two* entries (`a@1.0.0` and `a@2.0.0`) rather
+        // than clobbering. `validate_lock_graph` then checks the edges
+        // point at the correct `name@version` key.
+        for (name, versions) in &merged.nodes {
+            for (_, node) in versions {
+                let key = format!("{}@{}", name, node.version);
+                packages.insert(
+                    key,
+                    VenLockPackage {
+                        version: node.version.clone(),
+                        integrity: node.integrity.clone(),
+                        metadata: None,
+                    },
+                );
+            }
         }
 
         let edges: Vec<VenLockEdge> = merged
@@ -165,27 +185,38 @@ impl VenLockFile {
 
 /// Rebuild an [`IntelGraph`] from a validated lock (for peer / pin analysis).
 pub fn lock_to_intel_graph(lock: &VenLockFile) -> IntelGraph {
-    let nodes: HashMap<String, IntelNode> = lock
-        .packages
-        .iter()
-        .map(|(name, p)| {
-            (
-                name.clone(),
-                IntelNode {
-                    name: name.clone(),
-                    version: p.version.clone(),
-                    depth: 0,
-                    dependencies: HashMap::new(),
-                    engines_node: None,
-                    deprecated: None,
-                    license: None,
-                    size_bytes: None,
-                    required_by: Vec::new(),
-                    integrity: p.integrity.clone(),
-                },
-            )
-        })
-        .collect();
+    // The lockfile's `packages` map is keyed by "name@version" (the merge
+    // step in `from_merged_simulations` produces these composite keys so
+    // diamond deps get *two* entries). We split each key back into
+    // (name, version) and rebuild the multi-version IntelGraph.nodes.
+    let mut nodes: BTreeMap<String, BTreeMap<semver::Version, IntelNode>> = BTreeMap::new();
+    for (key, p) in &lock.packages {
+        let (name, version) = match key.rsplit_once('@') {
+            Some((n, v)) => (n.to_string(), v.to_string()),
+            None => (key.clone(), p.version.clone()),
+        };
+        let v = semver::Version::parse(&version).unwrap_or_else(|_| {
+            let mut fallback = semver::Version::new(0, 0, 0);
+            fallback.pre = semver::Prerelease::new(&format!("ven-{}", version.replace('.', "_")))
+                .unwrap();
+            fallback
+        });
+        nodes.entry(name.clone()).or_default().insert(
+            v,
+            IntelNode {
+                name,
+                version,
+                depth: 0,
+                dependencies: HashMap::new(),
+                engines_node: None,
+                deprecated: None,
+                license: None,
+                size_bytes: None,
+                required_by: Vec::new(),
+                integrity: p.integrity.clone(),
+            },
+        );
+    }
     let edges: Vec<IntelEdge> = lock
         .edges
         .iter()
@@ -205,18 +236,19 @@ pub fn lock_to_intel_graph(lock: &VenLockFile) -> IntelGraph {
 }
 
 fn merge_intel_graph(dst: &mut IntelGraph, src: &IntelGraph) -> Result<()> {
-    for (name, node) in &src.nodes {
-        if let Some(existing) = dst.nodes.get(name) {
-            if existing.version != node.version {
-                return Err(anyhow!(
-                    "Cannot merge lock graph: package `{}` appears as {} and {}",
-                    name,
-                    existing.version,
-                    node.version
-                ));
+    for (name, versions) in &src.nodes {
+        for (v, node) in versions {
+            let entry = dst.nodes.entry(name.clone()).or_default();
+            if let Some(existing) = entry.get(v) {
+                if existing.version != node.version {
+                    return Err(anyhow!(
+                        "Cannot merge lock graph: package `{}` has version drift inside the same semver key",
+                        name
+                    ));
+                }
+            } else {
+                entry.insert(v.clone(), node.clone());
             }
-        } else {
-            dst.nodes.insert(name.clone(), node.clone());
         }
     }
     for e in &src.edges {
@@ -368,14 +400,16 @@ mod tests {
 
     #[test]
     fn validate_trivial_lock() {
+        // Package keys are "name@version" (multi-version lockfile); see
+        // from_merged_simulations. Roots use the same composite key.
         let lock = VenLockFile {
             lock_format_version: LOCK_FORMAT_VERSION,
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["left-pad".into()],
+            roots: vec!["left-pad@1.3.0".into()],
             packages: HashMap::from([(
-                "left-pad".into(),
+                "left-pad@1.3.0".into(),
                 VenLockPackage {
                     version: "1.3.0".into(),
                     integrity: None,
@@ -528,9 +562,9 @@ mod tests {
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["x".into()],
+            roots: vec!["x@1.0.0".into()],
             packages: HashMap::from([(
-                "x".into(),
+                "x@1.0.0".into(),
                 VenLockPackage {
                     version: "1.0.0".into(),
                     integrity: Some("md5-bad".into()),
@@ -560,5 +594,102 @@ mod tests {
         assert!(lock.packages["x"].integrity.is_none());
         assert!(lock_needs_upgrade(&lock));
         validate_lock_graph(&lock).unwrap();
+    }
+
+    /// v2 lockfile *without* a content_hash must be rejected by `read_path`.
+    /// The old behavior was to silently accept it — that defeats the entire
+    /// purpose of the integrity stamp (an attacker who can edit the file
+    /// can also strip the hash).
+    #[test]
+    fn read_path_rejects_v2_lock_without_content_hash() {
+        let dir = tempdir_in_target();
+        let path = dir.join("ven.lock");
+        let json = r#"{
+            "lock_format_version": 2,
+            "ecosystem": "npm",
+            "runtime_kind": "NpmFamily",
+            "runtime_version": "20",
+            "roots": ["x"],
+            "packages": {"x": {"version": "1.0.0"}},
+            "edges": []
+        }"#;
+        std::fs::write(&path, json).unwrap();
+        let err = VenLockFile::read_path(&path).unwrap_err();
+        let msg = format!("{:#}", err);
+        assert!(
+            msg.contains("content_hash") || msg.contains("ven lock"),
+            "expected content_hash error, got: {}",
+            msg
+        );
+    }
+
+    /// A v2 lockfile with a tampered content_hash must still be rejected.
+    #[test]
+    fn read_path_rejects_v2_lock_with_tampered_hash() {
+        let dir = tempdir_in_target();
+        let path = dir.join("ven.lock");
+        // Build a real v2 lock, stamp a *wrong* hash, write to disk.
+        let lock = VenLockFile {
+            lock_format_version: LOCK_FORMAT_VERSION,
+            ecosystem: "npm".into(),
+            runtime_kind: RuntimeKind::NpmFamily,
+            runtime_version: "20".into(),
+            roots: vec!["x".into()],
+            packages: HashMap::from([(
+                "x".into(),
+                VenLockPackage {
+                    version: "1.0.0".into(),
+                    integrity: None,
+                    metadata: None,
+                },
+            )]),
+            edges: vec![],
+            content_hash: Some("0000000000000000000000000000000000000000000000000000000000000000".into()),
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&lock).unwrap()).unwrap();
+        let err = VenLockFile::read_path(&path).unwrap_err();
+        let msg = format!("{:#}", err);
+        assert!(
+            msg.contains("mismatch") || msg.contains("content_hash"),
+            "expected mismatch error, got: {}",
+            msg
+        );
+    }
+
+    /// A correctly-stamped v2 lockfile must round-trip through read_path.
+    #[test]
+    fn read_path_accepts_v2_lock_with_valid_hash() {
+        let dir = tempdir_in_target();
+        let path = dir.join("ven.lock");
+        let mut lock = VenLockFile {
+            lock_format_version: LOCK_FORMAT_VERSION,
+            ecosystem: "npm".into(),
+            runtime_kind: RuntimeKind::NpmFamily,
+            runtime_version: "20".into(),
+            roots: vec!["x".into()],
+            packages: HashMap::from([(
+                "x".into(),
+                VenLockPackage {
+                    version: "1.0.0".into(),
+                    integrity: None,
+                    metadata: None,
+                },
+            )]),
+            edges: vec![],
+            content_hash: None,
+        };
+        lock.content_hash = Some(compute_lock_content_hash(&lock).unwrap());
+        std::fs::write(&path, serde_json::to_string_pretty(&lock).unwrap()).unwrap();
+        let read_back = VenLockFile::read_path(&path).unwrap();
+        assert_eq!(read_back.packages["x"].version, "1.0.0");
+    }
+
+    fn tempdir_in_target() -> std::path::PathBuf {
+        // Use the process temp dir so each test gets a clean slate.
+        let mut p = std::env::temp_dir();
+        p.push(format!("ven-lock-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&p);
+        std::fs::create_dir_all(&p).unwrap();
+        p
     }
 }

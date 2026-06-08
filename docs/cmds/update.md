@@ -17,6 +17,39 @@ It is the canonical upgrade path once ven is installed. The command:
 
 > **Not the same as `ven upgrade`** — `ven upgrade` updates *project packages*; `ven update` updates *ven itself*.
 
+## Upgrading from ven &lt; 0.1.7
+
+`ven update` was added in **v0.1.7**. Older binaries do not have this subcommand
+(`error: unrecognized subcommand 'update'`).
+
+**Bootstrap once** with the install one-liner or `ven-setup`, then use
+`ven update` on the new binary:
+
+```powershell
+# Windows (elevated PowerShell for system mode)
+$env:VEN_FORCE_INSTALL = 'true'
+irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+```
+
+```bash
+# Linux / macOS
+VEN_FORCE_INSTALL=true curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+```
+
+Or download `ven-setup-{os}-{arch}` from the [releases](https://github.com/bhuwanb23/ven/releases) page.
+
+### Multiple installs / PATH still shows an old version
+
+If you installed a newer ven but `ven --version` is unchanged, another copy
+is winning on PATH (common on Windows: `%ProgramFiles%\ven\bin` before
+`%USERPROFILE%\.ven\bin`). Run:
+
+```bash
+ven doctor
+```
+
+`ven doctor` lists every install, which one PATH uses, and what to do next.
+
 ## Usage
 
 ```bash
@@ -145,6 +178,7 @@ ven update --version v0.1.5 --yes
 
 ## Related commands
 
+- [`ven doctor`](doctor.md) — diagnose PATH shadowing and multiple installs
 - [`ven upgrade`](upgrade.md) — upgrade *project packages*, not ven itself
 - [`ven setup`](setup.md) — first-time shell hook setup (run once after first install)
 - [`ven --version`](../commands-reference.md) — print the currently-running version

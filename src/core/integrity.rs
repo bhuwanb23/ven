@@ -45,16 +45,30 @@ pub fn verify_sha256(file: &Path, expected_hex: &str) -> Result<()> {
     }
 }
 
+/// User-Agent for release manifest / checksum fetches (`ven update`, installers).
+pub const RELEASE_FETCH_USER_AGENT: &str = "ven-update";
+
+/// GET `url` with [`http_client`] and optional `GITHUB_TOKEN` bearer auth.
+pub fn fetch_text_url(url: &str, user_agent: &str) -> Result<String> {
+    let client = http_client(user_agent)?;
+    let mut req = client.get(url);
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        if !token.is_empty() {
+            req = req.bearer_auth(token);
+        }
+    }
+    req.send()
+        .with_context(|| format!("Could not fetch {}", url))?
+        .error_for_status()
+        .with_context(|| format!("HTTP error for {}", url))?
+        .text()
+        .with_context(|| format!("Could not read response body from {}", url))
+}
+
 /// Fetch a remote sidecar URL (e.g. `<archive>.sha256`) and return the first
 /// hex token. Many publishers emit either bare `<hex>` or `<hex>  <filename>`.
 pub fn fetch_sidecar_sha256(url: &str) -> Result<String> {
-    let body = Client::new()
-        .get(url)
-        .send()
-        .with_context(|| format!("Could not fetch checksum sidecar {}", url))?
-        .error_for_status()
-        .with_context(|| format!("Checksum sidecar HTTP error {}", url))?
-        .text()?;
+    let body = fetch_text_url(url, RELEASE_FETCH_USER_AGENT)?;
     extract_first_hex_token(&body).ok_or_else(|| {
         anyhow!(
             "Checksum sidecar at {} did not contain a hex SHA256 token",
@@ -66,13 +80,7 @@ pub fn fetch_sidecar_sha256(url: &str) -> Result<String> {
 /// Fetch a multi-file `SHA256SUMS`-style manifest at `url` and pick out the
 /// 64-char hex hash for the row whose filename equals `archive_filename`.
 pub fn fetch_manifest_sha256(url: &str, archive_filename: &str) -> Result<String> {
-    let body = Client::new()
-        .get(url)
-        .send()
-        .with_context(|| format!("Could not fetch checksum manifest {}", url))?
-        .error_for_status()
-        .with_context(|| format!("Checksum manifest HTTP error {}", url))?
-        .text()?;
+    let body = fetch_text_url(url, RELEASE_FETCH_USER_AGENT)?;
     for line in body.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {

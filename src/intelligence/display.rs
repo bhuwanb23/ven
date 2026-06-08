@@ -5,7 +5,7 @@ use colored::Colorize;
 use std::collections::HashSet;
 
 pub fn print_intel_tree(graph: &IntelGraph, root_name: &str) {
-    let Some(root) = graph.nodes.get(root_name) else {
+    let Some(root) = graph.first_node(root_name) else {
         println!("    {} (not in graph)", root_name.dimmed());
         return;
     };
@@ -33,7 +33,26 @@ fn print_node_recursive(
         "├─ "
     };
 
-    let name_version = format!("{}@{}", node.name, node.version);
+    // When this name resolves to multiple versions (diamond dep) we mark
+    // the label so the user knows to investigate `ven why`.
+    let name_version = if graph
+        .nodes
+        .get(&node.name)
+        .map(|m| m.len() > 1)
+        .unwrap_or(false)
+    {
+        let versions: Vec<String> = graph
+            .nodes
+            .get(&node.name)
+            .map(|m| m.values().map(|n| n.version.clone()).collect())
+            .unwrap_or_default();
+        format!("{}@[{}]", node.name, versions.join(", "))
+            .yellow()
+            .bold()
+            .to_string()
+    } else {
+        format!("{}@{}", node.name, node.version)
+    };
     let mut meta = Vec::new();
     if let Some(ref d) = node.deprecated {
         meta.push(format!("deprecated: {}", d));
@@ -47,12 +66,12 @@ fn print_node_recursive(
         format!(" ({})", meta.join(", ").dimmed())
     };
 
-    println!("{}{}{}{}", indent, connector, name_version.bold(), meta_s);
+    println!("{}{}{}{}", indent, connector, name_version, meta_s);
 
     let children = direct_children(graph, &node.name);
     let n = children.len();
     for (i, child_name) in children.iter().enumerate() {
-        if let Some(child) = graph.nodes.get(child_name) {
+        if let Some(child) = graph.first_node(child_name) {
             print_node_recursive(graph, child, depth + 1, i + 1 == n, visited);
         }
     }
@@ -100,7 +119,7 @@ pub fn print_full_intel_tree(
     }
 
     for (i, root_name) in roots.iter().enumerate() {
-        if let Some(root_node) = graph.nodes.get(root_name) {
+        if let Some(root_node) = graph.first_node(root_name) {
             let is_last = i + 1 == roots.len();
             let mut visited = HashSet::new();
             print_node_recursive_full(
@@ -173,7 +192,7 @@ fn print_node_recursive_full(
     let children = direct_child_edges(graph, &node.name);
     let n = children.len();
     for (i, (child_name, child_constraint)) in children.into_iter().enumerate() {
-        if let Some(child) = graph.nodes.get(&child_name) {
+        if let Some(child) = graph.first_node(&child_name) {
             print_node_recursive_full(
                 graph,
                 child,
@@ -219,23 +238,34 @@ fn direct_child_edges(graph: &IntelGraph, package_name: &str) -> Vec<(String, St
 }
 
 pub fn print_intel_summary(graph: &IntelGraph) {
-    let total: u64 = graph.nodes.values().filter_map(|n| n.size_bytes).sum();
+    let total: u64 = graph
+        .nodes
+        .values()
+        .flat_map(|m| m.values())
+        .filter_map(|n| n.size_bytes)
+        .sum();
     println!(
         "    {} {} packages, {} edges, ~{} unpacked (where known)",
         "Summary:".dimmed(),
-        graph.nodes.len(),
+        graph.node_count(),
         graph.edges.len(),
         format_bytes(total)
     );
 }
 
 pub fn print_transitive_note(graph: &IntelGraph) {
-    let max_depth = graph.nodes.values().map(|n| n.depth).max().unwrap_or(0);
+    let max_depth = graph
+        .nodes
+        .values()
+        .flat_map(|m| m.values())
+        .map(|n| n.depth)
+        .max()
+        .unwrap_or(0);
     println!(
         "    {} max depth {}, {} unique packages",
         "Transitive:".dimmed(),
         max_depth,
-        graph.nodes.len()
+        graph.node_count()
     );
 }
 
@@ -261,8 +291,10 @@ pub fn graph_to_text_tree(graph: &IntelGraph) -> String {
     let mut names: Vec<_> = graph.nodes.keys().cloned().collect();
     names.sort();
     for name in names {
-        if let Some(n) = graph.nodes.get(&name) {
-            lines.push(format!("  - {}@{}", n.name, n.version));
+        if let Some(versions) = graph.nodes.get(&name) {
+            for (_, n) in versions {
+                lines.push(format!("  - {}@{}", n.name, n.version));
+            }
         }
     }
     lines.push(format!("  edges: {}", graph.edges.len()));

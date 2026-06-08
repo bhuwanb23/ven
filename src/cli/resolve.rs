@@ -57,7 +57,7 @@ pub fn cmd_resolve() -> Result<()> {
                 resolved.current.dimmed(),
                 resolved.suggested.green()
             );
-        } else if let Some(node) = graph.nodes.get(&pkg) {
+        } else if let Some(node) = graph.first_node(&pkg) {
             println!("    {}: unchanged ({})", pkg, node.version.dimmed());
         } else {
             println!("    {}: unchanged", pkg);
@@ -104,8 +104,7 @@ fn build_conflict_entries(
 
     for chain in conflict_chains {
         let current = graph
-            .nodes
-            .get(&chain.package)
+            .first_node(&chain.package)
             .map(|n| n.version.clone())
             .unwrap_or_else(|| "unknown".to_string());
 
@@ -204,8 +203,7 @@ fn build_resolution_map(
     for opt in suggestions {
         if let ResolutionAction::Downgrade { package, version } = &opt.action {
             let current = graph
-                .nodes
-                .get(package)
+                .first_node(package)
                 .map(|n| n.version.clone())
                 .unwrap_or_else(|| "unknown".to_string());
             let suggested = resolve_package_version(package, version)?;
@@ -221,8 +219,7 @@ fn build_resolution_map(
             }
         } else if let ResolutionAction::InstallVersion { package, version } = &opt.action {
             let current = graph
-                .nodes
-                .get(package)
+                .first_node(package)
                 .map(|n| n.version.clone())
                 .unwrap_or_else(|| "unknown".to_string());
             if *version != current {
@@ -243,8 +240,7 @@ fn build_resolution_map(
             continue;
         }
         let current = graph
-            .nodes
-            .get(&inc.package)
+            .first_node(&inc.package)
             .map(|n| n.version.clone())
             .unwrap_or_else(|| "unknown".to_string());
         let node_for_compat = if !cfg.runtime.node.is_empty() {
