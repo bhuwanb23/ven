@@ -67,6 +67,8 @@ export const Beat3Graph: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
+  const nodePulse = 1 + 0.04 * Math.sin(frame * 0.04);
+
   const allGreenProgress = spring({
     frame: Math.max(0, frame - 300),
     fps: 30,
@@ -118,26 +120,42 @@ export const Beat3Graph: React.FC = () => {
         </div>
       </div>
 
-      <DependencyGraph
-        nodes={graphNodes}
-        edges={graphEdges}
-        startFrame={90}
-        currentFrame={frame}
-        nodeStagger={8}
-        edgeStagger={4}
-        centerIndex={0}
-      />
-
-      {frame >= 270 && (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `scale(${nodePulse})`,
+        }}
+      >
         <DependencyGraph
-          nodes={subNodes}
-          edges={subEdges}
-          startFrame={270}
+          nodes={graphNodes}
+          edges={graphEdges}
+          startFrame={90}
           currentFrame={frame}
-          nodeStagger={5}
-          edgeStagger={3}
+          nodeStagger={8}
+          edgeStagger={4}
           centerIndex={0}
         />
+      </div>
+
+      {frame >= 270 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: `scale(${1 + 0.03 * Math.sin(frame * 0.05 + 1)})`,
+          }}
+        >
+          <DependencyGraph
+            nodes={subNodes}
+            edges={subEdges}
+            startFrame={270}
+            currentFrame={frame}
+            nodeStagger={5}
+            edgeStagger={3}
+            centerIndex={0}
+          />
+        </div>
       )}
 
       <Cursor
