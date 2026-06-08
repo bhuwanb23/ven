@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Sequence, continueRender, delayRender, staticFile } from "remotion";
+import { Audio } from "@remotion/media";
 import { loadFont } from "@remotion/fonts";
 import { Scene1Problem } from "./scenes/Scene1Problem";
 import { Scene2Solution } from "./scenes/Scene2Solution";
@@ -55,6 +56,19 @@ export const VenPromo: React.FC = () => {
       </Sequence>
       <Sequence from={750} durationInFrames={150}>
         <Scene4CTA />
+      </Sequence>
+
+      {/* Scene 1: tense music */}
+      <Sequence from={0} durationInFrames={180}>
+        <Audio src={staticFile("assets/music-tense.mp3")} volume={0.35} />
+      </Sequence>
+      {/* Scene 2+3: hopeful music */}
+      <Sequence from={180} durationInFrames={570}>
+        <Audio src={staticFile("assets/music-hopeful.mp3")} volume={0.35} />
+      </Sequence>
+      {/* Scene 4: triumphant overlay */}
+      <Sequence from={750} durationInFrames={150}>
+        <Audio src={staticFile("assets/music-triumphant.mp3")} volume={0.45} />
       </Sequence>
     </AbsoluteFill>
   );
