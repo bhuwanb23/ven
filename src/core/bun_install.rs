@@ -4,28 +4,24 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
 pub struct BunDownloader {
-    storage_root: PathBuf,
-    cache_dir: PathBuf,
+    base: BaseInstaller,
 }
 
 impl BunDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root
-            .join("bun")
-            .join(version.trim().trim_start_matches('v').to_string())
+        let ver = version.trim().trim_start_matches('v').to_string();
+        self.base.get_install_dir("bun", &ver)
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -47,28 +43,7 @@ impl BunDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let bun_dir = self.storage_root.join("bun");
-        if !bun_dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(bun_dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name.to_string());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts(b, a));
-        Ok(versions)
+        self.base.list_installed("bun")
     }
 }
 
@@ -138,9 +113,9 @@ pub fn resolve_bun_version_spec(spec: &str, available: &[String]) -> Result<Stri
 pub fn install_bun(downloader: &BunDownloader, version: &str) -> Result<()> {
     let version = version.trim().trim_start_matches('v');
     let url = build_download_url(version)?;
-    fs::create_dir_all(&downloader.cache_dir)?;
+    fs::create_dir_all(&downloader.base.cache_dir)?;
     let archive_filename = url.split('/').next_back().unwrap_or("bun.zip").to_string();
-    let archive = downloader.cache_dir.join(&archive_filename);
+    let archive = downloader.base.cache_dir.join(&archive_filename);
     if !archive.is_file() {
         // Streaming download with timeouts + retry; see integrity::download_to_file
         // for why this replaced `Client::new().get(url).bytes()?` everywhere.
@@ -248,15 +223,6 @@ fn extract_bun_zip(zip_path: &Path, dest: &Path) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|n| n.parse::<u32>().ok())
-            .collect::<Vec<_>>()
-    };
-    parse(a).cmp(&parse(b))
 }
 
 fn is_strict_semver(v: &str) -> bool {
