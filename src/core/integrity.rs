@@ -19,6 +19,10 @@ use std::time::{Duration, Instant};
 
 /// Compute the SHA256 of `file` and compare it (case-insensitive) to
 /// `expected_hex`. Returns `Ok(())` only on a byte-for-byte match.
+///
+/// Uses constant-time comparison to prevent timing side-channel attacks
+/// where an attacker could deduce the expected hash character by character
+/// based on response time differences.
 pub fn verify_sha256(file: &Path, expected_hex: &str) -> Result<()> {
     let mut f = File::open(file)
         .with_context(|| format!("Could not open {} for hashing", file.display()))?;
@@ -33,7 +37,7 @@ pub fn verify_sha256(file: &Path, expected_hex: &str) -> Result<()> {
     }
     let actual = format!("{:x}", hasher.finalize());
     let expected = expected_hex.trim().to_ascii_lowercase();
-    if actual == expected {
+    if constant_time_eq(actual.as_bytes(), expected.as_bytes()) {
         Ok(())
     } else {
         Err(anyhow!(
@@ -43,6 +47,21 @@ pub fn verify_sha256(file: &Path, expected_hex: &str) -> Result<()> {
             actual
         ))
     }
+}
+
+/// Constant-time byte comparison to prevent timing side-channel attacks.
+/// Returns true only if both slices are equal in length and content.
+/// The comparison always examines every byte, so the time taken does not
+/// reveal information about where a mismatch occurs.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }
 
 /// User-Agent for release manifest / checksum fetches (`ven update`, installers).
@@ -487,5 +506,26 @@ mod tests {
         assert!(!is_transient_http_error(&e));
         let e = anyhow::anyhow!("Checksum mismatch");
         assert!(!is_transient_http_error(&e));
+    }
+
+    #[test]
+    fn constant_time_eq_matches_identical() {
+        assert!(constant_time_eq(b"hello", b"hello"));
+        assert!(constant_time_eq(b"", b""));
+        assert!(constant_time_eq(&[0u8; 32], &[0u8; 32]));
+    }
+
+    #[test]
+    fn constant_time_eq_rejects_different() {
+        assert!(!constant_time_eq(b"hello", b"world"));
+        assert!(!constant_time_eq(b"hello", b"hell"));
+        assert!(!constant_time_eq(b"hell", b"hello"));
+        assert!(!constant_time_eq(b"", b"a"));
+    }
+
+    #[test]
+    fn constant_time_eq_rejects_different_lengths() {
+        assert!(!constant_time_eq(b"abc", b"abcd"));
+        assert!(!constant_time_eq(b"abcd", b"abc"));
     }
 }
