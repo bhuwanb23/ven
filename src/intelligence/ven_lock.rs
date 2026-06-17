@@ -178,7 +178,9 @@ impl VenLockFile {
 
     pub fn write_path(&self, path: &Path) -> Result<()> {
         let s = self.to_json_pretty()?;
-        fs::write(path, s).with_context(|| format!("Failed to write {:?}", path))?;
+        let tmp = path.with_extension("lock.tmp");
+        fs::write(&tmp, s).with_context(|| format!("Failed to write {:?}", tmp))?;
+        fs::rename(&tmp, path).with_context(|| format!("Failed to atomically replace {:?}", path))?;
         Ok(())
     }
 }
