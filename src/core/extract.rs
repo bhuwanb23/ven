@@ -2,6 +2,38 @@ use anyhow::{anyhow, Result};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 
+const MAX_EXTRACT_BYTES: u64 = 2 * 1024 * 1024 * 1024; // 2GB
+
+struct LimitWriter<W> {
+    inner: W,
+    written: u64,
+}
+
+impl<W: std::io::Write> LimitWriter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner, written: 0 }
+    }
+}
+
+impl<W: std::io::Write> std::io::Write for LimitWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.written += n as u64;
+        if self.written > MAX_EXTRACT_BYTES {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Decompression bomb: extracted size exceeds 2GB limit",
+            ))
+        } else {
+            Ok(n)
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 /// Validate that `candidate` is within `base_dir` after canonicalization.
 /// Prevents path traversal attacks (zip slip, tar path traversal) where
 /// archive entries contain `../` components that could escape the
@@ -42,6 +74,17 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
         // mangled_name() already sanitizes, but we verify explicitly.
         validate_path_within_dir(&outpath, dest)?;
 
+        // Basic symlink heuristic: skip files that look like symlinks
+        // (zip crate doesn't have native symlink support)
+        if !entry.is_dir() && entry.mangled_name().ends_with('/') {
+            eprintln!(
+                "{} Skipping potential symlink: {}",
+                "[WARN]".yellow(),
+                entry.mangled_name()
+            );
+            continue;
+        }
+
         // Create parent directories
         if let Some(parent) = outpath.parent() {
             std::fs::create_dir_all(parent)?;
@@ -49,7 +92,11 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
 
         if entry.is_file() {
             let mut outfile = File::create(&outpath)?;
-            std::io::copy(&mut entry, &mut outfile)?;
+            let mut writer = LimitWriter::new(&mut outfile);
+            std::io::copy(&mut entry, &mut writer)?;
+            if writer.written > MAX_EXTRACT_BYTES {
+                return Err(anyhow!("Decompression bomb: extracted size exceeds 2GB limit"));
+            }
         } else {
             std::fs::create_dir_all(&outpath)?;
         }
@@ -64,6 +111,7 @@ fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
     use flate2::read::GzDecoder;
     use std::io::Read;
     use tar::Archive;
+    use tar::EntryType;
 
     let file = File::open(tar_path)?;
     let decoder = GzDecoder::new(file);
@@ -89,8 +137,49 @@ fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
             ));
         }
 
-        // Unpack individual entry
-        entry.unpack_in(dest)?;
+        // Check for symlinks/hardlinks and validate link target
+        let entry_type = entry.header().entry_type();
+        if entry_type == EntryType::Symlink || entry_type == EntryType::Link {
+            let link_target = entry.link_name()?;
+            if let Some(target) = link_target {
+                let target_path = target.into_owned();
+                let resolved_target = if target_path.is_relative() {
+                    if let Some(parent) = outpath.parent() {
+                        parent.join(&target_path)
+                    } else {
+                        target_path
+                    }
+                } else {
+                    target_path
+                };
+                if let Err(e) = validate_path_within_dir(&resolved_target, dest) {
+                    eprintln!(
+                        "{} Skipping symlink {} -> {} ({})",
+                        "[WARN]".yellow(),
+                        entry_path.display(),
+                        resolved_target.display(),
+                        e
+                    );
+                    continue;
+                }
+            }
+        }
+
+        // Unpack individual entry with decompression bomb protection
+        let entry_type = entry.header().entry_type();
+        if entry_type.is_file() {
+            let mut outfile = File::create(&outpath)?;
+            let mut writer = LimitWriter::new(&mut outfile);
+            std::io::copy(&mut entry, &mut writer)?;
+            if writer.written > MAX_EXTRACT_BYTES {
+                return Err(anyhow!("Decompression bomb: extracted size exceeds 2GB limit"));
+            }
+        } else if entry_type.is_dir() {
+            std::fs::create_dir_all(&outpath)?;
+        } else {
+            // For other types (symlinks, etc.), fall back to unpack_in
+            entry.unpack_in(dest)?;
+        }
     }
 
     Ok(())
