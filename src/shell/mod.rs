@@ -7,7 +7,7 @@ mod activation;
 
 /// Escape a path for safe embedding in POSIX shell (bash/zsh) single-quoted strings.
 /// Wraps in single quotes and escapes any embedded single quotes with '\''.
-fn shell_escape_posix(path: &str) -> String {
+pub fn shell_escape_posix(path: &str) -> String {
     let mut escaped = String::with_capacity(path.len() + 2);
     escaped.push('\'');
     for c in path.chars() {

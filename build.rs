@@ -21,6 +21,7 @@
 //! `ven-setup` itself transparently falls back to sibling files on disk
 //! when an embedded blob is empty, so development workflows still work.
 
+use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -48,6 +49,9 @@ fn main() {
 
     embed_or_stub(&ven_src, &ven_dst, "ven");
     embed_or_stub(&launcher_src, &launcher_dst, "ven-launcher");
+
+    write_sha256(&ven_dst, &out_dir.join("ven.bin.sha256"));
+    write_sha256(&launcher_dst, &out_dir.join("ven-launcher.bin.sha256"));
 
     // Windows-only: bake an `asInvoker` manifest into `ven-setup` so Windows'
     // Installer Detection heuristics don't auto-elevate every invocation just
@@ -87,6 +91,21 @@ fn embed_setup_manifest() {
     );
     println!("cargo:rustc-link-arg-bin=ven-setup=/MANIFEST:EMBED");
     println!("cargo:rustc-link-arg-bin=ven-setup=/MANIFESTUAC:NO");
+}
+
+fn write_sha256(src: &Path, dst: &Path) {
+    if !src.is_file() || fs::read(src).unwrap_or_default().is_empty() {
+        fs::write(dst, b"").unwrap_or_else(|e| {
+            panic!("Failed to write empty stub {}: {e}", dst.display())
+        });
+        return;
+    }
+    let data = fs::read(src)
+        .unwrap_or_else(|e| panic!("Failed to read {} for hashing: {e}", src.display()));
+    let hash = Sha256::digest(&data);
+    let hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    fs::write(dst, hex.as_bytes())
+        .unwrap_or_else(|e| panic!("Failed to write {}: {e}", dst.display()));
 }
 
 fn embed_or_stub(src: &Path, dst: &Path, label: &str) {

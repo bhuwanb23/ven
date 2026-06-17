@@ -133,6 +133,9 @@ windows-sys = { version = "0.52", features = [
 # HTTP mocks for OSV / EOL / registry tests
 mockito = "1"
 
+[build-dependencies]
+sha2 = "0.10"
+
 # ── Features ─────────────────────────────────────────────────────────────────
 # `gui` is on by default so a vanilla `cargo build` produces a wizard-capable
 # `ven-setup`. CI builds that only need the CLI installer can opt out with

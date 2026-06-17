@@ -37,7 +37,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::common::{
-    resolve_binary_bytes, write_bundled_binary, InstallMode, LAUNCHER_EMBEDDED, VEN_EMBEDDED,
+    resolve_binary_bytes, verify_binary_integrity, write_bundled_binary, InstallMode,
+    LAUNCHER_EMBEDDED, LAUNCHER_HASH, VEN_EMBEDDED, VEN_HASH,
 };
 
 // ---------------------------------------------------------------------------
@@ -353,6 +354,9 @@ fn step_extract(cfg: &InstallConfig, sink: &mut dyn ProgressSink) -> Result<Path
 
     let ven_bytes = resolve_binary_bytes(ven_name, VEN_EMBEDDED)?;
     let launcher_bytes = resolve_binary_bytes(launcher_name, LAUNCHER_EMBEDDED)?;
+
+    verify_binary_integrity(ven_name, &ven_bytes, VEN_HASH)?;
+    verify_binary_integrity(launcher_name, &launcher_bytes, LAUNCHER_HASH)?;
 
     sink.emit(ProgressEvent::StepDetail {
         sub_label: format!(
