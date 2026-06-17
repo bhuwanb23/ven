@@ -146,6 +146,8 @@ impl PythonDownloader {
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i)?;
             let outpath = dest.join(entry.mangled_name());
+            // Defense-in-depth: validate the resolved path is within dest
+            super::extract::validate_path_within_dir(&outpath, dest)?;
             if let Some(parent) = outpath.parent() {
                 fs::create_dir_all(parent)?;
             }

@@ -278,6 +278,8 @@ fn extract_java_archive(archive_path: &Path, dest: &Path) -> Result<()> {
                 continue;
             }
             let outpath = dest.join(rel);
+            // Defense-in-depth: validate the resolved path is within dest
+            super::extract::validate_path_within_dir(&outpath, dest)?;
             if entry.is_dir() {
                 fs::create_dir_all(&outpath)?;
             } else {
