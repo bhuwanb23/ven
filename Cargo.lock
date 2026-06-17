@@ -5027,7 +5027,6 @@ dependencies = [
  "tar",
  "tempfile",
  "termimad",
- "thiserror 1.0.69",
  "tokio",
  "toml",
  "toml_edit 0.22.27",

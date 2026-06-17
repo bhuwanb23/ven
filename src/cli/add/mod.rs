@@ -7,7 +7,7 @@ use crate::intelligence::display::{print_intel_summary, print_intel_tree, print_
 use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::graph::SimulationResult;
 use crate::intelligence::suggestions::print_conflict_report;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use colored::Colorize;
 use std::collections::HashMap;
 
@@ -305,7 +305,7 @@ pub fn cmd_add(
         println!("\n  {}", "Installation Preview".bold().cyan());
 
         for (pkg_name, result) in &all_results {
-            let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
+            let pkg = packages.iter().find(|p| p.name == *pkg_name).ok_or_else(|| anyhow!("Package '{}' not found in resolution results", pkg_name))?;
             let resolved_version = result
                 .graph
                 .first_node(pkg_name)
@@ -381,20 +381,10 @@ pub fn cmd_add(
         all_packages.len()
     );
 
-    let vulnerabilities = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        tokio::task::block_in_place(|| {
-            handle.block_on(async {
-                let scanner = SecurityScanner::new()?;
-                scanner.scan_packages(&all_packages).await
-            })
-        })
-    } else {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async {
-            let scanner = SecurityScanner::new()?;
-            scanner.scan_packages(&all_packages).await
-        })
-    };
+    let vulnerabilities = crate::core::block_on_async(async {
+        let scanner = SecurityScanner::new()?;
+        scanner.scan_packages(&all_packages).await
+    });
 
     let vulnerabilities = match vulnerabilities {
         Ok(advisories) => advisories,
@@ -473,7 +463,7 @@ pub fn cmd_add(
     let mut installed = Vec::new();
 
     for (pkg_name, result) in &all_results {
-        let pkg = packages.iter().find(|p| p.name == *pkg_name).unwrap();
+        let pkg = packages.iter().find(|p| p.name == *pkg_name).ok_or_else(|| anyhow!("Package '{}' not found in resolution results", pkg_name))?;
         println!("[INFO] Installing {}...", pkg_name.bold());
 
         let version_to_install = result

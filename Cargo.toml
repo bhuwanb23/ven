@@ -55,7 +55,6 @@ toml_edit = "0.22"
 rusqlite = { version = "0.31", features = ["bundled"] }
 # Error handling
 anyhow = "1"
-thiserror = "1"
 # Terminal output
 colored = "2"
 indicatif = "0.17"

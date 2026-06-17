@@ -26,6 +26,7 @@ pub mod security;
 pub mod storage_move;
 pub mod uninstaller;
 pub mod user_env;
+pub mod utils;
 pub mod ven_config;
 pub mod ven_home;
 
@@ -55,6 +56,18 @@ pub use ruby_install::{
 pub use rust_install::{install_rust as install_rust_native, RustDownloader};
 pub use security::SecurityScanner;
 pub use ven_home::ven_home;
+
+/// Drive a `Future` to completion, reusing an existing Tokio runtime when
+/// one is already active on the current thread and spinning up a fresh one
+/// otherwise.  This is the single canonical blocking bridge used across the
+/// crate (CLI helpers, dependency intelligence, security scanning, etc.).
+pub fn block_on_async<F: std::future::Future>(f: F) -> anyhow::Result<F::Output> {
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        Ok(tokio::task::block_in_place(|| handle.block_on(f)))
+    } else {
+        Ok(tokio::runtime::Runtime::new()?.block_on(f))
+    }
+}
 
 // Note: All implementation functions have been moved to config.rs and packages.rs
 // This file now only serves as a module export hub
