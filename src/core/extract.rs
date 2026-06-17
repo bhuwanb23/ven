@@ -166,7 +166,6 @@ fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
         }
 
         // Unpack individual entry with decompression bomb protection
-        let entry_type = entry.header().entry_type();
         if entry_type.is_file() {
             let mut outfile = File::create(&outpath)?;
             let mut writer = LimitWriter::new(&mut outfile);
