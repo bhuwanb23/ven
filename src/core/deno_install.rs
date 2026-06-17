@@ -4,28 +4,24 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
 pub struct DenoDownloader {
-    storage_root: PathBuf,
-    cache_dir: PathBuf,
+    base: BaseInstaller,
 }
 
 impl DenoDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root
-            .join("deno")
-            .join(version.trim().trim_start_matches('v').to_string())
+        let ver = version.trim().trim_start_matches('v').to_string();
+        self.base.get_install_dir("deno", &ver)
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -47,28 +43,7 @@ impl DenoDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let deno_dir = self.storage_root.join("deno");
-        if !deno_dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(deno_dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name.to_string());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts(b, a));
-        Ok(versions)
+        self.base.list_installed("deno")
     }
 }
 
@@ -132,9 +107,9 @@ pub fn resolve_deno_version_spec(spec: &str, available: &[String]) -> Result<Str
 pub fn install_deno(downloader: &DenoDownloader, version: &str) -> Result<()> {
     let version = version.trim().trim_start_matches('v');
     let url = build_download_url(version)?;
-    fs::create_dir_all(&downloader.cache_dir)?;
+    fs::create_dir_all(&downloader.base.cache_dir)?;
     let archive_filename = url.split('/').last().unwrap_or("deno.zip").to_string();
-    let archive = downloader.cache_dir.join(&archive_filename);
+    let archive = downloader.base.cache_dir.join(&archive_filename);
     if !archive.is_file() {
         // Streaming download with timeouts + retry. Replaces the old
         // `Client::new().get(url).send()?.bytes()?` pattern that had no
@@ -238,13 +213,4 @@ fn extract_deno_zip(zip_path: &Path, dest: &Path) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|n| n.parse::<u32>().ok())
-            .collect::<Vec<_>>()
-    };
-    parse(a).cmp(&parse(b))
 }
