@@ -2,6 +2,7 @@ mod languages;
 
 use crate::core::load_config;
 use crate::core::packages::*;
+use crate::core::utils::{calculate_package_size, format_bytes};
 use anyhow::Result;
 use colored::Colorize;
 use languages::{
@@ -903,48 +904,6 @@ fn is_package_installed_locally(package: &str) -> bool {
     pkg_json.exists()
 }
 
-/// Calculate total size of a package directory
-fn calculate_package_size(package: &str) -> Result<u64> {
-    let pkg_path = std::env::current_dir()?.join("node_modules").join(package);
-
-    if !pkg_path.exists() {
-        return Ok(0);
-    }
-
-    let mut total_size = 0;
-
-    for entry in std::fs::read_dir(&pkg_path)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_file() {
-            total_size += entry.metadata()?.len();
-        } else if path.is_dir() {
-            total_size += calculate_dir_size_recursive(&path)?;
-        }
-    }
-
-    Ok(total_size)
-}
-
-/// Recursively calculate directory size
-fn calculate_dir_size_recursive(path: &Path) -> Result<u64> {
-    let mut total_size = 0;
-
-    for entry in std::fs::read_dir(path)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_file() {
-            total_size += entry.metadata()?.len();
-        } else if path.is_dir() {
-            total_size += calculate_dir_size_recursive(&path)?;
-        }
-    }
-
-    Ok(total_size)
-}
-
 /// Get transitive dependencies of a package from lock file
 fn get_transitive_dependencies(package: &str) -> Result<Vec<String>> {
     let lock_path = std::env::current_dir()?.join("package-lock.json");
@@ -966,17 +925,4 @@ fn get_transitive_dependencies(package: &str) -> Result<Vec<String>> {
     }
 
     Ok(deps)
-}
-
-/// Format bytes into human-readable string
-fn format_bytes(bytes: u64) -> String {
-    if bytes < 1024 {
-        format!("{} B", bytes)
-    } else if bytes < 1024 * 1024 {
-        format!("{:.1} KB", bytes as f64 / 1024.0)
-    } else if bytes < 1024 * 1024 * 1024 {
-        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
-    } else {
-        format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-    }
 }
