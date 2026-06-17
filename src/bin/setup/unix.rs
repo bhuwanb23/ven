@@ -29,6 +29,44 @@ const VEN_RC_BLOCK_START: &str = "# >>> ven-setup PATH >>>";
 const VEN_RC_BLOCK_END: &str = "# <<< ven-setup PATH <<<";
 
 // ---------------------------------------------------------------------------
+// Backup helpers
+// ---------------------------------------------------------------------------
+
+/// Create a `.bak` copy of `path` before modifying it. Returns the backup
+/// path on success, or an error if the backup could not be created.
+fn backup_file(path: &Path) -> Result<PathBuf> {
+    let backup = path.with_extension(
+        path.extension()
+            .map(|e| format!("{}.bak", e.to_string_lossy()))
+            .unwrap_or_else(|| "bak".to_string()),
+    );
+    fs::copy(path, &backup)
+        .with_context(|| format!("Failed to create backup {} -> {}", path.display(), backup.display()))?;
+    eprintln!("  Backup created: {}", backup.display());
+    Ok(backup)
+}
+
+/// Attempt to restore `path` from `backup`. Logs a warning on failure
+/// but does not propagate — there's nothing useful to do if the restore
+/// itself fails.
+fn try_restore(path: &Path, backup: &Path) {
+    if let Err(e) = fs::copy(backup, path) {
+        eprintln!(
+            "  [WARN] Could not restore {} from {}: {}",
+            path.display(),
+            backup.display(),
+            e
+        );
+    } else {
+        eprintln!(
+            "  Restored {} from backup {}",
+            path.display(),
+            backup.display()
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // CLI driver
 // ---------------------------------------------------------------------------
 
@@ -173,15 +211,33 @@ fn append_block_if_missing(rc: &Path, block: &str) -> Result<()> {
     if existing.contains(VEN_RC_BLOCK_START) {
         return Ok(());
     }
-    let mut file = fs::OpenOptions::new()
-        .append(true)
-        .open(rc)
-        .with_context(|| format!("Failed to open {}", rc.display()))?;
-    if !existing.ends_with('\n') {
-        writeln!(file)?;
+
+    // Backup before modification so a midway failure doesn't corrupt the
+    // shell profile.
+    let backup = backup_file(rc)?;
+
+    let result = (|| -> Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(rc)
+            .with_context(|| format!("Failed to open {}", rc.display()))?;
+        if !existing.ends_with('\n') {
+            writeln!(file)?;
+        }
+        writeln!(file, "{}", block)?;
+        Ok(())
+    })();
+
+    if let Err(ref e) = result {
+        eprintln!(
+            "  [ERROR] Failed to modify {}: {}. Restoring from backup.",
+            rc.display(),
+            e
+        );
+        try_restore(rc, &backup);
     }
-    writeln!(file, "{}", block)?;
-    Ok(())
+
+    result
 }
 
 /// Write `/etc/profile.d/ven.sh` so the install dir is on PATH for every
@@ -195,6 +251,12 @@ pub fn ensure_etc_profile_d_path(install_dir: &Path) -> Result<()> {
         "#!/bin/sh\n# Installed by ven-setup\ncase \":$PATH:\" in\n  *\":{dir}:\"*) ;;\n  *) export PATH=\"{dir}:$PATH\" ;;\nesac\n",
         dir = install_dir.display(),
     );
+
+    // Backup the existing file if present, then write the new content.
+    if script.is_file() {
+        backup_file(&script)?;
+    }
+
     fs::write(&script, content).with_context(|| format!("Failed to write {}", script.display()))?;
     #[cfg(unix)]
     {

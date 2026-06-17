@@ -178,6 +178,9 @@ pub fn ensure_path_contains(path_entry: &Path, scope: PathScope) -> Result<()> {
     let entry_ps = entry.replace('\'', "''");
     let scope_ps = scope.label();
 
+    // Read the current PATH before modification so we can restore on failure.
+    let current_path = read_registry_path(scope)?;
+
     let script = format!(
         r#"$target = '{entry_ps}'
 $scope = '{scope_ps}'
@@ -220,7 +223,69 @@ $WM_SETTINGCHANGE = 0x001A
         .status()
         .context("Failed to run PowerShell for PATH update")?;
     if !status.success() {
+        // Attempt to restore the original PATH on failure.
+        if let Err(restore_err) = write_registry_path(scope, &current_path) {
+            eprintln!(
+                "  [WARN] Failed to restore {} PATH: {}",
+                scope.label(),
+                restore_err
+            );
+        } else {
+            eprintln!(
+                "  Restored {} PATH to previous value",
+                scope.label()
+            );
+        }
         anyhow::bail!("Failed to update {} PATH", scope.label());
+    }
+    Ok(())
+}
+
+/// Read the current PATH for the given scope from the Windows Registry.
+fn read_registry_path(scope: PathScope) -> Result<String> {
+    let scope_ps = scope.label();
+    let script = format!(
+        r#"[Environment]::GetEnvironmentVariable('Path', '{scope_ps}')"#,
+    );
+    let output = Command::new("powershell.exe")
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            &script,
+        ])
+        .output()
+        .with_context(|| format!("Failed to read {} PATH", scope.label()))?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to read {} PATH: {}",
+            scope.label(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Write a value back to the PATH in the given registry scope.
+fn write_registry_path(scope: PathScope, value: &str) -> Result<()> {
+    let scope_ps = scope.label();
+    let value_ps = value.replace('\'', "''");
+    let script = format!(
+        r#"[Environment]::SetEnvironmentVariable('Path', '{value_ps}', '{scope_ps}')"#,
+    );
+    let status = Command::new("powershell.exe")
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            &script,
+        ])
+        .status()
+        .with_context(|| format!("Failed to restore {} PATH", scope.label()))?;
+    if !status.success() {
+        anyhow::bail!("PowerShell command to restore PATH failed");
     }
     Ok(())
 }
