@@ -54,27 +54,28 @@ impl DenoManifest {
         &self.path
     }
 
-    pub fn imports_mut(&mut self) -> &mut Map<String, Value> {
+    pub fn imports_mut(&mut self) -> Result<&mut Map<String, Value>> {
         let obj = self
             .doc
             .as_object_mut()
-            .expect("deno.json root must be an object");
+            .ok_or_else(|| anyhow!("deno.json root must be an object"))?;
         if !obj.contains_key("imports") {
             obj.insert("imports".to_string(), Value::Object(Map::new()));
         }
         obj.get_mut("imports")
             .and_then(|v| v.as_object_mut())
-            .expect("imports must be a map")
+            .ok_or_else(|| anyhow!("imports must be a map"))
     }
 
-    pub fn upsert_import(&mut self, key: &str, target: &str) {
-        self.imports_mut()
+    pub fn upsert_import(&mut self, key: &str, target: &str) -> Result<()> {
+        self.imports_mut()?
             .insert(key.to_string(), Value::String(target.to_string()));
+        Ok(())
     }
 
-    pub fn remove_import(&mut self, key: &str) -> bool {
-        let imports = self.imports_mut();
-        imports.remove(key).is_some()
+    pub fn remove_import(&mut self, key: &str) -> Result<bool> {
+        let imports = self.imports_mut()?;
+        Ok(imports.remove(key).is_some())
     }
 
     pub fn write(&self) -> Result<()> {

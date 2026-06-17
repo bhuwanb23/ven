@@ -622,7 +622,7 @@ pub(super) fn cmd_upgrade_deno(
         for spec in packages {
             match deno_imports::parse_spec(spec) {
                 Ok((key, target)) => {
-                    manifest.upsert_import(&key, &target);
+                    manifest.upsert_import(&key, &target)?;
                     updated.push((key, target));
                 }
                 Err(e) => {

@@ -3,7 +3,7 @@ use crate::core::{
     resolve_bun_version, resolve_deno_version, resolve_go_version, resolve_java_version,
     resolve_node_version, resolve_python_version, resolve_ruby_version, resolve_rust_version,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -290,7 +290,7 @@ pub(super) fn check_if_version_active(spec: &str) -> Result<bool> {
     let current_path = std::env::var("PATH").unwrap_or_default();
     let bin_path = get_bin_path_for_version(spec)?;
 
-    Ok(current_path.contains(&bin_path.parent().unwrap().to_string_lossy().to_string()))
+    Ok(current_path.contains(&bin_path.parent().ok_or_else(|| anyhow!("Bin path has no parent"))?.to_string_lossy().to_string()))
 }
 
 pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
