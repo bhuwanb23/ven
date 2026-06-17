@@ -2,6 +2,7 @@ pub mod bun_install;
 pub mod config;
 pub mod deno_imports;
 pub mod deno_install;
+pub mod installer_base;
 pub mod doc_fetcher;
 pub mod download;
 pub mod endoflife;
