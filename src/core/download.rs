@@ -142,18 +142,24 @@ impl NodeDownloader {
         }
 
         println!("{} Verifying checksum...", "•".blue());
-        match Self::fetch_checksum(version) {
-            Ok(expected) => match integrity::verify_sha256(&cache_path, &expected) {
-                Ok(()) => integrity::print_checksum_ok(filename),
-                Err(e) => {
-                    let _ = std::fs::remove_file(&cache_path);
-                    return Err(anyhow!(
-                        "Checksum mismatch! Corrupted download removed. Try again.\n  {}",
-                        e
-                    ));
-                }
-            },
-            Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+        let expected = Self::fetch_checksum(version).map_err(|e| {
+            let _ = std::fs::remove_file(&cache_path);
+            anyhow!(
+                "Checksum unavailable for {} — refusing to continue without verification.\n  \
+                 Reason: {}\n  Re-run the command when the network is available.",
+                filename,
+                e
+            )
+        })?;
+        match integrity::verify_sha256(&cache_path, &expected) {
+            Ok(()) => integrity::print_checksum_ok(filename),
+            Err(e) => {
+                let _ = std::fs::remove_file(&cache_path);
+                return Err(anyhow!(
+                    "Checksum mismatch! Corrupted download removed. Try again.\n  {}",
+                    e
+                ));
+            }
         }
 
         Ok(cache_path)

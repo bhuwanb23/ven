@@ -223,18 +223,24 @@ fn ensure_rustup_init(install_root: &Path) -> Result<PathBuf> {
         .with_context(|| format!("Failed to download {}", url))?;
 
     let sidecar = format!("{}.sha256", url);
-    match integrity::fetch_sidecar_sha256(&sidecar) {
-        Ok(hex) => match integrity::verify_sha256(&target, &hex) {
-            Ok(()) => integrity::print_checksum_ok(filename),
-            Err(e) => {
-                let _ = fs::remove_file(&target);
-                return Err(anyhow!(
-                    "rustup-init checksum mismatch ({}). Cached file removed; rerun.",
-                    e
-                ));
-            }
-        },
-        Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+    let hex = integrity::fetch_sidecar_sha256(&sidecar).map_err(|e| {
+        let _ = fs::remove_file(&target);
+        anyhow!(
+            "Checksum unavailable for {} — refusing to continue without verification.\n  \
+             Reason: {}\n  Re-run the command when the network is available.",
+            filename,
+            e
+        )
+    })?;
+    match integrity::verify_sha256(&target, &hex) {
+        Ok(()) => integrity::print_checksum_ok(filename),
+        Err(e) => {
+            let _ = fs::remove_file(&target);
+            return Err(anyhow!(
+                "rustup-init checksum mismatch ({}). Cached file removed; rerun.",
+                e
+            ));
+        }
     }
 
     #[cfg(not(target_os = "windows"))]

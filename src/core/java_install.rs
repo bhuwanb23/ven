@@ -176,10 +176,13 @@ pub fn install_java(downloader: &JavaDownloader, version: &str) -> Result<()> {
             }
         }
     } else {
-        integrity::print_checksum_unavailable(
-            &archive_filename,
-            "Adoptium API returned empty checksum",
-        );
+        let _ = fs::remove_file(&archive);
+        return Err(anyhow!(
+            "Checksum unavailable for {} — refusing to continue without verification.\n  \
+             Reason: Adoptium API returned empty checksum\n  \
+             Re-run the command when the network is available.",
+            archive_filename
+        ));
     }
 
     let install_dir = downloader.get_install_dir(&resolved_version);

@@ -185,7 +185,7 @@ impl PythonDownloader {
                 println!("{} Using cached {}", "[OK]".green(), cache_zip.display());
             }
 
-            verify_python_archive(&cache_zip, filename, &ver);
+            verify_python_archive(&cache_zip, filename, &ver)?;
 
             let install_dir = self.get_install_dir(&ver);
             if install_dir.exists() {
@@ -218,20 +218,29 @@ impl PythonDownloader {
 /// table; if anything fails we degrade to a warning (Node's UX) so air-gapped
 /// or HTML-changed environments still install.
 #[allow(dead_code)]
-fn verify_python_archive(archive: &Path, filename: &str, version: &str) {
-    match fetch_python_release_sha256(filename, version) {
-        Ok(hex) => match integrity::verify_sha256(archive, &hex) {
-            Ok(()) => integrity::print_checksum_ok(filename),
-            Err(e) => {
-                let _ = fs::remove_file(archive);
-                eprintln!(
-                    "  {} {}",
-                    "[ERROR]".to_string(),
-                    format!("checksum mismatch for {filename}: {e}")
-                );
-            }
-        },
-        Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+fn verify_python_archive(archive: &Path, filename: &str, version: &str) -> Result<()> {
+    let hex = fetch_python_release_sha256(filename, version).map_err(|e| {
+        let _ = fs::remove_file(archive);
+        anyhow!(
+            "Checksum unavailable for {} — refusing to continue without verification.\n  \
+             Reason: {}\n  Re-run the command when the network is available.",
+            filename,
+            e
+        )
+    })?;
+    match integrity::verify_sha256(archive, &hex) {
+        Ok(()) => {
+            integrity::print_checksum_ok(filename);
+            Ok(())
+        }
+        Err(e) => {
+            let _ = fs::remove_file(archive);
+            Err(anyhow!(
+                "Checksum mismatch for {}: {}\n  Corrupted download removed. Try again.",
+                filename,
+                e
+            ))
+        }
     }
 }
 

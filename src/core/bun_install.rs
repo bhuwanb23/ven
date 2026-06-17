@@ -152,19 +152,25 @@ pub fn install_bun(downloader: &BunDownloader, version: &str) -> Result<()> {
         "https://github.com/oven-sh/bun/releases/download/bun-v{}/SHASUMS256.txt",
         version
     );
-    match integrity::fetch_manifest_sha256(&manifest_url, &archive_filename) {
-        Ok(hex) => match integrity::verify_sha256(&archive, &hex) {
-            Ok(()) => integrity::print_checksum_ok(&archive_filename),
-            Err(e) => {
-                let _ = fs::remove_file(&archive);
-                return Err(anyhow!(
-                    "Bun archive checksum mismatch for {} ({}). Cached file removed; rerun.",
-                    archive_filename,
-                    e
-                ));
-            }
-        },
-        Err(e) => integrity::print_checksum_unavailable(&archive_filename, &e.to_string()),
+    let hex = integrity::fetch_manifest_sha256(&manifest_url, &archive_filename).map_err(|e| {
+        let _ = fs::remove_file(&archive);
+        anyhow!(
+            "Checksum unavailable for {} — refusing to continue without verification.\n  \
+             Reason: {}\n  Re-run the command when the network is available.",
+            archive_filename,
+            e
+        )
+    })?;
+    match integrity::verify_sha256(&archive, &hex) {
+        Ok(()) => integrity::print_checksum_ok(&archive_filename),
+        Err(e) => {
+            let _ = fs::remove_file(&archive);
+            return Err(anyhow!(
+                "Bun archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                archive_filename,
+                e
+            ));
+        }
     }
 
     let install_dir = downloader.get_install_dir(version);
