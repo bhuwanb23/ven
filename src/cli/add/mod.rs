@@ -372,7 +372,7 @@ pub fn cmd_add(
     let mut all_packages: HashMap<String, String> = HashMap::new();
     for (_, result) in &all_results {
         for (name, versions) in &result.graph.nodes {
-            for (_, node) in versions {
+            for node in versions.values() {
                 all_packages.insert(name.clone(), node.version.clone());
             }
         }

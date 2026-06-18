@@ -174,7 +174,7 @@ pub fn engine_checks(graph: &IntelGraph) -> Vec<EngineIncompatibility> {
     // Iterate every (name, version) pair so an engine mismatch on a
     // secondary resolved version is still surfaced.
     for (name, versions) in &graph.nodes {
-        for (_, node) in versions {
+        for node in versions.values() {
             if let Some(ref eng) = node.engines_node {
                 if !node_engine_satisfies(&graph.runtime_version, eng) {
                     out.push(EngineIncompatibility {

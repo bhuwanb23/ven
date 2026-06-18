@@ -20,8 +20,7 @@ impl<W: std::io::Write> std::io::Write for LimitWriter<W> {
         let n = self.inner.write(buf)?;
         self.written += n as u64;
         if self.written > MAX_EXTRACT_BYTES {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(std::io::Error::other(
                 "Decompression bomb: extracted size exceeds 2GB limit",
             ))
         } else {

@@ -240,7 +240,7 @@ fn path_directories() -> Vec<PathBuf> {
     std::env::var_os("PATH")
         .map(|p| {
             std::env::split_paths(&p)
-                .filter(|d| d.as_os_str().len() > 0)
+                .filter(|d| !d.as_os_str().is_empty())
                 .collect()
         })
         .unwrap_or_default()

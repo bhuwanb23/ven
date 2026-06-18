@@ -266,7 +266,7 @@ mod tests {
         store.save("test-project", &result).unwrap();
 
         let loaded = store.load("test-project").unwrap().unwrap();
-        assert_eq!(loaded.compatible, true);
+        assert!(loaded.compatible);
         assert!(loaded.warnings.is_empty());
     }
 
@@ -307,7 +307,7 @@ mod tests {
             .unwrap();
 
         let loaded = store.load("proj").unwrap().unwrap();
-        assert_eq!(loaded.compatible, true);
+        assert!(loaded.compatible);
 
         let mut stmt = store
             .conn

@@ -43,6 +43,7 @@ pub fn sanitize_version_string(s: &str) -> String {
 }
 
 /// Path-separator for `$PATH` on this platform. Windows uses `;`, Unix uses `:`.
+#[allow(dead_code)]
 pub fn path_separator() -> &'static str {
     if cfg!(target_os = "windows") {
         ";"
@@ -53,6 +54,7 @@ pub fn path_separator() -> &'static str {
 
 /// Split a `PATH`-style string into entries, dropping empty strings
 /// (the leading or trailing separator produces one).
+#[allow(dead_code)]
 fn split_path_entries<'a>(path: &'a str, sep: &'a str) -> Vec<&'a str> {
     path.split(sep).filter(|s| !s.is_empty()).collect()
 }
@@ -79,6 +81,7 @@ fn split_path_entries<'a>(path: &'a str, sep: &'a str) -> Vec<&'a str> {
 /// original (they end up in the tail, untouched), and to the user
 /// rearranging entries in the original (we only test set membership for
 /// the boundary, not order).
+#[allow(dead_code)]
 pub fn dedup_ven_path(current_path: &str, original_path: &str, sep: &str) -> String {
     let current = split_path_entries(current_path, sep);
     let original = split_path_entries(original_path, sep);

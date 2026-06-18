@@ -292,7 +292,7 @@ pub fn graph_to_text_tree(graph: &IntelGraph) -> String {
     names.sort();
     for name in names {
         if let Some(versions) = graph.nodes.get(&name) {
-            for (_, n) in versions {
+            for n in versions.values() {
                 lines.push(format!("  - {}@{}", n.name, n.version));
             }
         }

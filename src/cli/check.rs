@@ -102,7 +102,7 @@ fn run_security(cwd: &Path, cfg: &VenConfig) -> Result<Vec<OsvPackageReport>> {
         .collect();
     let client = OsvClient::new()?;
     let reports = block_on_async(async move { client.query_packages(&queries).await })?;
-    Ok(reports?)
+    reports
 }
 
 fn run_eol(cfg: &VenConfig) -> Result<Vec<EolReport>> {
@@ -134,7 +134,7 @@ fn run_eol(cfg: &VenConfig) -> Result<Vec<EolReport>> {
         }
         Ok::<_, anyhow::Error>(out)
     })?;
-    Ok(reports?)
+    reports
 }
 
 /// `[runtime].<key>` → version pairs that are non-empty.

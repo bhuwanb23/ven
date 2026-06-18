@@ -134,7 +134,7 @@ impl VenLockFile {
         // than clobbering. `validate_lock_graph` then checks the edges
         // point at the correct `name@version` key.
         for (name, versions) in &merged.nodes {
-            for (_, node) in versions {
+            for node in versions.values() {
                 let key = format!("{}@{}", name, node.version);
                 packages.insert(
                     key,
