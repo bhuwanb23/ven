@@ -15,28 +15,23 @@ use std::path::{Path, PathBuf};
 #[cfg(not(target_os = "windows"))]
 use tar::Archive;
 
+use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
 pub struct RubyDownloader {
-    storage_root: PathBuf,
-    cache_dir: PathBuf,
+    base: BaseInstaller,
 }
 
 impl RubyDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root
-            .join("ruby")
-            .join(normalize_ruby_semver(version))
+        self.base.get_install_dir("ruby", &normalize_ruby_semver(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -58,28 +53,7 @@ impl RubyDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let dir = self.storage_root.join("ruby");
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name.to_string());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts_desc(b, a));
-        Ok(versions)
+        self.base.list_installed("ruby")
     }
 }
 
@@ -156,8 +130,8 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
     {
         let (url, fname) = ri2_pick_asset_url(&semver)
             .ok_or_else(|| anyhow!("No RubyInstaller2 build found for {}", semver))?;
-        fs::create_dir_all(&dl.cache_dir)?;
-        let archive = dl.cache_dir.join(&fname);
+        fs::create_dir_all(&dl.base.cache_dir)?;
+        let archive = dl.base.cache_dir.join(&fname);
         if !archive.is_file() {
             // Streaming download with timeouts + retry on transient errors.
             // Replaces the old `Client::new().get(url).send()?.bytes()?`

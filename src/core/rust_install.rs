@@ -5,11 +5,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
 pub struct RustDownloader {
-    storage_root: PathBuf,
+    base: BaseInstaller,
 }
 
 #[derive(Debug, Deserialize)]
@@ -19,14 +20,13 @@ struct GithubRelease {
 
 impl RustDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        Ok(Self { storage_root })
+        Ok(Self {
+            base: BaseInstaller::new()?,
+        })
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root
-            .join("rust")
-            .join(normalize_rust_version(version))
+        self.base.get_install_dir("rust", &normalize_rust_version(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -49,28 +49,7 @@ impl RustDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let rust_dir = self.storage_root.join("rust");
-        if !rust_dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(rust_dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name.to_string());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts(b, a));
-        Ok(versions)
+        self.base.list_installed("rust")
     }
 }
 
@@ -256,13 +235,4 @@ fn ensure_rustup_init(install_root: &Path) -> Result<PathBuf> {
 
 fn normalize_rust_version(v: &str) -> String {
     v.trim().trim_start_matches('v').to_string()
-}
-
-fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|n| n.parse::<u32>().ok())
-            .collect::<Vec<_>>()
-    };
-    parse(a).cmp(&parse(b))
 }

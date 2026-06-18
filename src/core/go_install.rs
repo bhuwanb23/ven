@@ -4,12 +4,12 @@ use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
 pub struct GoDownloader {
-    storage_root: PathBuf,
-    cache_dir: PathBuf,
+    base: BaseInstaller,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,11 +29,8 @@ struct GoFile {
 
 impl GoDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
@@ -78,9 +75,7 @@ impl GoDownloader {
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root
-            .join("go")
-            .join(normalize_go_version(version))
+        self.base.get_install_dir("go", &normalize_go_version(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -103,35 +98,14 @@ impl GoDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let go_dir = self.storage_root.join("go");
-        if !go_dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(go_dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name.to_string());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts(b, a));
-        Ok(versions)
+        self.base.list_installed("go")
     }
 
     pub fn download(&self, version: &str) -> Result<PathBuf> {
-        fs::create_dir_all(&self.cache_dir)?;
+        fs::create_dir_all(&self.base.cache_dir)?;
         let url = Self::download_url(version)?;
         let name = Self::archive_filename(version)?;
-        let dest = self.cache_dir.join(name);
+        let dest = self.base.cache_dir.join(name);
         if dest.is_file() {
             return Ok(dest);
         }
@@ -317,13 +291,4 @@ fn extract_go_archive(archive_path: &Path, dest: &Path) -> Result<()> {
 
 fn normalize_go_version(version: &str) -> String {
     version.trim().trim_start_matches("go").to_string()
-}
-
-fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|n| n.parse::<u32>().ok())
-            .collect::<Vec<_>>()
-    };
-    parse(a).cmp(&parse(b))
 }
