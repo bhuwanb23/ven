@@ -305,7 +305,10 @@ pub fn cmd_add(
         println!("\n  {}", "Installation Preview".bold().cyan());
 
         for (pkg_name, result) in &all_results {
-            let pkg = packages.iter().find(|p| p.name == *pkg_name).ok_or_else(|| anyhow!("Package '{}' not found in resolution results", pkg_name))?;
+            let pkg = packages
+                .iter()
+                .find(|p| p.name == *pkg_name)
+                .ok_or_else(|| anyhow!("Package '{}' not found in resolution results", pkg_name))?;
             let resolved_version = result
                 .graph
                 .first_node(pkg_name)
@@ -463,7 +466,10 @@ pub fn cmd_add(
     let mut installed = Vec::new();
 
     for (pkg_name, result) in &all_results {
-        let pkg = packages.iter().find(|p| p.name == *pkg_name).ok_or_else(|| anyhow!("Package '{}' not found in resolution results", pkg_name))?;
+        let pkg = packages
+            .iter()
+            .find(|p| p.name == *pkg_name)
+            .ok_or_else(|| anyhow!("Package '{}' not found in resolution results", pkg_name))?;
         println!("[INFO] Installing {}...", pkg_name.bold());
 
         let version_to_install = result

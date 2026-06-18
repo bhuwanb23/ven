@@ -25,7 +25,11 @@ pub(super) fn display_verbose_status(
 
         if installed {
             let bin_path = get_bin_path_for_version(node_spec)?;
-            let version_size = calculate_dir_size(bin_path.parent().ok_or_else(|| anyhow!("Bin path has no parent"))?)?;
+            let version_size = calculate_dir_size(
+                bin_path
+                    .parent()
+                    .ok_or_else(|| anyhow!("Bin path has no parent"))?,
+            )?;
 
             println!(
                 "    {} node {} ({})",

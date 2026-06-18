@@ -602,30 +602,24 @@ EVIL5 = "; rm -rf /tmp"
     fn test_resolve_node_version_empty_installed() {
         let result = resolve_node_version("latest", &[]);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("No Node versions installed")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No Node versions installed"));
 
         let result = resolve_node_version("lts", &[]);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("No LTS Node versions installed")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No LTS Node versions installed"));
 
         let result = resolve_node_version("20", &[]);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("No Node 20 versions installed")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No Node 20 versions installed"));
     }
 
     #[test]

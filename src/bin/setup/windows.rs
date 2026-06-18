@@ -231,10 +231,7 @@ $WM_SETTINGCHANGE = 0x001A
                 restore_err
             );
         } else {
-            eprintln!(
-                "  Restored {} PATH to previous value",
-                scope.label()
-            );
+            eprintln!("  Restored {} PATH to previous value", scope.label());
         }
         anyhow::bail!("Failed to update {} PATH", scope.label());
     }
@@ -244,9 +241,7 @@ $WM_SETTINGCHANGE = 0x001A
 /// Read the current PATH for the given scope from the Windows Registry.
 fn read_registry_path(scope: PathScope) -> Result<String> {
     let scope_ps = scope.label();
-    let script = format!(
-        r#"[Environment]::GetEnvironmentVariable('Path', '{scope_ps}')"#,
-    );
+    let script = format!(r#"[Environment]::GetEnvironmentVariable('Path', '{scope_ps}')"#,);
     let output = Command::new("powershell.exe")
         .args([
             "-NoLogo",
@@ -271,9 +266,8 @@ fn read_registry_path(scope: PathScope) -> Result<String> {
 fn write_registry_path(scope: PathScope, value: &str) -> Result<()> {
     let scope_ps = scope.label();
     let value_ps = value.replace('\'', "''");
-    let script = format!(
-        r#"[Environment]::SetEnvironmentVariable('Path', '{value_ps}', '{scope_ps}')"#,
-    );
+    let script =
+        format!(r#"[Environment]::SetEnvironmentVariable('Path', '{value_ps}', '{scope_ps}')"#,);
     let status = Command::new("powershell.exe")
         .args([
             "-NoLogo",

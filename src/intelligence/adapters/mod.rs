@@ -207,7 +207,8 @@ impl DependencyRuntimeAdapter for GenericStubAdapter {
     ) -> Result<IntelGraph> {
         let mut nodes: BTreeMap<String, BTreeMap<semver::Version, IntelNode>> = BTreeMap::new();
         for (name, pinned) in manifest_packages {
-            let ver = semver::Version::parse(pinned).unwrap_or_else(|_| semver::Version::new(0, 0, 0));
+            let ver =
+                semver::Version::parse(pinned).unwrap_or_else(|_| semver::Version::new(0, 0, 0));
             let node = IntelNode {
                 name: name.clone(),
                 version: pinned.clone(),

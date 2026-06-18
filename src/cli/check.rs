@@ -137,7 +137,6 @@ fn run_eol(cfg: &VenConfig) -> Result<Vec<EolReport>> {
     Ok(reports)
 }
 
-
 /// `[runtime].<key>` → version pairs that are non-empty.
 fn declared_runtimes(cfg: &VenConfig) -> Vec<(&'static str, String)> {
     let mut out = Vec::new();

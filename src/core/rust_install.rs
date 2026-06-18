@@ -26,7 +26,8 @@ impl RustDownloader {
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.base.get_install_dir("rust", &normalize_rust_version(version))
+        self.base
+            .get_install_dir("rust", &normalize_rust_version(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {

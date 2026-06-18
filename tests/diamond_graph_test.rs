@@ -93,10 +93,9 @@ fn diamond_emits_conflict_chain() {
     let existing = std::collections::HashMap::new();
     let (chains, _) = analyze_npm_graph(&g, &existing);
     assert!(
-        chains.iter().any(|c| c.package == "d"
-            && c.steps
-                .iter()
-                .any(|s| s.contains("multiple versions"))),
+        chains
+            .iter()
+            .any(|c| c.package == "d" && c.steps.iter().any(|s| s.contains("multiple versions"))),
         "expected diamond chain, got: {:?}",
         chains
     );

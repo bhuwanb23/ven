@@ -95,9 +95,8 @@ fn embed_setup_manifest() {
 
 fn write_sha256(src: &Path, dst: &Path) {
     if !src.is_file() || fs::read(src).unwrap_or_default().is_empty() {
-        fs::write(dst, b"").unwrap_or_else(|e| {
-            panic!("Failed to write empty stub {}: {e}", dst.display())
-        });
+        fs::write(dst, b"")
+            .unwrap_or_else(|e| panic!("Failed to write empty stub {}: {e}", dst.display()));
         return;
     }
     let data = fs::read(src)

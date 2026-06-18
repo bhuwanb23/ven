@@ -22,7 +22,8 @@ use std::path::{Path, PathBuf};
 pub const VEN_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven.bin"));
 pub const LAUNCHER_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin"));
 pub const VEN_HASH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven.bin.sha256"));
-pub const LAUNCHER_HASH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin.sha256"));
+pub const LAUNCHER_HASH: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin.sha256"));
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -155,7 +156,10 @@ pub fn verify_binary_integrity(name: &str, bytes: &[u8], expected_hash: &[u8]) -
         return Ok(());
     }
     let actual = Sha256::digest(bytes);
-    let actual_hex = actual.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    let actual_hex = actual
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
     let expected = String::from_utf8_lossy(expected_hash);
     if actual_hex != expected.as_ref() {
         anyhow::bail!(

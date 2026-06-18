@@ -75,7 +75,8 @@ impl GoDownloader {
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.base.get_install_dir("go", &normalize_go_version(version))
+        self.base
+            .get_install_dir("go", &normalize_go_version(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {

@@ -41,8 +41,13 @@ fn backup_file(path: &Path) -> Result<PathBuf> {
             .map(|e| format!("{}.bak", e.to_string_lossy()))
             .unwrap_or_else(|| "bak".to_string()),
     );
-    fs::copy(path, &backup)
-        .with_context(|| format!("Failed to create backup {} -> {}", path.display(), backup.display()))?;
+    fs::copy(path, &backup).with_context(|| {
+        format!(
+            "Failed to create backup {} -> {}",
+            path.display(),
+            backup.display()
+        )
+    })?;
     eprintln!("  Backup created: {}", backup.display());
     Ok(backup)
 }

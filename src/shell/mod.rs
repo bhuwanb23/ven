@@ -519,10 +519,7 @@ mod tests {
 
     #[test]
     fn shell_escape_posix_dollar_and_backtick() {
-        assert_eq!(
-            shell_escape_posix("/path/$var/`cmd`"),
-            "'/path/$var/`cmd`'"
-        );
+        assert_eq!(shell_escape_posix("/path/$var/`cmd`"), "'/path/$var/`cmd`'");
     }
 
     #[test]
@@ -556,10 +553,7 @@ mod tests {
 
     #[test]
     fn shell_escape_powershell_dollar() {
-        assert_eq!(
-            shell_escape_powershell(r"C:\path$var"),
-            r#""C:\path`$var""#
-        );
+        assert_eq!(shell_escape_powershell(r"C:\path$var"), r#""C:\path`$var""#);
     }
 
     #[test]

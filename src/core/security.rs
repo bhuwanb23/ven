@@ -206,7 +206,10 @@ mod tests {
 
     #[test]
     fn severity_from_str_unknown_defaults_to_info() {
-        assert_eq!(SeverityLevel::from_str("something_weird"), SeverityLevel::Info);
+        assert_eq!(
+            SeverityLevel::from_str("something_weird"),
+            SeverityLevel::Info
+        );
         assert_eq!(SeverityLevel::from_str(""), SeverityLevel::Info);
     }
 
@@ -312,10 +315,7 @@ mod tests {
     #[test]
     fn has_critical_vulnerabilities_with_low_only() {
         let scanner = SecurityScanner::new().unwrap();
-        let advisories = vec![
-            make_advisory("low", "pkg"),
-            make_advisory("info", "pkg2"),
-        ];
+        let advisories = vec![make_advisory("low", "pkg"), make_advisory("info", "pkg2")];
         assert!(!scanner.has_critical_vulnerabilities(&advisories));
     }
 

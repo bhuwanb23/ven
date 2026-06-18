@@ -39,10 +39,9 @@ impl<W: std::io::Write> std::io::Write for LimitWriter<W> {
 /// archive entries contain `../` components that could escape the
 /// extraction directory.
 pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<PathBuf> {
-    let canon_base = std::fs::canonicalize(base_dir)
-        .unwrap_or_else(|_| base_dir.to_path_buf());
-    let canon_candidate = std::fs::canonicalize(candidate)
-        .unwrap_or_else(|_| candidate.to_path_buf());
+    let canon_base = std::fs::canonicalize(base_dir).unwrap_or_else(|_| base_dir.to_path_buf());
+    let canon_candidate =
+        std::fs::canonicalize(candidate).unwrap_or_else(|_| candidate.to_path_buf());
 
     if canon_candidate.starts_with(&canon_base) {
         Ok(canon_candidate)
@@ -95,7 +94,9 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
             let mut writer = LimitWriter::new(&mut outfile);
             std::io::copy(&mut entry, &mut writer)?;
             if writer.written > MAX_EXTRACT_BYTES {
-                return Err(anyhow!("Decompression bomb: extracted size exceeds 2GB limit"));
+                return Err(anyhow!(
+                    "Decompression bomb: extracted size exceeds 2GB limit"
+                ));
             }
         } else {
             std::fs::create_dir_all(&outpath)?;
@@ -171,7 +172,9 @@ fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
             let mut writer = LimitWriter::new(&mut outfile);
             std::io::copy(&mut entry, &mut writer)?;
             if writer.written > MAX_EXTRACT_BYTES {
-                return Err(anyhow!("Decompression bomb: extracted size exceeds 2GB limit"));
+                return Err(anyhow!(
+                    "Decompression bomb: extracted size exceeds 2GB limit"
+                ));
             }
         } else if entry_type.is_dir() {
             std::fs::create_dir_all(&outpath)?;

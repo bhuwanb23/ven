@@ -182,7 +182,9 @@ pub const PACKAGE_CACHE_TTL_SECS: u64 = 3600;
 mod tests {
     use super::*;
     use crate::intelligence::graph::{IntelGraph, RuntimeKind, SimulationResult};
-    use crate::intelligence::ven_lock::{VenLockEdge, VenLockFile, VenLockPackage, LOCK_FORMAT_VERSION};
+    use crate::intelligence::ven_lock::{
+        VenLockEdge, VenLockFile, VenLockPackage, LOCK_FORMAT_VERSION,
+    };
     use tempfile::TempDir;
 
     fn temp_ven_home() -> TempDir {
@@ -385,7 +387,9 @@ mod tests {
             .prepare("SELECT from_package, from_version, to_package, constraint_type FROM dependency_cache")
             .unwrap();
         let (from_pkg, from_ver, to_pkg, kind): (String, String, String, String) = stmt
-            .query_row([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
+            .query_row([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
             .unwrap();
 
         assert_eq!(from_pkg, "express");
@@ -434,26 +438,25 @@ mod tests {
             rusqlite::params!["new-pkg", "2.0.0", "npm", "{}", now_secs()],
         ).unwrap();
 
-        store.conn.execute(
-            "DELETE FROM package_cache WHERE cached_at < ?1",
-            rusqlite::params![now_secs() - PACKAGE_CACHE_TTL_SECS as i64],
-        ).unwrap();
+        store
+            .conn
+            .execute(
+                "DELETE FROM package_cache WHERE cached_at < ?1",
+                rusqlite::params![now_secs() - PACKAGE_CACHE_TTL_SECS as i64],
+            )
+            .unwrap();
 
         let count: i64 = store
             .conn
-            .query_row("SELECT COUNT(*) FROM package_cache", [], |row| {
-                row.get(0)
-            })
+            .query_row("SELECT COUNT(*) FROM package_cache", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
 
         let name: String = store
             .conn
-            .query_row(
-                "SELECT package_name FROM package_cache",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT package_name FROM package_cache", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(name, "new-pkg");
     }
@@ -461,10 +464,7 @@ mod tests {
     #[test]
     fn cache_entry_fresh_respects_ttl() {
         assert!(cache_entry_fresh(now_secs(), PACKAGE_CACHE_TTL_SECS));
-        assert!(cache_entry_fresh(
-            now_secs() - 100,
-            PACKAGE_CACHE_TTL_SECS
-        ));
+        assert!(cache_entry_fresh(now_secs() - 100, PACKAGE_CACHE_TTL_SECS));
         assert!(!cache_entry_fresh(
             now_secs() - PACKAGE_CACHE_TTL_SECS as i64 - 1,
             PACKAGE_CACHE_TTL_SECS
@@ -482,10 +482,14 @@ mod tests {
 
         let mut stmt = store
             .conn
-            .prepare("SELECT graph_hash, lock_content_hash FROM lock_validations WHERE project_key = ?1")
+            .prepare(
+                "SELECT graph_hash, lock_content_hash FROM lock_validations WHERE project_key = ?1",
+            )
             .unwrap();
         let (gh, lch): (String, String) = stmt
-            .query_row(rusqlite::params!["proj"], |row| Ok((row.get(0)?, row.get(1)?)))
+            .query_row(rusqlite::params!["proj"], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
             .unwrap();
         assert_eq!(gh, "graph-hash-1");
         assert_eq!(lch, "lock-hash-1");

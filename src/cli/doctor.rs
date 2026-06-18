@@ -31,7 +31,8 @@ struct DoctorReport {
 }
 
 pub fn cmd_doctor(json: bool) -> Result<()> {
-    let running_exe = std::env::current_exe().context("Could not resolve running ven executable")?;
+    let running_exe =
+        std::env::current_exe().context("Could not resolve running ven executable")?;
     let running_version = env!("CARGO_PKG_VERSION").to_string();
 
     let path_dirs = path_directories();
@@ -51,9 +52,7 @@ pub fn cmd_doctor(json: bool) -> Result<()> {
     entries.sort_by(|a, b| a.path.cmp(&b.path));
 
     let path_winner = find_path_winner();
-    let path_winner_version = path_winner
-        .as_ref()
-        .and_then(|p| read_ven_version(p).ok());
+    let path_winner_version = path_winner.as_ref().and_then(|p| read_ven_version(p).ok());
 
     let hints = build_hints(
         &running_exe,
@@ -108,10 +107,7 @@ pub fn cmd_doctor(json: bool) -> Result<()> {
             "binary", "version", "mode", "PATH", "idx", "update"
         );
         for e in &entries {
-            let ver = e
-                .version
-                .as_deref()
-                .unwrap_or("?");
+            let ver = e.version.as_deref().unwrap_or("?");
             let idx = e
                 .path_index
                 .map(|i| i.to_string())
@@ -253,11 +249,15 @@ fn path_directories() -> Vec<PathBuf> {
 fn find_path_winner() -> Option<PathBuf> {
     #[cfg(windows)]
     {
-        which_all_windows("ven.exe").ok().and_then(|v| v.into_iter().next())
+        which_all_windows("ven.exe")
+            .ok()
+            .and_then(|v| v.into_iter().next())
     }
     #[cfg(not(windows))]
     {
-        which_all_unix("ven").ok().and_then(|v| v.into_iter().next())
+        which_all_unix("ven")
+            .ok()
+            .and_then(|v| v.into_iter().next())
     }
 }
 
@@ -283,7 +283,9 @@ fn which_all_windows(name: &str) -> Result<Vec<PathBuf>> {
 fn which_all_unix(name: &str) -> Result<Vec<PathBuf>> {
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("command -v {name} 2>/dev/null; which -a {name} 2>/dev/null || true"))
+        .arg(format!(
+            "command -v {name} 2>/dev/null; which -a {name} 2>/dev/null || true"
+        ))
         .output()
         .context("Failed to run which")?;
     let text = String::from_utf8_lossy(&output.stdout);
@@ -301,11 +303,7 @@ fn read_ven_version(bin: &Path) -> Result<String> {
         .output()
         .with_context(|| format!("Failed to run {} --version", bin.display()))?;
     if !output.status.success() {
-        anyhow::bail!(
-            "{} --version exited with {}",
-            bin.display(),
-            output.status
-        );
+        anyhow::bail!("{} --version exited with {}", bin.display(), output.status);
     }
     let line = String::from_utf8_lossy(&output.stdout);
     parse_ven_version_line(&line)
@@ -334,9 +332,13 @@ fn parse_semver_triple(s: &str) -> (u32, u32, u32) {
         .next()
         .and_then(|p| p.parse::<u32>().ok())
         .or_else(|| {
-            parts
-                .next()
-                .and_then(|p| p.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok())
+            parts.next().and_then(|p| {
+                p.chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect::<String>()
+                    .parse()
+                    .ok()
+            })
         })
         .unwrap_or(0);
     (major, minor, patch)
@@ -428,7 +430,10 @@ fn build_hints(
     }
 
     if hints.is_empty() {
-        hints.push("No issues detected. Run `ven update --check` to see if a newer release is available.".into());
+        hints.push(
+            "No issues detected. Run `ven update --check` to see if a newer release is available."
+                .into(),
+        );
     }
 
     hints

@@ -20,7 +20,8 @@ impl JavaDownloader {
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.base.get_install_dir("java", &version.trim().to_string())
+        self.base
+            .get_install_dir("java", &version.trim().to_string())
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {

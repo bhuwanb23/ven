@@ -261,7 +261,13 @@ pub(super) fn check_if_version_active(spec: &str) -> Result<bool> {
     let current_path = std::env::var("PATH").unwrap_or_default();
     let bin_path = get_bin_path_for_version(spec)?;
 
-    Ok(current_path.contains(&bin_path.parent().ok_or_else(|| anyhow!("Bin path has no parent"))?.to_string_lossy().to_string()))
+    Ok(current_path.contains(
+        &bin_path
+            .parent()
+            .ok_or_else(|| anyhow!("Bin path has no parent"))?
+            .to_string_lossy()
+            .to_string(),
+    ))
 }
 
 pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {

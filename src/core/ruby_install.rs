@@ -31,7 +31,8 @@ impl RubyDownloader {
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.base.get_install_dir("ruby", &normalize_ruby_semver(version))
+        self.base
+            .get_install_dir("ruby", &normalize_ruby_semver(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
