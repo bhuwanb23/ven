@@ -110,7 +110,6 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
 #[cfg(not(target_os = "windows"))]
 fn extract_tar_gz(tar_path: &Path, dest: &Path) -> Result<()> {
     use flate2::read::GzDecoder;
-    use std::io::Read;
     use tar::Archive;
     use tar::EntryType;
 

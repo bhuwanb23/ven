@@ -185,6 +185,7 @@ mod tests {
     use crate::intelligence::ven_lock::{
         VenLockEdge, VenLockFile, VenLockPackage, LOCK_FORMAT_VERSION,
     };
+    use std::collections::{BTreeMap, HashMap};
     use tempfile::TempDir;
 
     fn temp_ven_home() -> TempDir {

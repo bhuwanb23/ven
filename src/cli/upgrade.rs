@@ -13,7 +13,6 @@ use languages::{
 };
 use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
-use std::path::Path;
 /// Semantic upgrade type classification
 #[derive(Debug)]
 enum UpgradeType {

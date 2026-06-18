@@ -393,9 +393,9 @@ pub fn cmd_add(
         Ok(advisories) => advisories,
         Err(e) => {
             eprintln!("  {} Warning: Security scan failed: {}", "⚠".yellow(), e);
-            Vec::new()
+            Ok(Vec::new())
         }
-    };
+    }?;
 
     let scanner = SecurityScanner::new()?;
     scanner.print_audit(&vulnerabilities);

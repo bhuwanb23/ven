@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 
-use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
+use crate::core::installer_base::BaseInstaller;
 use crate::core::integrity;
 
 /// Node.js downloader - handles downloading from nodejs.org with checksum verification

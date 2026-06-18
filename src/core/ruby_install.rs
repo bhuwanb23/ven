@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 #[cfg(not(target_os = "windows"))]
 use tar::Archive;
 
-use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
+use crate::core::installer_base::BaseInstaller;
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
@@ -159,13 +159,13 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
     #[cfg(not(target_os = "windows"))]
     {
         let url = ruby_builder_pick_asset_url(&semver)?;
-        fs::create_dir_all(&dl.cache_dir)?;
+        fs::create_dir_all(&dl.base.cache_dir)?;
         let fname = Path::new(&url)
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("ruby.tar.gz")
             .to_string();
-        let archive = dl.cache_dir.join(&fname);
+        let archive = dl.base.cache_dir.join(&fname);
         if !archive.is_file() {
             // See Windows branch above for why we don't do `.bytes()?`.
             integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("ruby"))

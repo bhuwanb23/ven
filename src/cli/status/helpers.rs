@@ -5,7 +5,7 @@ use crate::core::{
 };
 use anyhow::{anyhow, Result};
 use colored::Colorize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 pub(super) use crate::core::utils::{calculate_dir_size, format_bytes};

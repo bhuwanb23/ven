@@ -10,7 +10,7 @@ use languages::{
     cmd_remove_ruby, cmd_remove_rust,
 };
 use std::collections::HashSet;
-use std::path::Path;
+
 
 /// Remove packages with batch support and advanced features
 pub fn cmd_remove(
