@@ -27,7 +27,7 @@ impl DependencyIntelligenceService {
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<T>>,
     {
-        crate::core::block_on_async(make_fut())
+        crate::core::block_on_async(make_fut())?
     }
 
     pub fn simulate_add(

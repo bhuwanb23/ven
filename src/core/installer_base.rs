@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone)]
 pub struct BaseInstaller {
     pub storage_root: PathBuf,
     pub cache_dir: PathBuf,

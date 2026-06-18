@@ -284,7 +284,7 @@ mod tests {
         let store = IntelligenceStore::open().unwrap();
 
         let mut result1 = mk_simulation_result();
-        result1.warnings = vec!["first".into()];
+        result1.warnings = vec![String::from("first")];
         store.save("key", &result1).unwrap();
 
         let mut result2 = mk_simulation_result();
@@ -292,7 +292,7 @@ mod tests {
         store.save("key", &result2).unwrap();
 
         let loaded = store.load("key").unwrap().unwrap();
-        assert_eq!(loaded.warnings, vec!["second".into()]);
+        assert_eq!(loaded.warnings, vec![String::from("second")]);
     }
 
     #[test]
