@@ -74,11 +74,11 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<()> {
 
         // Basic symlink heuristic: skip files that look like symlinks
         // (zip crate doesn't have native symlink support)
-        if !entry.is_dir() && entry.mangled_name().ends_with('/') {
+        if !entry.is_dir() && entry.name().ends_with('/') {
             eprintln!(
                 "{} Skipping potential symlink: {}",
                 "[WARN]".yellow(),
-                entry.mangled_name()
+                entry.mangled_name().display()
             );
             continue;
         }

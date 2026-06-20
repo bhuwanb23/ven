@@ -11,7 +11,6 @@ use languages::{
 };
 use std::collections::HashSet;
 
-
 /// Remove packages with batch support and advanced features
 pub fn cmd_remove(
     packages: &[String],
