@@ -290,6 +290,86 @@ const CMD_DOCS = {
     related: ['upgrade', 'setup', 'install'],
   },
 
+  doctor: {
+    title: 'ven doctor',
+    category: 'Maintenance',
+    summary:
+      'Diagnose ven installation health: multiple copies on disk, PATH shadowing, and whether your build supports ven update.',
+    sections: [
+      { kind: 'h2', text: 'Usage' },
+      { kind: 'code', lang: 'bash', code: 'ven doctor\nven doctor --json' },
+      { kind: 'h2', text: 'What it checks' },
+      {
+        kind: 'ul', items: [
+          'Known install locations (`~/.ven/bin`, `%ProgramFiles%\\ven\\bin`, `/usr/local/bin`)',
+          'Every `ven` binary reported by `where` / `which`',
+          'Which copy PATH resolves first',
+          'Whether each copy is new enough for `ven update` (v0.1.7+)',
+        ]
+      },
+      { kind: 'h2', text: 'When to run it' },
+      {
+        kind: 'ul', items: [
+          '`ven update` fails with "unrecognized subcommand"',
+          'You re-installed but `ven --version` did not change',
+          'Both user and system installs exist',
+        ]
+      },
+    ],
+    related: ['update', 'setup', 'install'],
+  },
+
+  uninstall: {
+    title: 'ven uninstall',
+    category: 'Maintenance',
+    summary:
+      'Full-nuke teardown. Removes ven binary, every runtime, cache, state, persisted VEN_HOME, pointer file, PATH entries, and shell rc-file blocks. Idempotent, dry-run-capable.',
+    sections: [
+      { kind: 'callout', tone: 'warning', title: 'Irreversible', text: 'ven uninstall removes every ven-managed file and setting from your machine. Use --dry-run first to see the plan without touching anything.' },
+      { kind: 'h2', text: 'Synopsis' },
+      { kind: 'code', lang: 'bash', code: 'ven uninstall                    # interactive: show plan, prompt before nuking\nven uninstall --dry-run          # print the plan; touch nothing\nven uninstall -y                 # skip the confirm prompt (CI / scripts)\nven uninstall --user-only        # skip the system install layer\nven uninstall --system-only      # skip the user install layer\nven uninstall --json -y          # machine-readable result\nven uninstall --json --dry-run   # plan as JSON without executing' },
+      { kind: 'h2', text: 'What gets removed' },
+      {
+        kind: 'ul', items: [
+          'User install root (`~/.ven` / `%USERPROFILE%\\.ven`) — binary, every installed runtime, cache, lockfile state',
+          'System install (`/usr/local/bin/{ven,ven-launcher,ven-setup}` + `/etc/profile.d/ven.sh` on Unix, `%ProgramFiles%\\ven\\` on Windows)',
+          'Relocated storage root if `ven path set` moved it — honored via the same VEN_HOME precedence chain ven uses',
+          'Persisted `VEN_HOME` user environment variable written by `ven path set`',
+          'Pointer file at `~/.config/ven/config.toml` (or platform equivalent)',
+          'Ven-managed blocks from shell rc files: `# >>> ven env >>>`, `# >>> ven-setup PATH >>>`, `# >>> ven shell hook >>>`, plus orphan `.ven/bin` PATH lines',
+          'Windows User-scope and Machine-scope PATH entries with WM_SETTINGCHANGE broadcast',
+        ]
+      },
+      { kind: 'h2', text: 'What survives' },
+      { kind: 'p', text: 'Per-project files are left alone — `ven.toml`, `ven.lock`, `node_modules/`, `venv/`, language-native lockfiles, editor settings, shell history.' },
+      { kind: 'h2', text: 'Flags' },
+      {
+        kind: 'table', head: ['Flag', 'Effect'], rows: [
+          ['(no flag)', 'Print the plan, then prompt "Permanently remove ven and all installed runtimes? [y/N]". Default is No.'],
+          ['-y / --yes', 'Skip the confirm prompt. Required for CI / scripted use.'],
+          ['--dry-run', 'Build the plan and print it. Do not touch the filesystem or env state. Combine with --json for CI.'],
+          ['--user-only', 'Skip the system install layer. No sudo / Admin needed.'],
+          ['--system-only', 'Skip the user install layer. For sysadmins. Mutually exclusive with --user-only.'],
+          ['--json', 'Emit a structured result. Requires --dry-run (plan) or -y (execute). Pure JSON without one is rejected.'],
+        ]
+      },
+      { kind: 'h2', text: 'Elevation' },
+      { kind: 'p', text: 'System install dirs require root / Admin. ven uninstall does NOT auto-elevate (the blast radius is too large). It prints a hint: "sudo ven uninstall" on Unix, "re-run as Administrator" on Windows. Pass --user-only to skip the system layer.' },
+      { kind: 'h2', text: 'Windows: the running .exe' },
+      { kind: 'p', text: 'Windows refuses to delete the running .exe. ven renames itself to *.exe.old (same trick as ven update), then removes the rest of the install dir. The orphan vanishes on the next reboot.' },
+      { kind: 'h2', text: 'Fallback scripts' },
+      { kind: 'p', text: 'Standalone teardown scripts are bundled alongside the binary at ~/.ven/bin/ven-uninstall (Unix) and ~\\.ven\\bin\\ven-uninstall.ps1 (Windows). Use these when the ven binary itself is broken. Canonical sources: scripts/uninstall.sh and scripts/uninstall.ps1 in the repo.' },
+      { kind: 'h2', text: 'Exit codes' },
+      {
+        kind: 'table', head: ['Code', 'Meaning'], rows: [
+          ['0', 'Uninstall succeeded, or no-op (nothing was installed)'],
+          ['1', 'Partial failure (see report), needs elevation, or invalid flag combo'],
+        ]
+      },
+    ],
+    related: ['update', 'delete', 'path'],
+  },
+
   // --- Runtime management ---------------------------------------------------
 
   list: {
@@ -654,6 +734,8 @@ export const DOC_GROUPS = [
     title: 'Maintenance',
     items: [
       { slug: 'update', label: 'ven update' },
+      { slug: 'doctor', label: 'ven doctor' },
+      { slug: 'uninstall', label: 'ven uninstall' },
     ],
   },
   {
