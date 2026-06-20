@@ -1,6 +1,6 @@
 use crate::shell::{
-    generate_hook, try_compute_exports, windows_powershell_profile_paths, ComputeExportsOutcome,
-    HOOK_MARKER,
+    generate_hook, has_ven_hook, try_compute_exports, windows_powershell_profile_paths,
+    ComputeExportsOutcome, HOOK_MARKER,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -37,6 +37,14 @@ pub fn cmd_shell_install() -> Result<()> {
             };
 
             if existing_content.contains(HOOK_MARKER) {
+                continue;
+            }
+            if has_ven_hook(&existing_content) {
+                println!(
+                    "  {} {}",
+                    "!".yellow(),
+                    format!("Detected older ven hook in {}. Remove the old block and re-run `ven shell install` to upgrade.", profile_path.display()).dimmed()
+                );
                 continue;
             }
 
@@ -100,6 +108,18 @@ pub fn cmd_shell_install() -> Result<()> {
     if existing_content.contains(HOOK_MARKER) {
         println!("  {} ven hook already installed in profile", "✅".green());
         println!("  {} {}", "Profile:".dimmed(), profile_path.display());
+        return Ok(());
+    }
+    if has_ven_hook(&existing_content) {
+        println!(
+            "  {} {}",
+            "!".yellow(),
+            format!(
+                "Detected older ven hook in {}. Remove the old block and re-run `ven shell install` to upgrade.",
+                profile_path.display()
+            )
+            .dimmed()
+        );
         return Ok(());
     }
 

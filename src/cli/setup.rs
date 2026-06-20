@@ -1,4 +1,4 @@
-use crate::shell::{detect_shell, windows_powershell_profile_paths, HOOK_MARKER};
+use crate::shell::{detect_shell, has_ven_hook, windows_powershell_profile_paths, HOOK_MARKER};
 use anyhow::Result;
 use colored::Colorize;
 use std::io::Write;
@@ -38,6 +38,14 @@ if ($_ven) {{\n\
                     "  {} {}",
                     "✓".green(),
                     format!("Hook already configured in {}", rc_file.display()).dimmed()
+                );
+                continue;
+            }
+            if has_ven_hook(&existing) {
+                println!(
+                    "  {} {}",
+                    "!".yellow(),
+                    format!("Detected older ven hook in {}. Remove the old block and re-run `ven setup` to upgrade.", rc_file.display()).dimmed()
                 );
                 continue;
             }
@@ -81,7 +89,7 @@ if ($_ven) {{\n\
         _ => home.join(".bashrc"),
     };
     let hook_line = format!(
-        "\n# ven shell hook\neval \"$(ven shell hook {})\"",
+        "\n{HOOK_MARKER}\n# ven shell hook\neval \"$(ven shell hook {})\"",
         shell_name
     );
 
@@ -91,6 +99,14 @@ if ($_ven) {{\n\
             "  {} {}",
             "✓".green(),
             format!("Hook already configured in {}", rc_file.display()).dimmed()
+        );
+        return Ok(());
+    }
+    if has_ven_hook(&existing) {
+        println!(
+            "  {} {}",
+            "!".yellow(),
+            format!("Detected older ven hook in {}. Remove the old block and re-run `ven setup` to upgrade to the current format.", rc_file.display()).dimmed()
         );
         return Ok(());
     }

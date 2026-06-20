@@ -52,6 +52,32 @@ pub use activation::{
 /// will then not detect the old block and may append a duplicate.
 pub const HOOK_MARKER: &str = "# ven-managed-hook-v2";
 
+/// Legacy markers from ven ≤ v0.2.1. These were written by older versions and
+/// must be recognised so re-running `ven setup` / `ven shell install` after an
+/// upgrade doesn't append a second hook block.
+const LEGACY_HOOK_PATTERNS: &[&str] = &[
+    "# ven shell hook",
+    "# ven shell hook (PowerShell)",
+];
+
+/// Check whether `content` contains any known ven shell hook pattern (current
+/// or legacy).  Returns `true` if the canonical [`HOOK_MARKER`] or any entry
+/// in [`LEGACY_HOOK_PATTERNS`] is found.
+///
+/// Ordering note: the bare `"# ven shell hook"` is a prefix of the more
+/// specific `"# ven shell hook (PowerShell)"`, but `LEGACY_HOOK_PATTERNS`
+/// lists the general pattern **first** so we cannot distinguish *which*
+/// legacy variant is present.  This is fine for the only consumer
+/// (duplicate-hook prevention), which only needs a boolean answer.
+pub fn has_ven_hook(content: &str) -> bool {
+    if content.contains(HOOK_MARKER) {
+        return true;
+    }
+    LEGACY_HOOK_PATTERNS
+        .iter()
+        .any(|pattern| content.contains(pattern))
+}
+
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
 // On Unix: read $SHELL env var
@@ -455,6 +481,65 @@ pub fn try_compute_exports(dir: &Path) -> Result<ComputeExportsOutcome> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── has_ven_hook ───────────────────────────────────────────
+
+    #[test]
+    fn has_ven_hook_detects_current_marker() {
+        assert!(has_ven_hook("# ven-managed-hook-v2"));
+    }
+
+    #[test]
+    fn has_ven_hook_detects_current_marker_in_real_content() {
+        let content = "\n# some other stuff\n# ven-managed-hook-v2\n# ven shell hook (bash/zsh)\neval \"$(ven shell hook bash)\"\n";
+        assert!(has_ven_hook(content));
+    }
+
+    #[test]
+    fn has_ven_hook_detects_legacy_bare_hook() {
+        // Written by `ven setup` on Unix in v0.2.1
+        let content = "\n# ven shell hook\neval \"$(ven shell hook bash)\"";
+        assert!(has_ven_hook(content));
+    }
+
+    #[test]
+    fn has_ven_hook_detects_legacy_powershell_marker() {
+        // Written by `ven shell install` in v0.2.1
+        let content = "\n# ven shell hook (PowerShell)\n...";
+        assert!(has_ven_hook(content));
+    }
+
+    #[test]
+    fn has_ven_hook_detects_legacy_auto_loads_header() {
+        // Written by `ven shell install` header in v0.2.1
+        let content = "\n# ven shell hook - Auto-loads on terminal start\n...";
+        assert!(has_ven_hook(content));
+    }
+
+    #[test]
+    fn has_ven_hook_detects_old_ven_setup_exe_marker_on_windows() {
+        // The `ven-setup.exe` shipped with v0.2.1 already used the same marker.
+        let content = "\n# ven-managed-hook-v2\n# ven shell hook — requires `ven` on PATH\n...";
+        assert!(has_ven_hook(content));
+    }
+
+    #[test]
+    fn has_ven_hook_returns_false_for_empty_content() {
+        assert!(!has_ven_hook(""));
+    }
+
+    #[test]
+    fn has_ven_hook_returns_false_for_unrelated_content() {
+        assert!(!has_ven_hook("# my custom alias\nalias ll='ls -la'\n"));
+    }
+
+    #[test]
+    fn has_ven_hook_returns_false_for_partial_word_match() {
+        // Must not match a comment that merely *mentions* "ven shell"
+        assert!(!has_ven_hook("# I use the ven shell for my projects"));
+    }
+
+    // ── HOOK_MARKER invariants ────────────────────────────────
 
     /// Hook-marker must be a single source of truth. Changing it must break
     /// this test so we don't re-introduce duplicate installs.
