@@ -134,7 +134,7 @@ impl VenLockFile {
         // than clobbering. `validate_lock_graph` then checks the edges
         // point at the correct `name@version` key.
         for (name, versions) in &merged.nodes {
-            for (_, node) in versions {
+            for node in versions.values() {
                 let key = format!("{}@{}", name, node.version);
                 packages.insert(
                     key,
@@ -178,7 +178,10 @@ impl VenLockFile {
 
     pub fn write_path(&self, path: &Path) -> Result<()> {
         let s = self.to_json_pretty()?;
-        fs::write(path, s).with_context(|| format!("Failed to write {:?}", path))?;
+        let tmp = path.with_extension("lock.tmp");
+        fs::write(&tmp, s).with_context(|| format!("Failed to write {:?}", tmp))?;
+        fs::rename(&tmp, path)
+            .with_context(|| format!("Failed to atomically replace {:?}", path))?;
         Ok(())
     }
 }
@@ -197,8 +200,8 @@ pub fn lock_to_intel_graph(lock: &VenLockFile) -> IntelGraph {
         };
         let v = semver::Version::parse(&version).unwrap_or_else(|_| {
             let mut fallback = semver::Version::new(0, 0, 0);
-            fallback.pre = semver::Prerelease::new(&format!("ven-{}", version.replace('.', "_")))
-                .unwrap();
+            fallback.pre =
+                semver::Prerelease::new(&format!("ven-{}", version.replace('.', "_"))).unwrap();
             fallback
         });
         nodes.entry(name.clone()).or_default().insert(
@@ -644,7 +647,9 @@ mod tests {
                 },
             )]),
             edges: vec![],
-            content_hash: Some("0000000000000000000000000000000000000000000000000000000000000000".into()),
+            content_hash: Some(
+                "0000000000000000000000000000000000000000000000000000000000000000".into(),
+            ),
         };
         std::fs::write(&path, serde_json::to_string_pretty(&lock).unwrap()).unwrap();
         let err = VenLockFile::read_path(&path).unwrap_err();

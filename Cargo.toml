@@ -55,7 +55,6 @@ toml_edit = "0.22"
 rusqlite = { version = "0.31", features = ["bundled"] }
 # Error handling
 anyhow = "1"
-thiserror = "1"
 # Terminal output
 colored = "2"
 indicatif = "0.17"
@@ -132,6 +131,9 @@ windows-sys = { version = "0.52", features = [
 [dev-dependencies]
 # HTTP mocks for OSV / EOL / registry tests
 mockito = "1"
+
+[build-dependencies]
+sha2 = "0.10"
 
 # ── Features ─────────────────────────────────────────────────────────────────
 # `gui` is on by default so a vanilla `cargo build` produces a wizard-capable

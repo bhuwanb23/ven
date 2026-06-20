@@ -5,6 +5,8 @@ use crate::core::{
 use crate::plugins::PluginRegistry;
 use anyhow::Result;
 
+pub(crate) use crate::core::utils::{calculate_dir_size, format_bytes};
+
 pub(crate) fn detect_active_version(language: &str) -> Result<Option<String>> {
     let current_dir = std::env::current_dir()?;
     let toml_path = match find_ven_toml(&current_dir) {
@@ -127,34 +129,6 @@ fn get_python_version_status(version: &str) -> (&'static str, &'static str) {
         12 => ("STABLE", "Current stable"),
         13..=99 => ("CURRENT", "Latest stable line"),
         _ => ("PY", "Python release"),
-    }
-}
-
-pub(crate) fn calculate_dir_size(path: &std::path::Path) -> Result<u64> {
-    let mut total_size = 0;
-    if path.is_dir() {
-        for entry in std::fs::read_dir(path)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                total_size += entry.metadata()?.len();
-            } else if path.is_dir() {
-                total_size += calculate_dir_size(&path)?;
-            }
-        }
-    }
-    Ok(total_size)
-}
-
-pub(crate) fn format_bytes(bytes: u64) -> String {
-    if bytes < 1024 {
-        format!("{} B", bytes)
-    } else if bytes < 1024 * 1024 {
-        format!("{:.1} KB", bytes as f64 / 1024.0)
-    } else if bytes < 1024 * 1024 * 1024 {
-        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
-    } else {
-        format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
     }
 }
 

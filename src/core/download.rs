@@ -2,21 +2,18 @@ use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 
+use crate::core::installer_base::BaseInstaller;
 use crate::core::integrity;
 
 /// Node.js downloader - handles downloading from nodejs.org with checksum verification
 pub struct NodeDownloader {
-    storage_root: PathBuf, // ~/.ven  (or %USERPROFILE%\.ven on Windows)
-    cache_dir: PathBuf,    // ~/.ven/.cache
+    base: BaseInstaller,
 }
 
 impl NodeDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
@@ -130,10 +127,10 @@ impl NodeDownloader {
         let url = Self::build_download_url(version)?;
         println!("{} URL: {}", "•".blue(), url);
 
-        std::fs::create_dir_all(&self.cache_dir)?;
+        std::fs::create_dir_all(&self.base.cache_dir)?;
 
         let filename = url.split('/').last().unwrap_or("node.tar.gz");
-        let cache_path = self.cache_dir.join(filename);
+        let cache_path = self.base.cache_dir.join(filename);
 
         if cache_path.exists() {
             println!("{} Using cached archive", "[OK]".green());
@@ -142,18 +139,24 @@ impl NodeDownloader {
         }
 
         println!("{} Verifying checksum...", "•".blue());
-        match Self::fetch_checksum(version) {
-            Ok(expected) => match integrity::verify_sha256(&cache_path, &expected) {
-                Ok(()) => integrity::print_checksum_ok(filename),
-                Err(e) => {
-                    let _ = std::fs::remove_file(&cache_path);
-                    return Err(anyhow!(
-                        "Checksum mismatch! Corrupted download removed. Try again.\n  {}",
-                        e
-                    ));
-                }
-            },
-            Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+        let expected = Self::fetch_checksum(version).map_err(|e| {
+            let _ = std::fs::remove_file(&cache_path);
+            anyhow!(
+                "Checksum unavailable for {} — refusing to continue without verification.\n  \
+                 Reason: {}\n  Re-run the command when the network is available.",
+                filename,
+                e
+            )
+        })?;
+        match integrity::verify_sha256(&cache_path, &expected) {
+            Ok(()) => integrity::print_checksum_ok(filename),
+            Err(e) => {
+                let _ = std::fs::remove_file(&cache_path);
+                return Err(anyhow!(
+                    "Checksum mismatch! Corrupted download removed. Try again.\n  {}",
+                    e
+                ));
+            }
         }
 
         Ok(cache_path)
@@ -163,7 +166,7 @@ impl NodeDownloader {
     /// Layout: ~/.ven/node/20.11.0/   (no 'v' prefix in folder name)
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
         let ver_clean = version.trim_start_matches('v');
-        self.storage_root.join("node").join(ver_clean)
+        self.base.get_install_dir("node", ver_clean)
     }
 
     /// Get the bin directory path for a specific version
@@ -208,43 +211,7 @@ impl NodeDownloader {
 
     /// List all installed Node versions (newest first)
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let node_dir = self.storage_root.join("node");
-
-        if !node_dir.exists() {
-            return Ok(vec![]);
-        }
-
-        let mut versions = Vec::new();
-
-        for entry in std::fs::read_dir(&node_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_dir() {
-                if let Some(name) = path.file_name() {
-                    let name_str = name.to_string_lossy();
-                    // Folder names are like "20.11.0" (no v prefix)
-                    // Quick sanity check: starts with a digit
-                    if name_str
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name_str.to_string());
-                    }
-                }
-            }
-        }
-
-        // Sort newest first
-        versions.sort_by(|a, b| {
-            let parse =
-                |v: &str| -> Vec<u32> { v.split('.').filter_map(|n| n.parse().ok()).collect() };
-            parse(b).cmp(&parse(a))
-        });
-
-        Ok(versions)
+        self.base.list_installed("node")
     }
 }
 
@@ -305,4 +272,3 @@ mod tests {
         }
     }
 }
-

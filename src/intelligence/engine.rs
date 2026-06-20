@@ -27,11 +27,7 @@ impl DependencyIntelligenceService {
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<T>>,
     {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            tokio::task::block_in_place(|| handle.block_on(make_fut()))
-        } else {
-            tokio::runtime::Runtime::new()?.block_on(make_fut())
-        }
+        crate::core::block_on_async(make_fut())?
     }
 
     pub fn simulate_add(

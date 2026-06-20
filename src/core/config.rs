@@ -524,4 +524,124 @@ express = "^4.18.2"
         let not_found = find_ven_toml(root_path);
         assert!(not_found.is_none());
     }
+
+    #[test]
+    fn test_parse_extremely_long_strings() {
+        let long_value = "a".repeat(100_000);
+        let toml_content = format!(
+            "[runtime]\nnode = \"{}\"\n\n[packages]\nmy-pkg = \"^1.0.0\"\n",
+            long_value
+        );
+        let cfg: VenConfig = toml::from_str(&toml_content).unwrap();
+        assert_eq!(cfg.runtime.node.len(), 100_000);
+    }
+
+    #[test]
+    fn test_parse_unicode_package_names() {
+        let toml_content = r#"
+[runtime]
+node = "20.0.0"
+
+[packages]
+"日本語パッケージ" = "^1.0.0"
+"emoji-🎉-pkg" = "^2.0.0"
+"arabic-عربي" = "^3.0.0"
+        "#;
+        let cfg: VenConfig = toml::from_str(toml_content).unwrap();
+        assert_eq!(cfg.packages.get("日本語パッケージ").unwrap(), "^1.0.0");
+        assert_eq!(cfg.packages.get("emoji-🎉-pkg").unwrap(), "^2.0.0");
+        assert_eq!(cfg.packages.get("arabic-عربي").unwrap(), "^3.0.0");
+    }
+
+    #[test]
+    fn test_parse_path_traversal_in_env_values() {
+        let toml_content = r#"
+[env]
+EVIL_PATH = "../../etc/passwd"
+EVIL_PATH2 = "..\\..\\Windows\\System32\\config"
+EVIL_PATH3 = "....//....//etc/passwd"
+        "#;
+        let cfg: VenConfig = toml::from_str(toml_content).unwrap();
+        assert_eq!(cfg.env.get("EVIL_PATH").unwrap(), "../../etc/passwd");
+        assert_eq!(
+            cfg.env.get("EVIL_PATH2").unwrap(),
+            "..\\..\\Windows\\System32\\config"
+        );
+        assert_eq!(cfg.env.get("EVIL_PATH3").unwrap(), "....//....//etc/passwd");
+    }
+
+    #[test]
+    fn test_parse_shell_injection_in_env_values() {
+        let toml_content = r#"
+[env]
+EVIL1 = "$(rm -rf /)"
+EVIL2 = "`rm -rf /`"
+EVIL3 = "${HOME}/.ssh/id_rsa"
+EVIL4 = "|cat /etc/passwd"
+EVIL5 = "; rm -rf /tmp"
+        "#;
+        let cfg: VenConfig = toml::from_str(toml_content).unwrap();
+        assert_eq!(cfg.env.get("EVIL1").unwrap(), "$(rm -rf /)");
+        assert_eq!(cfg.env.get("EVIL2").unwrap(), "`rm -rf /`");
+        assert_eq!(cfg.env.get("EVIL3").unwrap(), "${HOME}/.ssh/id_rsa");
+        assert_eq!(cfg.env.get("EVIL4").unwrap(), "|cat /etc/passwd");
+        assert_eq!(cfg.env.get("EVIL5").unwrap(), "; rm -rf /tmp");
+    }
+
+    #[test]
+    fn test_find_ven_toml_permission_denied() {
+        let dir = tempdir().unwrap();
+        let subdir = dir.path().join("noperm");
+        fs::create_dir(&subdir).unwrap();
+
+        let result = find_ven_toml(&subdir);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_resolve_node_version_empty_installed() {
+        let result = resolve_node_version("latest", &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No Node versions installed"));
+
+        let result = resolve_node_version("lts", &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No LTS Node versions installed"));
+
+        let result = resolve_node_version("20", &[]);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No Node 20 versions installed"));
+    }
+
+    #[test]
+    fn test_resolve_node_version_malicious_strings() {
+        let installed = vec![
+            "../../../etc/passwd".to_string(),
+            "$(rm -rf /)".to_string(),
+            "`id`".to_string(),
+            "20.11.0".to_string(),
+            "${HOME}".to_string(),
+        ];
+
+        let result = resolve_node_version("latest", &installed).unwrap();
+        assert_eq!(result, "20.11.0");
+
+        let result = resolve_node_version("lts", &installed).unwrap();
+        assert_eq!(result, "20.11.0");
+
+        let result = resolve_node_version("../../../etc/passwd", &installed).unwrap();
+        assert_eq!(result, "../../../etc/passwd");
+
+        let result = resolve_node_version("$(rm -rf /)", &installed).unwrap();
+        assert_eq!(result, "$(rm -rf /)");
+    }
 }

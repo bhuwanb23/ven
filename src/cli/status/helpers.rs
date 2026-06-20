@@ -3,10 +3,12 @@ use crate::core::{
     resolve_bun_version, resolve_deno_version, resolve_go_version, resolve_java_version,
     resolve_node_version, resolve_python_version, resolve_ruby_version, resolve_rust_version,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use colored::Colorize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
+
+pub(super) use crate::core::utils::{calculate_dir_size, format_bytes};
 
 pub(super) fn resolve_version_for_display(spec: &str) -> Result<String> {
     use crate::plugins::PluginRegistry;
@@ -255,42 +257,17 @@ pub(super) fn check_package_compatibility(
     Ok(DependencyIntelligenceService::npm_latest_compatible(pkg_name, node_spec)?.is_some())
 }
 
-pub(super) fn calculate_dir_size(path: &Path) -> Result<u64> {
-    let mut total_size = 0;
-
-    if path.is_dir() {
-        for entry in std::fs::read_dir(path)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_file() {
-                total_size += entry.metadata()?.len();
-            } else if path.is_dir() {
-                total_size += calculate_dir_size(&path)?;
-            }
-        }
-    }
-
-    Ok(total_size)
-}
-
-pub(super) fn format_bytes(bytes: u64) -> String {
-    if bytes < 1024 {
-        format!("{} B", bytes)
-    } else if bytes < 1024 * 1024 {
-        format!("{:.1} KB", bytes as f64 / 1024.0)
-    } else if bytes < 1024 * 1024 * 1024 {
-        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
-    } else {
-        format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-    }
-}
-
 pub(super) fn check_if_version_active(spec: &str) -> Result<bool> {
     let current_path = std::env::var("PATH").unwrap_or_default();
     let bin_path = get_bin_path_for_version(spec)?;
 
-    Ok(current_path.contains(&bin_path.parent().unwrap().to_string_lossy().to_string()))
+    Ok(current_path.contains(
+        &bin_path
+            .parent()
+            .ok_or_else(|| anyhow!("Bin path has no parent"))?
+            .to_string_lossy()
+            .to_string(),
+    ))
 }
 
 pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {

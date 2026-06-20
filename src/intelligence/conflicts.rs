@@ -76,10 +76,7 @@ pub fn analyze_npm_graph(
             .values()
             .any(|n| version_satisfies_constraint(&n.version, &edge.constraint));
         if !any_satisfies {
-            let resolved_list: Vec<String> = versions
-                .values()
-                .map(|n| n.version.clone())
-                .collect();
+            let resolved_list: Vec<String> = versions.values().map(|n| n.version.clone()).collect();
             chains.push(ConflictChain {
                 steps: vec![
                     format!(
@@ -136,14 +133,9 @@ pub fn analyze_npm_graph(
             let any_satisfies = versions
                 .values()
                 .any(|n| version_satisfies_constraint(&n.version, existing_ver));
-            if !any_satisfies
-                && !existing_ver.contains('*')
-                && existing_ver != "latest"
-            {
-                let resolved_list: Vec<String> = versions
-                    .values()
-                    .map(|n| n.version.clone())
-                    .collect();
+            if !any_satisfies && !existing_ver.contains('*') && existing_ver != "latest" {
+                let resolved_list: Vec<String> =
+                    versions.values().map(|n| n.version.clone()).collect();
                 chains.push(ConflictChain {
                     steps: vec![
                         format!("ven.toml pins {} = \"{}\"", existing_name, existing_ver),
@@ -182,7 +174,7 @@ pub fn engine_checks(graph: &IntelGraph) -> Vec<EngineIncompatibility> {
     // Iterate every (name, version) pair so an engine mismatch on a
     // secondary resolved version is still surfaced.
     for (name, versions) in &graph.nodes {
-        for (_, node) in versions {
+        for node in versions.values() {
             if let Some(ref eng) = node.engines_node {
                 if !node_engine_satisfies(&graph.runtime_version, eng) {
                     out.push(EngineIncompatibility {

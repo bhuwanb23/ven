@@ -88,10 +88,7 @@ impl IntelGraph {
 
     /// All IntelNodes for `name`, one per resolved version.
     pub fn all_nodes(&self, name: &str) -> impl Iterator<Item = (&semver::Version, &IntelNode)> {
-        self.nodes
-            .get(name)
-            .into_iter()
-            .flat_map(|m| m.iter())
+        self.nodes.get(name).into_iter().flat_map(|m| m.iter())
     }
 
     /// Total (name, version) pairs across the graph.
@@ -217,14 +214,14 @@ mod tests {
     #[test]
     fn multi_version_node_storage() {
         let mut g = mk_graph();
-        g.nodes
-            .entry("d".into())
-            .or_default()
-            .insert(semver::Version::parse("2.0.0").unwrap(), mk_node("d", "2.0.0"));
-        g.nodes
-            .entry("d".into())
-            .or_default()
-            .insert(semver::Version::parse("3.0.0").unwrap(), mk_node("d", "3.0.0"));
+        g.nodes.entry("d".into()).or_default().insert(
+            semver::Version::parse("2.0.0").unwrap(),
+            mk_node("d", "2.0.0"),
+        );
+        g.nodes.entry("d".into()).or_default().insert(
+            semver::Version::parse("3.0.0").unwrap(),
+            mk_node("d", "3.0.0"),
+        );
 
         assert_eq!(g.node_count(), 2);
         assert!(g.has_version_conflicts());
@@ -235,10 +232,10 @@ mod tests {
     #[test]
     fn single_version_is_not_a_conflict() {
         let mut g = mk_graph();
-        g.nodes
-            .entry("foo".into())
-            .or_default()
-            .insert(semver::Version::parse("1.0.0").unwrap(), mk_node("foo", "1.0.0"));
+        g.nodes.entry("foo".into()).or_default().insert(
+            semver::Version::parse("1.0.0").unwrap(),
+            mk_node("foo", "1.0.0"),
+        );
         assert!(!g.has_version_conflicts());
         assert!(g.conflicted_names().is_empty());
         assert_eq!(g.node_count(), 1);
@@ -248,19 +245,27 @@ mod tests {
     #[test]
     fn get_node_finds_specific_version() {
         let mut g = mk_graph();
-        g.nodes
-            .entry("x".into())
-            .or_default()
-            .insert(semver::Version::parse("1.0.0").unwrap(), mk_node("x", "1.0.0"));
-        g.nodes
-            .entry("x".into())
-            .or_default()
-            .insert(semver::Version::parse("2.0.0").unwrap(), mk_node("x", "2.0.0"));
+        g.nodes.entry("x".into()).or_default().insert(
+            semver::Version::parse("1.0.0").unwrap(),
+            mk_node("x", "1.0.0"),
+        );
+        g.nodes.entry("x".into()).or_default().insert(
+            semver::Version::parse("2.0.0").unwrap(),
+            mk_node("x", "2.0.0"),
+        );
 
-        assert!(g.get_node("x", &semver::Version::parse("1.0.0").unwrap()).is_some());
-        assert!(g.get_node("x", &semver::Version::parse("2.0.0").unwrap()).is_some());
-        assert!(g.get_node("x", &semver::Version::parse("9.9.9").unwrap()).is_none());
-        assert!(g.get_node("y", &semver::Version::parse("1.0.0").unwrap()).is_none());
+        assert!(g
+            .get_node("x", &semver::Version::parse("1.0.0").unwrap())
+            .is_some());
+        assert!(g
+            .get_node("x", &semver::Version::parse("2.0.0").unwrap())
+            .is_some());
+        assert!(g
+            .get_node("x", &semver::Version::parse("9.9.9").unwrap())
+            .is_none());
+        assert!(g
+            .get_node("y", &semver::Version::parse("1.0.0").unwrap())
+            .is_none());
     }
 
     /// `first_node` returns *some* version (insertion order) and is
@@ -269,10 +274,10 @@ mod tests {
     #[test]
     fn first_node_returns_any_version() {
         let mut g = mk_graph();
-        g.nodes
-            .entry("z".into())
-            .or_default()
-            .insert(semver::Version::parse("5.0.0").unwrap(), mk_node("z", "5.0.0"));
+        g.nodes.entry("z".into()).or_default().insert(
+            semver::Version::parse("5.0.0").unwrap(),
+            mk_node("z", "5.0.0"),
+        );
         let first = g.first_node("z").unwrap();
         assert_eq!(first.version, "5.0.0");
     }

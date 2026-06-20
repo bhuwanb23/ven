@@ -174,3 +174,165 @@ impl SecurityScanner {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn severity_from_str_critical() {
+        assert_eq!(SeverityLevel::from_str("critical"), SeverityLevel::Critical);
+    }
+
+    #[test]
+    fn severity_from_str_high() {
+        assert_eq!(SeverityLevel::from_str("high"), SeverityLevel::High);
+    }
+
+    #[test]
+    fn severity_from_str_moderate() {
+        assert_eq!(SeverityLevel::from_str("moderate"), SeverityLevel::Moderate);
+    }
+
+    #[test]
+    fn severity_from_str_low() {
+        assert_eq!(SeverityLevel::from_str("low"), SeverityLevel::Low);
+    }
+
+    #[test]
+    fn severity_from_str_info() {
+        assert_eq!(SeverityLevel::from_str("info"), SeverityLevel::Info);
+    }
+
+    #[test]
+    fn severity_from_str_unknown_defaults_to_info() {
+        assert_eq!(
+            SeverityLevel::from_str("something_weird"),
+            SeverityLevel::Info
+        );
+        assert_eq!(SeverityLevel::from_str(""), SeverityLevel::Info);
+    }
+
+    #[test]
+    fn severity_from_str_case_insensitive() {
+        assert_eq!(SeverityLevel::from_str("CRITICAL"), SeverityLevel::Critical);
+        assert_eq!(SeverityLevel::from_str("High"), SeverityLevel::High);
+        assert_eq!(SeverityLevel::from_str("MODERATE"), SeverityLevel::Moderate);
+    }
+
+    #[test]
+    fn severity_ordering() {
+        assert!(SeverityLevel::Critical > SeverityLevel::High);
+        assert!(SeverityLevel::High > SeverityLevel::Moderate);
+        assert!(SeverityLevel::Moderate > SeverityLevel::Low);
+        assert!(SeverityLevel::Low > SeverityLevel::Info);
+    }
+
+    #[test]
+    fn advisory_deserialize() {
+        let json = r#"{
+            "id": 123,
+            "url": "https://example.com/advisory",
+            "title": "Test vulnerability",
+            "severity": "high",
+            "vulnerable_versions": "< 2.0.0",
+            "module_name": "test-pkg",
+            "cves": ["CVE-2024-0001"],
+            "patched_versions": ">= 2.0.0"
+        }"#;
+
+        let advisory: Advisory = serde_json::from_str(json).unwrap();
+        assert_eq!(advisory.id, Some(123));
+        assert_eq!(advisory.title, "Test vulnerability");
+        assert_eq!(advisory.severity, "high");
+        assert_eq!(advisory.module_name.as_deref(), Some("test-pkg"));
+        assert_eq!(advisory.cves, vec!["CVE-2024-0001"]);
+        assert_eq!(advisory.patched_versions.as_deref(), Some(">= 2.0.0"));
+    }
+
+    #[test]
+    fn advisory_deserialize_minimal_fields() {
+        let json = r#"{
+            "title": "Minimal advisory",
+            "severity": "low",
+            "vulnerable_versions": "*",
+            "cves": []
+        }"#;
+
+        let advisory: Advisory = serde_json::from_str(json).unwrap();
+        assert_eq!(advisory.id, None);
+        assert_eq!(advisory.url, None);
+        assert_eq!(advisory.module_name, None);
+        assert_eq!(advisory.patched_versions, None);
+    }
+
+    #[test]
+    fn advisory_roundtrip() {
+        let advisory = Advisory {
+            id: Some(42),
+            url: None,
+            title: "Roundtrip test".into(),
+            severity: "moderate".into(),
+            vulnerable_versions: "< 1.0".into(),
+            module_name: Some("foo".into()),
+            cves: vec![],
+            patched_versions: Some(">= 1.0".into()),
+        };
+
+        let json = serde_json::to_string(&advisory).unwrap();
+        let deserialized: Advisory = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.title, "Roundtrip test");
+        assert_eq!(deserialized.severity, "moderate");
+    }
+
+    fn make_advisory(severity: &str, name: &str) -> Advisory {
+        Advisory {
+            id: None,
+            url: None,
+            title: format!("Advisory for {}", name),
+            severity: severity.into(),
+            vulnerable_versions: "*".into(),
+            module_name: Some(name.into()),
+            cves: vec![],
+            patched_versions: None,
+        }
+    }
+
+    #[test]
+    fn has_critical_vulnerabilities_with_critical() {
+        let scanner = SecurityScanner::new().unwrap();
+        let advisories = vec![make_advisory("critical", "pkg")];
+        assert!(scanner.has_critical_vulnerabilities(&advisories));
+    }
+
+    #[test]
+    fn has_critical_vulnerabilities_with_high() {
+        let scanner = SecurityScanner::new().unwrap();
+        let advisories = vec![make_advisory("high", "pkg")];
+        assert!(scanner.has_critical_vulnerabilities(&advisories));
+    }
+
+    #[test]
+    fn has_critical_vulnerabilities_with_low_only() {
+        let scanner = SecurityScanner::new().unwrap();
+        let advisories = vec![make_advisory("low", "pkg"), make_advisory("info", "pkg2")];
+        assert!(!scanner.has_critical_vulnerabilities(&advisories));
+    }
+
+    #[test]
+    fn has_critical_vulnerabilities_empty() {
+        let scanner = SecurityScanner::new().unwrap();
+        assert!(!scanner.has_critical_vulnerabilities(&[]));
+    }
+
+    #[test]
+    fn has_critical_vulnerabilities_mixed() {
+        let scanner = SecurityScanner::new().unwrap();
+        let advisories = vec![
+            make_advisory("low", "safe-pkg"),
+            make_advisory("moderate", "ok-pkg"),
+            make_advisory("high", "bad-pkg"),
+        ];
+        assert!(scanner.has_critical_vulnerabilities(&advisories));
+    }
+}

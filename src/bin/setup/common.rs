@@ -5,6 +5,7 @@ use clap::{Parser, ValueEnum};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +21,9 @@ use std::path::{Path, PathBuf};
 
 pub const VEN_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven.bin"));
 pub const LAUNCHER_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin"));
+pub const VEN_HASH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ven.bin.sha256"));
+pub const LAUNCHER_HASH: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/ven-launcher.bin.sha256"));
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -143,6 +147,27 @@ fn prompt_mode_interactive() -> Result<InstallMode> {
 // ---------------------------------------------------------------------------
 // Binary extraction helpers
 // ---------------------------------------------------------------------------
+
+/// Verify the SHA-256 hash of binary bytes against an expected hash.
+/// `expected_hash` is the raw bytes of a hex-encoded SHA-256 digest
+/// (as written by build.rs). Returns Ok(()) on match, Err on mismatch.
+pub fn verify_binary_integrity(name: &str, bytes: &[u8], expected_hash: &[u8]) -> Result<()> {
+    if expected_hash.is_empty() {
+        return Ok(());
+    }
+    let actual = Sha256::digest(bytes);
+    let actual_hex = actual
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
+    let expected = String::from_utf8_lossy(expected_hash);
+    if actual_hex != expected.as_ref() {
+        anyhow::bail!(
+            "Integrity check failed for '{name}': expected SHA-256 {expected}, got {actual_hex}"
+        );
+    }
+    Ok(())
+}
 
 /// Resolve the bytes for one of the bundled binaries:
 /// 1. If embedded at build time (non-empty), use that payload.

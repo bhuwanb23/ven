@@ -3,6 +3,41 @@ use std::path::Path;
 
 mod activation;
 
+// ── Shell escaping helpers ───────────────────────────────────────────
+
+/// Escape a path for safe embedding in POSIX shell (bash/zsh) single-quoted strings.
+/// Wraps in single quotes and escapes any embedded single quotes with '\''.
+pub fn shell_escape_posix(path: &str) -> String {
+    let mut escaped = String::with_capacity(path.len() + 2);
+    escaped.push('\'');
+    for c in path.chars() {
+        if c == '\'' {
+            escaped.push_str("'\\''");
+        } else {
+            escaped.push(c);
+        }
+    }
+    escaped.push('\'');
+    escaped
+}
+
+/// Escape a path for safe embedding in PowerShell double-quoted strings.
+/// Escapes backticks and dollar signs that PowerShell would interpret.
+fn shell_escape_powershell(path: &str) -> String {
+    let mut escaped = String::with_capacity(path.len() + 2);
+    escaped.push('"');
+    for c in path.chars() {
+        match c {
+            '`' => escaped.push_str("``"),
+            '$' => escaped.push_str("`$"),
+            '"' => escaped.push_str("`\""),
+            _ => escaped.push(c),
+        }
+    }
+    escaped.push('"');
+    escaped
+}
+
 pub use activation::{
     activation_path_overlay, path_for_env_value, resolve_activation_environment, ActivationParts,
     ActivationResolve,
@@ -56,10 +91,10 @@ pub fn generate_hook(shell: &str) -> String {
 }
 
 fn bash_zsh_hook() -> String {
-    // Get the current executable path
+    // Get the current executable path, safely escaped for POSIX shell
     let ven_path = std::env::current_exe()
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| "ven".to_string());
+        .map(|p| shell_escape_posix(&p.display().to_string()))
+        .unwrap_or_else(|_| shell_escape_posix("ven"));
 
     format!(
         r#"
@@ -71,7 +106,7 @@ fn bash_zsh_hook() -> String {
 __VEN_ORIGINAL_PATH=""
 __VEN_LAST_DIR=""
 __VEN_LAST_TOML_SIG=""
-__VEN_BIN="{ven_path}"
+__VEN_BIN={ven_path}
 
 __ven_toml_sig() {{
     local d="$1"
@@ -227,10 +262,10 @@ end
 // PowerShell hook — Invoke-Expression + $env:PATH; Set-Location + prompt so
 // `cd`, `Set-Location`, and Cursor/pwsh hosts all pick up directory changes.
 fn powershell_hook() -> String {
-    // Get the current executable path
+    // Get the current executable path, safely escaped for PowerShell strings
     let ven_path = std::env::current_exe()
-        .map(|p| p.display().to_string().replace('/', "\\"))
-        .unwrap_or_else(|_| "ven".to_string());
+        .map(|p| shell_escape_powershell(&p.display().to_string().replace('/', "\\")))
+        .unwrap_or_else(|_| shell_escape_powershell("ven"));
 
     format!(
         r#"
@@ -239,7 +274,7 @@ fn powershell_hook() -> String {
 if (-not $global:VEN_ORIGINAL_PATH) {{
     $global:VEN_ORIGINAL_PATH = $env:PATH
 }}
-$global:VEN_BIN = "{ven_path}"
+$global:VEN_BIN = {ven_path}
 $global:VEN_LAST_DIR = $null
 $global:VEN_LAST_TOML_SIG = $null
 $global:VEN_LAST_ACTIVATE_WARN = $null
@@ -459,5 +494,78 @@ mod tests {
             hook.contains(HOOK_MARKER),
             "fish hook missing canonical marker"
         );
+    }
+
+    #[test]
+    fn shell_escape_posix_simple() {
+        assert_eq!(shell_escape_posix("/usr/bin/ven"), "'/usr/bin/ven'");
+    }
+
+    #[test]
+    fn shell_escape_posix_space() {
+        assert_eq!(
+            shell_escape_posix("/path with spaces/ven"),
+            "'/path with spaces/ven'"
+        );
+    }
+
+    #[test]
+    fn shell_escape_posix_single_quote() {
+        assert_eq!(
+            shell_escape_posix("/path/with'quote/ven"),
+            "'/path/with'\\''quote/ven'"
+        );
+    }
+
+    #[test]
+    fn shell_escape_posix_dollar_and_backtick() {
+        assert_eq!(shell_escape_posix("/path/$var/`cmd`"), "'/path/$var/`cmd`'");
+    }
+
+    #[test]
+    fn shell_escape_posix_empty() {
+        assert_eq!(shell_escape_posix(""), "''");
+    }
+
+    #[test]
+    fn shell_escape_powershell_simple() {
+        assert_eq!(
+            shell_escape_powershell(r"C:\Users\ven.exe"),
+            r#""C:\Users\ven.exe""#
+        );
+    }
+
+    #[test]
+    fn shell_escape_powershell_space() {
+        assert_eq!(
+            shell_escape_powershell(r"C:\Program Files\ven.exe"),
+            r#""C:\Program Files\ven.exe""#
+        );
+    }
+
+    #[test]
+    fn shell_escape_powershell_backtick() {
+        assert_eq!(
+            shell_escape_powershell(r"C:\path`with`backtick"),
+            r#""C:\path``with``backtick""#
+        );
+    }
+
+    #[test]
+    fn shell_escape_powershell_dollar() {
+        assert_eq!(shell_escape_powershell(r"C:\path$var"), r#""C:\path`$var""#);
+    }
+
+    #[test]
+    fn shell_escape_powershell_double_quote() {
+        assert_eq!(
+            shell_escape_powershell(r#"C:\path"with"quotes"#),
+            r#""C:\path`"with`"quotes""#
+        );
+    }
+
+    #[test]
+    fn shell_escape_powershell_empty() {
+        assert_eq!(shell_escape_powershell(""), r#""""#);
     }
 }

@@ -15,28 +15,24 @@ use std::path::{Path, PathBuf};
 #[cfg(not(target_os = "windows"))]
 use tar::Archive;
 
+use crate::core::installer_base::BaseInstaller;
 use crate::core::integrity;
 
 #[derive(Debug, Clone)]
 pub struct RubyDownloader {
-    storage_root: PathBuf,
-    cache_dir: PathBuf,
+    base: BaseInstaller,
 }
 
 impl RubyDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
     pub fn get_install_dir(&self, version: &str) -> PathBuf {
-        self.storage_root
-            .join("ruby")
-            .join(normalize_ruby_semver(version))
+        self.base
+            .get_install_dir("ruby", &normalize_ruby_semver(version))
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -58,28 +54,7 @@ impl RubyDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let dir = self.storage_root.join("ruby");
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(dir)? {
-            let path = entry?.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                    {
-                        versions.push(name.to_string());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts_desc(b, a));
-        Ok(versions)
+        self.base.list_installed("ruby")
     }
 }
 
@@ -156,8 +131,8 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
     {
         let (url, fname) = ri2_pick_asset_url(&semver)
             .ok_or_else(|| anyhow!("No RubyInstaller2 build found for {}", semver))?;
-        fs::create_dir_all(&dl.cache_dir)?;
-        let archive = dl.cache_dir.join(&fname);
+        fs::create_dir_all(&dl.base.cache_dir)?;
+        let archive = dl.base.cache_dir.join(&fname);
         if !archive.is_file() {
             // Streaming download with timeouts + retry on transient errors.
             // Replaces the old `Client::new().get(url).send()?.bytes()?`
@@ -169,7 +144,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
             integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("ruby"))
                 .with_context(|| format!("Failed to download {}", url))?;
         }
-        verify_ruby_archive(&archive, &fname, &url);
+        verify_ruby_archive(&archive, &fname, &url)?;
         let install_dir = dl.get_install_dir(&semver);
         if install_dir.exists() {
             fs::remove_dir_all(&install_dir)?;
@@ -184,19 +159,19 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
     #[cfg(not(target_os = "windows"))]
     {
         let url = ruby_builder_pick_asset_url(&semver)?;
-        fs::create_dir_all(&dl.cache_dir)?;
+        fs::create_dir_all(&dl.base.cache_dir)?;
         let fname = Path::new(&url)
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("ruby.tar.gz")
             .to_string();
-        let archive = dl.cache_dir.join(&fname);
+        let archive = dl.base.cache_dir.join(&fname);
         if !archive.is_file() {
             // See Windows branch above for why we don't do `.bytes()?`.
             integrity::download_to_file(&url, &archive, &integrity::installer_user_agent("ruby"))
                 .with_context(|| format!("Failed to download {}", url))?;
         }
-        verify_ruby_archive(&archive, &fname, &url);
+        verify_ruby_archive(&archive, &fname, &url)?;
         let install_dir = dl.get_install_dir(&semver);
         if install_dir.exists() {
             fs::remove_dir_all(&install_dir)?;
@@ -222,9 +197,9 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
 /// Try to verify the Ruby archive's SHA256.
 /// Windows: look for `SHA256SUMS.txt` next to the asset on the same release.
 /// Unix: try `<url>.sha256` sidecar.
-/// Either way, missing checksums degrade to a warning — Ruby's upstream sources
-/// don't always publish per-asset hashes.
-fn verify_ruby_archive(archive: &Path, filename: &str, url: &str) {
+/// Either way, missing checksums cause an error — we refuse to proceed
+/// without verification.
+fn verify_ruby_archive(archive: &Path, filename: &str, url: &str) -> Result<()> {
     // 1) sibling sidecar `<url>.sha256`
     let sidecar = format!("{}.sha256", url);
     if let Ok(hex) = integrity::fetch_sidecar_sha256(&sidecar) {
@@ -237,20 +212,28 @@ fn verify_ruby_archive(archive: &Path, filename: &str, url: &str) {
             return apply_ruby_checksum(archive, filename, &hex);
         }
     }
-    integrity::print_checksum_unavailable(
-        filename,
-        "no SHA256 sidecar/manifest available upstream",
-    );
+    let _ = fs::remove_file(archive);
+    Err(anyhow!(
+        "Checksum unavailable for {} — refusing to continue without verification.\n  \
+         Reason: no SHA256 sidecar/manifest available upstream\n  \
+         Re-run the command when the network is available.",
+        filename
+    ))
 }
 
-fn apply_ruby_checksum(archive: &Path, filename: &str, hex: &str) {
+fn apply_ruby_checksum(archive: &Path, filename: &str, hex: &str) -> Result<()> {
     match integrity::verify_sha256(archive, hex) {
-        Ok(()) => integrity::print_checksum_ok(filename),
+        Ok(()) => {
+            integrity::print_checksum_ok(filename);
+            Ok(())
+        }
         Err(e) => {
             let _ = fs::remove_file(archive);
-            eprintln!(
-                "[ERROR] Ruby checksum mismatch for {filename}: {e} — cached file removed; rerun."
-            );
+            Err(anyhow!(
+                "Ruby checksum mismatch for {}: {}\n  Corrupted download removed. Try again.",
+                filename,
+                e
+            ))
         }
     }
 }

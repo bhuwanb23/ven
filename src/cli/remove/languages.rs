@@ -459,7 +459,7 @@ pub(super) fn cmd_remove_deno(packages: &[String], dry_run: bool, json: bool) ->
         for spec in packages {
             let (key, _) =
                 deno_imports::parse_spec(spec).unwrap_or_else(|_| (spec.clone(), spec.clone()));
-            if manifest.remove_import(&key) {
+            if manifest.remove_import(&key)? {
                 removed.push(key.clone());
                 let _ = remove_from_ven_toml(&key);
                 if !json {

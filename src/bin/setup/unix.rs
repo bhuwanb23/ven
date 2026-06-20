@@ -24,9 +24,53 @@ use std::process::Command;
 
 use crate::common::{InstallMode, SetupCli};
 use crate::install_steps::{self, CliSink, InstallConfig};
+use ven::shell::shell_escape_posix;
 
 const VEN_RC_BLOCK_START: &str = "# >>> ven-setup PATH >>>";
 const VEN_RC_BLOCK_END: &str = "# <<< ven-setup PATH <<<";
+
+// ---------------------------------------------------------------------------
+// Backup helpers
+// ---------------------------------------------------------------------------
+
+/// Create a `.bak` copy of `path` before modifying it. Returns the backup
+/// path on success, or an error if the backup could not be created.
+fn backup_file(path: &Path) -> Result<PathBuf> {
+    let backup = path.with_extension(
+        path.extension()
+            .map(|e| format!("{}.bak", e.to_string_lossy()))
+            .unwrap_or_else(|| "bak".to_string()),
+    );
+    fs::copy(path, &backup).with_context(|| {
+        format!(
+            "Failed to create backup {} -> {}",
+            path.display(),
+            backup.display()
+        )
+    })?;
+    eprintln!("  Backup created: {}", backup.display());
+    Ok(backup)
+}
+
+/// Attempt to restore `path` from `backup`. Logs a warning on failure
+/// but does not propagate — there's nothing useful to do if the restore
+/// itself fails.
+fn try_restore(path: &Path, backup: &Path) {
+    if let Err(e) = fs::copy(backup, path) {
+        eprintln!(
+            "  [WARN] Could not restore {} from {}: {}",
+            path.display(),
+            backup.display(),
+            e
+        );
+    } else {
+        eprintln!(
+            "  Restored {} from backup {}",
+            path.display(),
+            backup.display()
+        );
+    }
+}
 
 // ---------------------------------------------------------------------------
 // CLI driver
@@ -159,10 +203,11 @@ pub fn ensure_user_rc_path(install_dir: &Path) -> Result<()> {
 }
 
 fn render_rc_block(install_dir: &Path) -> String {
+    let escaped = shell_escape_posix(&install_dir.display().to_string());
     format!(
-        "{start}\nexport PATH=\"{dir}:$PATH\"\n{end}",
+        "{start}\nexport PATH={escaped}:\"$PATH\"\n{end}",
         start = VEN_RC_BLOCK_START,
-        dir = install_dir.display(),
+        escaped = escaped,
         end = VEN_RC_BLOCK_END,
     )
 }
@@ -173,15 +218,33 @@ fn append_block_if_missing(rc: &Path, block: &str) -> Result<()> {
     if existing.contains(VEN_RC_BLOCK_START) {
         return Ok(());
     }
-    let mut file = fs::OpenOptions::new()
-        .append(true)
-        .open(rc)
-        .with_context(|| format!("Failed to open {}", rc.display()))?;
-    if !existing.ends_with('\n') {
-        writeln!(file)?;
+
+    // Backup before modification so a midway failure doesn't corrupt the
+    // shell profile.
+    let backup = backup_file(rc)?;
+
+    let result = (|| -> Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(rc)
+            .with_context(|| format!("Failed to open {}", rc.display()))?;
+        if !existing.ends_with('\n') {
+            writeln!(file)?;
+        }
+        writeln!(file, "{}", block)?;
+        Ok(())
+    })();
+
+    if let Err(ref e) = result {
+        eprintln!(
+            "  [ERROR] Failed to modify {}: {}. Restoring from backup.",
+            rc.display(),
+            e
+        );
+        try_restore(rc, &backup);
     }
-    writeln!(file, "{}", block)?;
-    Ok(())
+
+    result
 }
 
 /// Write `/etc/profile.d/ven.sh` so the install dir is on PATH for every
@@ -191,10 +254,17 @@ pub fn ensure_etc_profile_d_path(install_dir: &Path) -> Result<()> {
     let profile_d = Path::new("/etc/profile.d");
     fs::create_dir_all(profile_d).context("Failed to ensure /etc/profile.d exists")?;
     let script = profile_d.join("ven.sh");
+    let escaped = shell_escape_posix(&install_dir.display().to_string());
     let content = format!(
-        "#!/bin/sh\n# Installed by ven-setup\ncase \":$PATH:\" in\n  *\":{dir}:\"*) ;;\n  *) export PATH=\"{dir}:$PATH\" ;;\nesac\n",
-        dir = install_dir.display(),
+        "#!/bin/sh\n# Installed by ven-setup\n__VEN_INSTALL_DIR={escaped}\ncase \":$PATH:\" in\n  *\":$__VEN_INSTALL_DIR:\"*) ;;\n  *) export PATH=\"$__VEN_INSTALL_DIR:$PATH\" ;;\nesac\n",
+        escaped = escaped,
     );
+
+    // Backup the existing file if present, then write the new content.
+    if script.is_file() {
+        backup_file(&script)?;
+    }
+
     fs::write(&script, content).with_context(|| format!("Failed to write {}", script.display()))?;
     #[cfg(unix)]
     {
@@ -226,4 +296,61 @@ pub fn verify_ven_version(install_dir: &Path) -> Result<String> {
         anyhow::bail!("Verification failed: {}", stderr.trim());
     }
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn render_rc_block_safe_path() {
+        let dir = PathBuf::from("/usr/local/bin");
+        let block = render_rc_block(&dir);
+        assert!(block.contains("export PATH='/usr/local/bin':\"$PATH\""));
+        assert!(block.contains(VEN_RC_BLOCK_START));
+        assert!(block.contains(VEN_RC_BLOCK_END));
+    }
+
+    #[test]
+    fn render_rc_block_injection_attempt() {
+        let dir = PathBuf::from(r#"x":$(malicious):"#);
+        let block = render_rc_block(&dir);
+        assert!(block.contains("'x\":$(malicious):'"));
+        assert!(!block.contains("$(malicious)"));
+    }
+
+    #[test]
+    fn render_rc_block_single_quote_in_path() {
+        let dir = PathBuf::from("/path/with'quote");
+        let block = render_rc_block(&dir);
+        assert!(block.contains("'\\''"));
+        assert!(!block.contains("export PATH=\"/path/with'quote"));
+    }
+
+    #[test]
+    fn render_rc_block_dollar_sign_in_path() {
+        let dir = PathBuf::from("/path/$HOME/bin");
+        let block = render_rc_block(&dir);
+        assert!(block.contains("'$HOME'"));
+    }
+
+    #[test]
+    fn render_rc_block_backtick_in_path() {
+        let dir = PathBuf::from("/path/`cmd`/bin");
+        let block = render_rc_block(&dir);
+        assert!(block.contains("'`cmd`'"));
+    }
+
+    #[test]
+    fn ensure_etc_profile_d_escaping() {
+        let dir = PathBuf::from(r#"x":$(malicious):"#);
+        let escaped = shell_escape_posix(&dir.display().to_string());
+        let content = format!(
+            "#!/bin/sh\n# Installed by ven-setup\n__VEN_INSTALL_DIR={escaped}\ncase \":$PATH:\" in\n  *\":$__VEN_INSTALL_DIR:\"*) ;;\n  *) export PATH=\"$__VEN_INSTALL_DIR:$PATH\" ;;\nesac\n",
+            escaped = escaped,
+        );
+        assert!(content.contains("__VEN_INSTALL_DIR='x\":$(malicious):'"));
+        assert!(!content.contains("$(malicious)"));
+    }
 }

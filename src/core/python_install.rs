@@ -10,24 +10,20 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use zip::ZipArchive;
 
+use crate::core::installer_base::{version_cmp_parts, BaseInstaller};
 use crate::core::integrity;
 
 #[allow(dead_code)]
 const GET_PIP_URL: &str = "https://bootstrap.pypa.io/get-pip.py";
 
 pub struct PythonDownloader {
-    storage_root: PathBuf,
-    #[allow(dead_code)]
-    cache_dir: PathBuf,
+    base: BaseInstaller,
 }
 
 impl PythonDownloader {
     pub fn new() -> Result<Self> {
-        let storage_root = crate::core::ven_home::ven_home();
-        let cache_dir = storage_root.join(".cache");
         Ok(Self {
-            storage_root,
-            cache_dir,
+            base: BaseInstaller::new()?,
         })
     }
 
@@ -76,7 +72,7 @@ impl PythonDownloader {
             .trim()
             .trim_start_matches(|c: char| c == 'v' || c == 'V')
             .to_string();
-        self.storage_root.join("python").join(ver)
+        self.base.get_install_dir("python", &ver)
     }
 
     pub fn get_bin_path(&self, version: &str) -> Result<PathBuf> {
@@ -97,30 +93,7 @@ impl PythonDownloader {
     }
 
     pub fn list_installed(&self) -> Result<Vec<String>> {
-        let py_dir = self.storage_root.join("python");
-        if !py_dir.exists() {
-            return Ok(vec![]);
-        }
-        let mut versions = Vec::new();
-        for entry in fs::read_dir(&py_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name() {
-                    let s = name.to_string_lossy();
-                    if s.chars()
-                        .next()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                        && s.contains('.')
-                    {
-                        versions.push(s.into_owned());
-                    }
-                }
-            }
-        }
-        versions.sort_by(|a, b| version_cmp_parts(b, a));
-        Ok(versions)
+        self.base.list_installed("python")
     }
 
     #[allow(dead_code)]
@@ -146,6 +119,8 @@ impl PythonDownloader {
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i)?;
             let outpath = dest.join(entry.mangled_name());
+            // Defense-in-depth: validate the resolved path is within dest
+            super::extract::validate_path_within_dir(&outpath, dest)?;
             if let Some(parent) = outpath.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -174,8 +149,8 @@ impl PythonDownloader {
             let ver = normalize_python_version(version)?;
             let url = Self::build_embed_zip_url(&ver)?;
             let filename = url.split('/').last().unwrap_or("python-embed.zip");
-            fs::create_dir_all(&self.cache_dir)?;
-            let cache_zip = self.cache_dir.join(filename);
+            fs::create_dir_all(&self.base.cache_dir)?;
+            let cache_zip = self.base.cache_dir.join(filename);
 
             if !cache_zip.exists() {
                 self.download_zip(&url, &cache_zip)?;
@@ -183,7 +158,7 @@ impl PythonDownloader {
                 println!("{} Using cached {}", "[OK]".green(), cache_zip.display());
             }
 
-            verify_python_archive(&cache_zip, filename, &ver);
+            verify_python_archive(&cache_zip, filename, &ver)?;
 
             let install_dir = self.get_install_dir(&ver);
             if install_dir.exists() {
@@ -216,20 +191,29 @@ impl PythonDownloader {
 /// table; if anything fails we degrade to a warning (Node's UX) so air-gapped
 /// or HTML-changed environments still install.
 #[allow(dead_code)]
-fn verify_python_archive(archive: &Path, filename: &str, version: &str) {
-    match fetch_python_release_sha256(filename, version) {
-        Ok(hex) => match integrity::verify_sha256(archive, &hex) {
-            Ok(()) => integrity::print_checksum_ok(filename),
-            Err(e) => {
-                let _ = fs::remove_file(archive);
-                eprintln!(
-                    "  {} {}",
-                    "[ERROR]".to_string(),
-                    format!("checksum mismatch for {filename}: {e}")
-                );
-            }
-        },
-        Err(e) => integrity::print_checksum_unavailable(filename, &e.to_string()),
+fn verify_python_archive(archive: &Path, filename: &str, version: &str) -> Result<()> {
+    let hex = fetch_python_release_sha256(filename, version).map_err(|e| {
+        let _ = fs::remove_file(archive);
+        anyhow!(
+            "Checksum unavailable for {} — refusing to continue without verification.\n  \
+             Reason: {}\n  Re-run the command when the network is available.",
+            filename,
+            e
+        )
+    })?;
+    match integrity::verify_sha256(archive, &hex) {
+        Ok(()) => {
+            integrity::print_checksum_ok(filename);
+            Ok(())
+        }
+        Err(e) => {
+            let _ = fs::remove_file(archive);
+            Err(anyhow!(
+                "Checksum mismatch for {}: {}\n  Corrupted download removed. Try again.",
+                filename,
+                e
+            ))
+        }
     }
 }
 
@@ -268,12 +252,6 @@ fn fetch_python_release_sha256(filename: &str, version: &str) -> Result<String> 
         filename,
         url
     ))
-}
-
-fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
-    let pa: Vec<u32> = a.split('.').filter_map(|x| x.parse().ok()).collect();
-    let pb: Vec<u32> = b.split('.').filter_map(|x| x.parse().ok()).collect();
-    pa.cmp(&pb)
 }
 
 /// Normalize to `major.minor.patch` (no `v` prefix).

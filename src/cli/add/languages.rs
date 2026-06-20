@@ -394,7 +394,7 @@ pub(super) fn cmd_add_deno(package_specs: &[String], dry_run: bool) -> Result<()
         for spec in package_specs {
             match deno_imports::parse_spec(spec) {
                 Ok((key, target)) => {
-                    manifest.upsert_import(&key, &target);
+                    manifest.upsert_import(&key, &target)?;
                     installed.push((key, target));
                 }
                 Err(e) => println!("  {} {}: {}", "[ERROR]".red(), spec, e),

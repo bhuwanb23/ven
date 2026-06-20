@@ -1,5 +1,6 @@
 //! `ven check` — combined security (OSV) + EOL health report.
 
+use crate::core::block_on_async;
 use crate::core::config::VenConfig;
 use crate::core::endoflife::{endoflife_slug_for_runtime_name, EndOfLifeClient, EolReport};
 use crate::core::load_config;
@@ -100,8 +101,8 @@ fn run_security(cwd: &Path, cfg: &VenConfig) -> Result<Vec<OsvPackageReport>> {
         .map(|(name, version)| OsvQuery::new(eco, name, version))
         .collect();
     let client = OsvClient::new()?;
-    let reports = block_on(async move { client.query_packages(&queries).await })?;
-    Ok(reports)
+    let reports = block_on_async(async move { client.query_packages(&queries).await })?;
+    reports
 }
 
 fn run_eol(cfg: &VenConfig) -> Result<Vec<EolReport>> {
@@ -115,7 +116,7 @@ fn run_eol(cfg: &VenConfig) -> Result<Vec<EolReport>> {
         return Ok(Vec::new());
     }
     let client = EndOfLifeClient::new()?;
-    let reports = block_on(async move {
+    let reports = block_on_async(async move {
         let mut out = Vec::new();
         for (slug, version) in probes {
             match client.report(slug, &version).await {
@@ -133,18 +134,7 @@ fn run_eol(cfg: &VenConfig) -> Result<Vec<EolReport>> {
         }
         Ok::<_, anyhow::Error>(out)
     })?;
-    Ok(reports)
-}
-
-fn block_on<F, T>(fut: F) -> Result<T>
-where
-    F: std::future::Future<Output = Result<T>>,
-{
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        tokio::task::block_in_place(|| handle.block_on(fut))
-    } else {
-        tokio::runtime::Runtime::new()?.block_on(fut)
-    }
+    reports
 }
 
 /// `[runtime].<key>` → version pairs that are non-empty.
