@@ -80,7 +80,12 @@ pub fn cmd_lock() -> Result<()> {
         }
     }
 
-    let lock = VenLockFile::from_merged_simulations(runtime_kind, runtime_version, &composite_roots, &graphs)?;
+    let lock = VenLockFile::from_merged_simulations(
+        runtime_kind,
+        runtime_version,
+        &composite_roots,
+        &graphs,
+    )?;
     validate_lock_graph(&lock)?;
 
     let path = cwd.join("ven.lock");

@@ -55,10 +55,7 @@ pub const HOOK_MARKER: &str = "# ven-managed-hook-v2";
 /// Legacy markers from ven ≤ v0.2.1. These were written by older versions and
 /// must be recognised so re-running `ven setup` / `ven shell install` after an
 /// upgrade doesn't append a second hook block.
-const LEGACY_HOOK_PATTERNS: &[&str] = &[
-    "# ven shell hook",
-    "# ven shell hook (PowerShell)",
-];
+const LEGACY_HOOK_PATTERNS: &[&str] = &["# ven shell hook", "# ven shell hook (PowerShell)"];
 
 /// Check whether `content` contains any known ven shell hook pattern (current
 /// or legacy).  Returns `true` if the canonical [`HOOK_MARKER`] or any entry
