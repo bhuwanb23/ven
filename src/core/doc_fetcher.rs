@@ -505,7 +505,7 @@ mod tests {
         std::fs::write(
             cwd.join("ven.lock"),
             r#"{
-                "lock_format_version": 2,
+                "lock_format_version": 1,
                 "ecosystem": "npm",
                 "runtime_kind": "NpmFamily",
                 "runtime_version": "20",

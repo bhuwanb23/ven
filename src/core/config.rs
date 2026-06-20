@@ -136,7 +136,7 @@ pub fn resolve_node_version(spec: &str, installed: &[String]) -> Result<String> 
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No LTS Node versions installed."))
         }
-        spec if !spec.contains('.') => {
+        spec if !spec.contains('.') && spec.chars().all(|c| c.is_ascii_digit()) => {
             // Major only: "20" → find highest 20.x.x installed
             let major = spec;
             installed

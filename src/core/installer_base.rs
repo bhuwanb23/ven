@@ -50,12 +50,24 @@ impl BaseInstaller {
 }
 
 pub fn version_cmp_parts(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |v: &str| -> Vec<u32> {
+    let parse_numeric = |v: &str| -> Vec<u32> {
         v.split(|c: char| c == '.' || c == '-' || c == '+')
             .filter_map(|n| n.parse().ok())
             .collect()
     };
-    parse(a).cmp(&parse(b))
+    let has_pre_release = |v: &str| -> bool {
+        v.split(|c: char| c == '.' || c == '-')
+            .any(|p| p.parse::<u32>().is_err())
+    };
+    let result = parse_numeric(a).cmp(&parse_numeric(b));
+    if result != std::cmp::Ordering::Equal {
+        return result;
+    }
+    match (has_pre_release(a), has_pre_release(b)) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => std::cmp::Ordering::Equal,
+    }
 }
 
 #[cfg(test)]

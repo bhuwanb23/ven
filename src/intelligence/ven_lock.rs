@@ -690,9 +690,13 @@ mod tests {
     }
 
     fn tempdir_in_target() -> std::path::PathBuf {
-        // Use the process temp dir so each test gets a clean slate.
+        // Use the process temp dir with a unique name per test call so
+        // concurrently-running tests don't clobber each other's files.
         let mut p = std::env::temp_dir();
-        p.push(format!("ven-lock-test-{}", std::process::id()));
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        p.push(format!("ven-lock-test-{}-{}", std::process::id(), id));
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(&p).unwrap();
         p

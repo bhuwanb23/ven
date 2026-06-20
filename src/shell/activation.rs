@@ -96,17 +96,16 @@ pub fn dedup_ven_path(current_path: &str, original_path: &str, sep: &str) -> Str
         }
     }
 
-    // Deduplicate within the ven region, preserving first-occurrence order.
+    // Deduplicate across the full path, preserving first-occurrence order.
+    // This removes both ven-region duplicates AND stray ven entries that
+    // reappear after the original-path boundary.
     let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    let mut deduped_ven: Vec<&str> = Vec::with_capacity(ven_end);
-    for entry in &current[..ven_end] {
+    let mut result: Vec<&str> = Vec::with_capacity(current.len());
+    for entry in &current {
         if seen.insert(*entry) {
-            deduped_ven.push(*entry);
+            result.push(*entry);
         }
     }
-
-    let mut result: Vec<&str> = deduped_ven;
-    result.extend_from_slice(&current[ven_end..]);
     result.join(sep)
 }
 
@@ -895,7 +894,7 @@ mod tests {
         // Hand-evaluated: opens with ', then x, then ' closes; '\'' opens a
         // new quoted string with one literal ', then '; rm -rf /' is plain.
         // Net result: variable holds "x'; rm -rf /" verbatim.
-        assert_eq!(line, "export FOO='x'\\'' rm -rf /'");
+        assert_eq!(line, "export FOO='x'\\''; rm -rf /'");
     }
 
     /// A value with a leading `$` or backtick must be escaped so PowerShell

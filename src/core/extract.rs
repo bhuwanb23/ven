@@ -321,6 +321,10 @@ mod tests {
     fn validate_path_within_dir_accepts_child() {
         let dir = tempdir().unwrap();
         let child = dir.path().join("subdir").join("file.txt");
+        // Create the child so canonicalize resolves identically on all platforms,
+        // avoiding \\?\ prefix mismatch on Windows.
+        std::fs::create_dir_all(child.parent().unwrap()).unwrap();
+        std::fs::write(&child, b"").unwrap();
         assert!(validate_path_within_dir(&child, dir.path()).is_ok());
     }
 
