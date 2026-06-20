@@ -3,6 +3,49 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.2',
+    date: 'June 20, 2026',
+    tag: 'minor',
+    summary:
+      'Security hardening pass (9 fixes across the install pipeline and shell hooks), new `ven doctor` diagnostics command, shell hook no longer clobbers your env vars on cd-out, diamond-dependency support in the lockfile, a unified HOOK_MARKER for idempotent re-installs with legacy fallback detection for smooth upgrades, and a shared BaseInstaller that all 8 language installers now converge on.',
+    sections: {
+      new: [
+        '`ven doctor` — install and PATH diagnostics: reports install mode (user/system), detects dual-install conflicts, verifies PATH precedence, checks `ven update` support. Runs automatically from `ven-setup` Done screen when version looks unchanged.',
+        '`ven resolve --yes` — non-interactive dependency resolution for CI pipelines. Skips the confirmation prompt, emits JSON with `--json`.',
+      ],
+      security: [
+        'Zip slip and tar path traversal: archive extraction rejects entries that escape the extraction directory via `../` or absolute paths.',
+        'Decompression bomb protection: extraction hard-caps at 2 GB of uncompressed data to prevent resource exhaustion attacks.',
+        'Symlink isolation: extracted symlinks pointing outside the extraction directory are rejected, preventing file-overwrite attacks through malformed archives.',
+        'Constant-time SHA-256 comparison: checksum verification uses `constant_time_eq` to prevent timing side-channel attacks.',
+        'Checksum enforcement across all installers: every language download (Node, Python, Go, Rust, Java, Ruby, Deno, Bun) now verifies SHA-256 before writing to disk — a partial or tampered download is rejected instead of silently extracted.',
+        'Atomic lockfile writes: `ven.lock` is written to a temporary file then atomically renamed into place, preventing partial/corrupt lockfiles on crash or power loss.',
+        'Profile backups: shell rc files (`.bashrc`, `.zshrc`, `$PROFILE`) are backed up before modification during `ven shell install` / `ven setup`, so a failed write never leaves the user with a truncated rc file.',
+        'Shell injection prevention: `ven_path` and `install_dir` are shell-escaped during hook generation, blocking injection attacks through crafted paths or environment variable values.',
+      ],
+      improved: [
+        'Shell hook no longer clobbers user-set env vars (JAVA_HOME, GOROOT, etc.) on cd-out — PATH is captured lazily and restored with dedup, so re-sourcing `.bashrc` mid-session is safe.',
+        'Diamond dependency support: the IntelGraph engine now stores multiple versions of the same package under `name@version` composite keys, so diamond dependencies (A → B, C → B) are no longer silently dropped. Integrates with lockfile validation.',
+        'Lockfile v2 `content_hash` enforcement: `ven.lock` v2 format now requires an integrity `content_hash` field. Existing v2 locks without it are rejected with a clear error prompting `ven lock` to regenerate.',
+        'Unified `HOOK_MARKER` for idempotent re-installs — `ven setup` / `ven shell install` on an already-hooked shell no longer appends a duplicate hook block.',
+        'Legacy hook detection for smooth v0.2.1 → v0.2.2 upgrade — recognizes old marker formats (`# ven shell hook`, `# ven shell hook (PowerShell)`) and treats the shell as already-hooked, preventing duplicate blocks on upgrade.',
+        'Shared `BaseInstaller` for all 8 language installers (Node, Python, Go, Rust, Java, Ruby, Deno, Bun) — reduces code duplication and ensures consistent download, extract, and smoke-test behaviour.',
+        'Unified utility module at `core/utils.rs` — common helpers for version sorting, path resolution, and platform detection extracted from duplicated per-installer code.',
+        'ven-setup Done screen hints to run `ven doctor` if the version hasn\'t changed after install.',
+        'Install scripts (`install.ps1`, `install.sh`) warn when the PATH ven differs from the install directory, surfacing dual-install conflicts at setup time.',
+        'All clippy warnings resolved; `unwrap`/`expect` calls on production paths replaced with proper `Result`/error propagation.',
+      ],
+      fixed: [
+        'Node archive filename now includes `target_arch` (e.g. `node-v22-x64.tar.gz`), fixing extraction failures on arm64 hosts.',
+        '`ven check` correctly counts support-ended (EOL) runtimes as actionable — previously they were silently skipped.',
+        'Version existence validated before `ven install` downloads — fails fast with "version not found" instead of downloading 50 MB then crashing.',
+        'Lock validation uses composite `name@version` keys for roots and edges, matching the lockfile v2 format.',
+        '10+ failing tests resolved across shell (activation dedup, env key validation), core (storage_move, lockfile), and intelligence (diamond graph) modules.',
+        '`integrity::download_to_file` uses the shared `http_client` with `GITHUB_TOKEN` for authenticated SHA256SUMS fetches against the GitHub API.',
+      ],
+    },
+  },
+  {
     version: 'v0.2.1',
     date: 'May 21, 2026',
     tag: 'patch',
