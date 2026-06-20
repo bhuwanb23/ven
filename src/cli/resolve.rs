@@ -11,7 +11,7 @@ use colored::Colorize;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, BufRead, Write};
 
-pub fn cmd_resolve() -> Result<()> {
+pub fn cmd_resolve(yes: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let cfg =
         load_config(&cwd)?.ok_or_else(|| anyhow::anyhow!("No ven.toml found. Run: ven init"))?;
@@ -64,19 +64,23 @@ pub fn cmd_resolve() -> Result<()> {
         }
     }
 
-    print!("\n  Apply? [y/N]: ");
-    io::stdout().flush()?;
-    let answer = io::stdin()
-        .lock()
-        .lines()
-        .next()
-        .and_then(|l| l.ok())
-        .unwrap_or_default();
-
-    if answer.trim().eq_ignore_ascii_case("y") {
+    if yes {
         apply_resolution(&resolution_map)?;
     } else {
-        println!("\n  {} No changes were applied.", "[INFO]".cyan());
+        print!("\n  Apply? [y/N]: ");
+        io::stdout().flush()?;
+        let answer = io::stdin()
+            .lock()
+            .lines()
+            .next()
+            .and_then(|l| l.ok())
+            .unwrap_or_default();
+
+        if answer.trim().eq_ignore_ascii_case("y") {
+            apply_resolution(&resolution_map)?;
+        } else {
+            println!("\n  {} No changes were applied.", "[INFO]".cyan());
+        }
     }
 
     println!();

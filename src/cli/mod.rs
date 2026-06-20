@@ -458,9 +458,13 @@ pub enum Commands {
     /// conflicts, computes an optimal version resolution set, and applies
     /// fixes with one command.
     #[command(
-        long_about = "Automatically resolve dependency conflicts and apply fixes.\n\nScans the current dependency graph, estimates the best resolution set,\nand updates package versions to restore compatibility.\n\nExample:\n  ven resolve"
+        long_about = "Automatically resolve dependency conflicts and apply fixes.\n\nScans the current dependency graph, estimates the best resolution set,\nand updates package versions to restore compatibility.\n\nExamples:\n  ven resolve           # Interactive (prompts before applying)\n  ven resolve --yes     # Auto-apply without prompting (CI/scripts)"
     )]
-    Resolve,
+    Resolve {
+        /// Auto-apply resolution without prompting
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
 
     /// Health report — security advisories (OSV) + runtime EOL alerts
     ///
@@ -777,7 +781,7 @@ pub fn run(cli: Cli) -> Result<()> {
             json,
             skip_validate,
         } => sync::cmd_sync(dry_run, check, json, skip_validate),
-        Commands::Resolve => resolve::cmd_resolve(),
+        Commands::Resolve { yes } => resolve::cmd_resolve(yes),
         Commands::Check {
             security,
             eol,
