@@ -82,19 +82,8 @@ fn split_path_entries<'a>(path: &'a str, sep: &'a str) -> Vec<&'a str> {
 /// rearranging entries in the original (we only test set membership for
 /// the boundary, not order).
 #[allow(dead_code)]
-pub fn dedup_ven_path(current_path: &str, original_path: &str, sep: &str) -> String {
+pub fn dedup_ven_path(current_path: &str, _original_path: &str, sep: &str) -> String {
     let current = split_path_entries(current_path, sep);
-    let original = split_path_entries(original_path, sep);
-
-    // Find the boundary: the first index in `current` whose entry is
-    // part of the original. Everything before is "ven's region".
-    let mut ven_end = current.len();
-    for (i, entry) in current.iter().enumerate() {
-        if original.contains(entry) {
-            ven_end = i;
-            break;
-        }
-    }
 
     // Deduplicate across the full path, preserving first-occurrence order.
     // This removes both ven-region duplicates AND stray ven entries that

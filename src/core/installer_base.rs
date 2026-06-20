@@ -87,6 +87,8 @@ mod tests {
 
     #[test]
     fn new_creates_valid_paths() {
+        use crate::core::lock_test_env as lock_env;
+        let _g = lock_env();
         let tmp = tempfile::tempdir().unwrap();
         let home = tmp.path();
         std::env::set_var("VEN_HOME", home.to_str().unwrap());
