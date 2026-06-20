@@ -34,19 +34,19 @@ export const INSTALL = {
     label: 'Windows',
     cmd: `irm ${INSTALL_PS1_URL} | iex`,
     note:
-      'PowerShell 5.1 or 7+. Or download ven-setup-0.2.1-windows-x64.exe above. Installs to %USERPROFILE%\\.ven\\bin. Then ven shell install (once); upgrade with ven update.',
+      'PowerShell 5.1 or 7+. Or download ven-setup-0.2.2-windows-x64.exe above. Installs to %USERPROFILE%\\.ven\\bin. Then ven shell install (once); upgrade with ven update.',
   },
   macos: {
     label: 'macOS',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note:
-      'Or download ven-setup-0.2.1-macos-* above. Installs to ~/.ven/bin and adds PATH. Then ven shell install (once); upgrade with ven update.',
+      'Or download ven-setup-0.2.2-macos-* above. Installs to ~/.ven/bin and adds PATH. Then ven shell install (once); upgrade with ven update.',
   },
   linux: {
     label: 'Linux',
     cmd: `curl -fsSL ${INSTALL_SH_URL} | sh`,
     note:
-      'Or download ven-setup-0.2.1-linux-* above (chmod +x, then run). Bash / Zsh / Fish. Then ven shell install (once); upgrade with ven update.',
+      'Or download ven-setup-0.2.2-linux-* above (chmod +x, then run). Bash / Zsh / Fish. Then ven shell install (once); upgrade with ven update.',
   },
   source: {
     label: 'From source',
@@ -228,7 +228,7 @@ const UNINSTALL_ADVANCED = {
 // (--user-only / --system-only), and idempotent — re-running a partial
 // uninstall converges to a clean state. See docs/cmds/uninstall.md.
 const UNINSTALL_SIMPLE = {
-  label: 'ven 0.2.1+',
+  label: 'ven 0.2.2+',
   prompt: '$',
   note:
     'Native command. Prints a dry-run plan, prompts before nuking, removes everything (binary + every runtime + cache + state + persisted VEN_HOME + pointer file + PATH entries). Use `--dry-run` first to see exactly what would be removed; `-y` skips the prompt for CI.',
