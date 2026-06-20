@@ -42,7 +42,8 @@ pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> 
         .count();
 
     let eol_passed = eol_reports.iter().filter(|r| r.eol_passed).count();
-    let actionable = high_or_worse_cves + eol_passed;
+    let support_ended = eol_reports.iter().filter(|r| r.support_passed).count();
+    let actionable = high_or_worse_cves + eol_passed + support_ended;
 
     if json {
         let out = serde_json::json!({
@@ -56,6 +57,7 @@ pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> 
             "summary": {
                 "high_or_critical_cves": high_or_worse_cves,
                 "eol_runtimes": eol_passed,
+                "support_ended": support_ended,
                 "actionable": actionable,
             }
         });
@@ -72,11 +74,12 @@ pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> 
             println!("  {} No actionable issues.", "[OK]".green().bold());
         } else {
             println!(
-                "  {} {} actionable issue(s) ({} HIGH/CRITICAL CVE, {} runtime past EOL)",
+                "  {} {} actionable issue(s) ({} HIGH/CRITICAL CVE, {} runtime past EOL, {} support ended)",
                 "[FAIL]".red().bold(),
                 actionable,
                 high_or_worse_cves,
-                eol_passed
+                eol_passed,
+                support_ended
             );
         }
     }
