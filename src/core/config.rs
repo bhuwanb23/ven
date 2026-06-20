@@ -146,7 +146,18 @@ pub fn resolve_node_version(spec: &str, installed: &[String]) -> Result<String> 
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Node {} versions installed.", major))
         }
-        _ => Ok(spec.to_string()), // already exact: "20.11.0"
+        _ => {
+            // Exact version: verify it exists in the installed list
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Node {} is not installed. Run: ven install node {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -179,7 +190,17 @@ pub fn resolve_python_version(spec: &str, installed: &[String]) -> Result<String
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Python {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Python {} is not installed. Run: ven install python {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -210,7 +231,17 @@ pub fn resolve_go_version(spec: &str, installed: &[String]) -> Result<String> {
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Go {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Go {} is not installed. Run: ven install go {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -243,7 +274,17 @@ pub fn resolve_rust_version(spec: &str, installed: &[String]) -> Result<String> 
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Rust {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Rust {} is not installed. Run: ven install rust {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -276,7 +317,17 @@ pub fn resolve_java_version(spec: &str, installed: &[String]) -> Result<String> 
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Java {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Java {} is not installed. Run: ven install java {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -309,7 +360,17 @@ pub fn resolve_ruby_version(spec: &str, installed: &[String]) -> Result<String> 
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Ruby {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Ruby {} is not installed. Run: ven install ruby {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -342,7 +403,17 @@ pub fn resolve_bun_version(spec: &str, installed: &[String]) -> Result<String> {
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Bun {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Bun {} is not installed. Run: ven install bun {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
@@ -375,7 +446,17 @@ pub fn resolve_deno_version(spec: &str, installed: &[String]) -> Result<String> 
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("No Deno {}.z installed.", spec))
         }
-        _ => Ok(spec.to_string()),
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "Deno {} is not installed. Run: ven install deno {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
     }
 }
 
