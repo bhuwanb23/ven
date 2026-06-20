@@ -43,7 +43,8 @@ pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> 
 
     let eol_passed = eol_reports.iter().filter(|r| r.eol_passed).count();
     let support_ended = eol_reports.iter().filter(|r| r.support_passed).count();
-    let actionable = high_or_worse_cves + eol_passed + support_ended;
+    let outdated = eol_reports.iter().filter(|r| r.outdated).count();
+    let actionable = high_or_worse_cves + eol_passed + support_ended + outdated;
 
     if json {
         let out = serde_json::json!({
@@ -58,6 +59,7 @@ pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> 
                 "high_or_critical_cves": high_or_worse_cves,
                 "eol_runtimes": eol_passed,
                 "support_ended": support_ended,
+                "outdated": outdated,
                 "actionable": actionable,
             }
         });
@@ -74,12 +76,13 @@ pub fn cmd_check(security_only: bool, eol_only: bool, json: bool) -> Result<()> 
             println!("  {} No actionable issues.", "[OK]".green().bold());
         } else {
             println!(
-                "  {} {} actionable issue(s) ({} HIGH/CRITICAL CVE, {} runtime past EOL, {} support ended)",
+                "  {} {} actionable issue(s) ({} HIGH/CRITICAL CVE, {} runtime past EOL, {} support ended, {} outdated)",
                 "[FAIL]".red().bold(),
                 actionable,
                 high_or_worse_cves,
                 eol_passed,
-                support_ended
+                support_ended,
+                outdated
             );
         }
     }
@@ -333,6 +336,8 @@ fn print_eol_report(reports: &[EolReport]) {
             println!("  {} {}{}", "[EOL]".red(), header, cache_tag);
         } else if r.support_passed {
             println!("  {} {}{}", "[SUPPORT-ENDED]".yellow(), header, cache_tag);
+        } else if r.outdated {
+            println!("  {} {}{}", "[OUTDATED]".yellow(), header, cache_tag);
         } else {
             println!("  {} {}{}", "[OK]".green(), header, cache_tag);
         }

@@ -76,6 +76,9 @@ pub struct EolReport {
     pub days_until_eol: Option<i64>,
     pub support_passed: bool,
     pub days_until_support_end: Option<i64>,
+    /// `true` if a newer version is available.
+    #[serde(default)]
+    pub outdated: bool,
     pub from_cache: bool,
     pub source_url: String,
 }
@@ -114,6 +117,7 @@ impl EndOfLifeClient {
             days_until_eol: None,
             support_passed: false,
             days_until_support_end: None,
+            outdated: false,
             from_cache,
             source_url: format!("https://endoflife.date/{}", product),
         };
@@ -123,6 +127,11 @@ impl EndOfLifeClient {
         };
         report.matched_cycle = Some(cycle.cycle.clone());
         report.latest = cycle.latest.clone();
+
+        // Check if configured version is outdated
+        if let Some(ref latest) = cycle.latest {
+            report.outdated = *latest != version;
+        }
 
         let (eol_date_opt, eol_passed) = parse_eol_field(&cycle.eol, today_ymd());
         report.eol_date = eol_date_opt.clone();
