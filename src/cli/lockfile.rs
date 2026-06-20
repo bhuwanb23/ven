@@ -52,7 +52,35 @@ pub fn cmd_lock() -> Result<()> {
         (RuntimeKind::NpmFamily, cfg.runtime.bun.clone())
     };
 
-    let lock = VenLockFile::from_merged_simulations(runtime_kind, runtime_version, &keys, &graphs)?;
+    // Build composite "name@version" root keys from the resolved graphs.
+    // The packages map in VenLockFile uses composite keys, so roots must match.
+    let mut composite_roots: Vec<String> = Vec::new();
+    for name in &keys {
+        // Find the resolved version for this root from the merged graphs.
+        let mut resolved_version: Option<String> = None;
+        for g in &graphs {
+            if let Some(versions) = g.nodes.get(name) {
+                if let Some(node) = versions.values().next() {
+                    resolved_version = Some(node.version.clone());
+                    break;
+                }
+            }
+        }
+        if let Some(ver) = resolved_version {
+            composite_roots.push(format!("{}@{}", name, ver));
+        } else {
+            // Fallback: use the spec from ven.toml
+            let spec = cfg
+                .packages
+                .get(name)
+                .map(|s| s.as_str())
+                .filter(|s| !s.is_empty())
+                .unwrap_or("latest");
+            composite_roots.push(format!("{}@{}", name, spec));
+        }
+    }
+
+    let lock = VenLockFile::from_merged_simulations(runtime_kind, runtime_version, &composite_roots, &graphs)?;
     validate_lock_graph(&lock)?;
 
     let path = cwd.join("ven.lock");

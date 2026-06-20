@@ -326,6 +326,7 @@ pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
     let mut referenced: HashSet<String> = lock.roots.iter().cloned().collect();
 
     for (i, edge) in lock.edges.iter().enumerate() {
+        // Edges use composite "name@version" format as keys.
         let Some((from_pkg, from_ver)) = edge.from.rsplit_once('@') else {
             errors.push(format!(
                 "edge[{}]: invalid `from` (expected name@version): {}",
@@ -341,10 +342,12 @@ pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
             continue;
         };
 
-        referenced.insert(from_pkg.to_string());
-        referenced.insert(to_pkg.to_string());
+        // Track both composite keys and bare names for the unreferenced check.
+        referenced.insert(edge.from.clone());
+        referenced.insert(edge.to.clone());
 
-        match lock.packages.get(from_pkg) {
+        // Look up using composite "name@version" keys.
+        match lock.packages.get(&edge.from) {
             Some(p) if p.version == from_ver => {}
             Some(p) => errors.push(format!(
                 "edge[{}]: `from` {}@{} does not match locked version {}",
@@ -352,11 +355,11 @@ pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
             )),
             None => errors.push(format!(
                 "edge[{}]: `from` package `{}` not in packages map",
-                i, from_pkg
+                i, edge.from
             )),
         }
 
-        match lock.packages.get(to_pkg) {
+        match lock.packages.get(&edge.to) {
             Some(p) if p.version == to_ver => {}
             Some(p) => errors.push(format!(
                 "edge[{}]: `to` {}@{} does not match locked version {}",
@@ -364,7 +367,7 @@ pub fn validate_lock_graph(lock: &VenLockFile) -> Result<()> {
             )),
             None => errors.push(format!(
                 "edge[{}]: `to` package `{}` not in packages map",
-                i, to_pkg
+                i, edge.to
             )),
         }
 
@@ -432,9 +435,9 @@ mod tests {
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["a".into()],
+            roots: vec!["a@1.0.0".into()],
             packages: HashMap::from([(
-                "a".into(),
+                "a@1.0.0".into(),
                 VenLockPackage {
                     version: "1.0.0".into(),
                     integrity: None,
@@ -473,25 +476,25 @@ mod tests {
                 ecosystem: "npm".into(),
                 runtime_kind: RuntimeKind::NpmFamily,
                 runtime_version: "20".into(),
-                roots: vec!["a".into()],
+                roots: vec!["a@1.0.0".into()],
                 packages,
                 edges: vec![],
                 content_hash: None,
             }
         };
         let forward = mk(vec![
-            ("a", "1.0.0"),
-            ("b", "2.0.0"),
-            ("c", "3.0.0"),
-            ("d", "4.0.0"),
-            ("e", "5.0.0"),
+            ("a@1.0.0", "1.0.0"),
+            ("b@2.0.0", "2.0.0"),
+            ("c@3.0.0", "3.0.0"),
+            ("d@4.0.0", "4.0.0"),
+            ("e@5.0.0", "5.0.0"),
         ]);
         let reverse = mk(vec![
-            ("e", "5.0.0"),
-            ("d", "4.0.0"),
-            ("c", "3.0.0"),
-            ("b", "2.0.0"),
-            ("a", "1.0.0"),
+            ("e@5.0.0", "5.0.0"),
+            ("d@4.0.0", "4.0.0"),
+            ("c@3.0.0", "3.0.0"),
+            ("b@2.0.0", "2.0.0"),
+            ("a@1.0.0", "1.0.0"),
         ]);
         let h1 = compute_lock_content_hash(&forward).unwrap();
         let h2 = compute_lock_content_hash(&reverse).unwrap();
@@ -506,7 +509,11 @@ mod tests {
     #[test]
     fn hash_round_trip_through_json_matches_stamp() {
         let mut packages = HashMap::new();
-        for (k, v) in [("alpha", "1.2.3"), ("beta", "0.0.1"), ("gamma", "2.4.6")] {
+        for (k, v) in [
+            ("alpha@1.2.3", "1.2.3"),
+            ("beta@0.0.1", "0.0.1"),
+            ("gamma@2.4.6", "2.4.6"),
+        ] {
             packages.insert(
                 k.into(),
                 VenLockPackage {
@@ -521,7 +528,7 @@ mod tests {
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["alpha".into()],
+            roots: vec!["alpha@1.2.3".into()],
             packages,
             edges: vec![],
             content_hash: None,
@@ -588,13 +595,13 @@ mod tests {
             "ecosystem": "npm",
             "runtime_kind": "NpmFamily",
             "runtime_version": "20",
-            "roots": ["x"],
-            "packages": {"x": {"version": "1.0.0"}},
+            "roots": ["x@1.0.0"],
+            "packages": {"x@1.0.0": {"version": "1.0.0"}},
             "edges": []
         }"#;
         let lock: VenLockFile = serde_json::from_str(json).unwrap();
         assert_eq!(lock.lock_format_version, 1);
-        assert!(lock.packages["x"].integrity.is_none());
+        assert!(lock.packages["x@1.0.0"].integrity.is_none());
         assert!(lock_needs_upgrade(&lock));
         validate_lock_graph(&lock).unwrap();
     }
@@ -612,8 +619,8 @@ mod tests {
             "ecosystem": "npm",
             "runtime_kind": "NpmFamily",
             "runtime_version": "20",
-            "roots": ["x"],
-            "packages": {"x": {"version": "1.0.0"}},
+            "roots": ["x@1.0.0"],
+            "packages": {"x@1.0.0": {"version": "1.0.0"}},
             "edges": []
         }"#;
         std::fs::write(&path, json).unwrap();
@@ -637,9 +644,9 @@ mod tests {
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["x".into()],
+            roots: vec!["x@1.0.0".into()],
             packages: HashMap::from([(
-                "x".into(),
+                "x@1.0.0".into(),
                 VenLockPackage {
                     version: "1.0.0".into(),
                     integrity: None,
@@ -671,9 +678,9 @@ mod tests {
             ecosystem: "npm".into(),
             runtime_kind: RuntimeKind::NpmFamily,
             runtime_version: "20".into(),
-            roots: vec!["x".into()],
+            roots: vec!["x@1.0.0".into()],
             packages: HashMap::from([(
-                "x".into(),
+                "x@1.0.0".into(),
                 VenLockPackage {
                     version: "1.0.0".into(),
                     integrity: None,
@@ -686,7 +693,7 @@ mod tests {
         lock.content_hash = Some(compute_lock_content_hash(&lock).unwrap());
         std::fs::write(&path, serde_json::to_string_pretty(&lock).unwrap()).unwrap();
         let read_back = VenLockFile::read_path(&path).unwrap();
-        assert_eq!(read_back.packages["x"].version, "1.0.0");
+        assert_eq!(read_back.packages["x@1.0.0"].version, "1.0.0");
     }
 
     fn tempdir_in_target() -> std::path::PathBuf {
