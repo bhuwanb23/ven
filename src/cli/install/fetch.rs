@@ -115,7 +115,21 @@ pub(super) fn resolve_install_version(
         );
         resolve_major_version(plugin, version)?
     } else {
-        version.to_string()
+        // Exact version with dot - validate it exists in available releases
+        let avail = fetch_available_versions(language)?;
+        if avail.iter().any(|v| v == version) {
+            version.to_string()
+        } else {
+            let sample: Vec<&str> = avail.iter().take(5).map(|s| s.as_str()).collect();
+            return Err(anyhow::anyhow!(
+                "{} {} version {} not found.\n\n  Available versions (sample): {}\n  [TIP] Run: ven install {} latest",
+                "[ERROR]".red(),
+                language.bold(),
+                version.bold(),
+                sample.join(", "),
+                language
+            ));
+        }
     };
     Ok(resolved)
 }
