@@ -7,6 +7,13 @@ import { ParticleBg } from "../components/ParticleBg";
 import { PulseRing } from "../components/PulseRing";
 import { SoundFX } from "../components/SoundFX";
 
+const hexFragments = Array.from({ length: 40 }, (_, i) => ({
+  x: Math.sin(i * 1.7) * 700 + 960,
+  y: (i % 12) * 90 + 50,
+  text: Math.random().toString(16).slice(2, 8),
+  delay: (i * 7) % 30,
+}));
+
 export const Beat1Chaos: React.FC = () => {
   const frame = useCurrentFrame();
 
@@ -29,6 +36,8 @@ export const Beat1Chaos: React.FC = () => {
   const shakeX = shakeIntensity * Math.sin(frame * 1.7) * 2;
   const shakeY = shakeIntensity * Math.cos(frame * 1.3) * 1.5;
 
+  const scanOpacity = 0.02 + 0.08 * redFlash;
+
   return (
     <AbsoluteFill
       style={{
@@ -38,6 +47,40 @@ export const Beat1Chaos: React.FC = () => {
             : `linear-gradient(180deg, #1a0808 0%, #0d0505 50%, #131313 100%)`,
       }}
     >
+      {/* Scanline overlay */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 997, opacity: scanOpacity }}>
+        <defs>
+          <pattern id="sl" width="3" height="3" patternUnits="userSpaceOnUse">
+            <rect width="3" height="1" fill="white" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#sl)" />
+      </svg>
+
+      {/* Hex code rain background */}
+      {frame >= 155 && (
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+          {hexFragments.map((f, i) => {
+            const drift = (frame * 0.3 + f.delay) % 120;
+            return (
+              <span
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: f.x + Math.sin(frame * 0.02 + i) * 40,
+                  top: f.y + drift * 3,
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  color: "rgba(255, 80, 80, 0.06)",
+                }}
+              >
+                {f.text}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <div
         style={{
           position: "absolute",
@@ -45,7 +88,7 @@ export const Beat1Chaos: React.FC = () => {
           transform: `translate(${shakeX}px, ${shakeY}px)`,
         }}
       >
-      <ParticleBg count={25} color="255, 50, 50" baseOpacity={0.08} />
+      <ParticleBg count={35} color="255, 50, 50" baseOpacity={0.1} />
 
       <div
         style={{
@@ -86,6 +129,42 @@ export const Beat1Chaos: React.FC = () => {
         fontSize={36}
         success={false}
       />
+
+      {/* Error detail lines */}
+      {frame >= 172 && (
+        <>
+          <TerminalLine
+            text="npm ERR! code E401"
+            startFrame={172}
+            currentFrame={frame}
+            typingDelay={2}
+            y={570}
+            x={490}
+            fontSize={18}
+            success={false}
+          />
+          <TerminalLine
+            text="npm ERR! 401 Unauthorized"
+            startFrame={180}
+            currentFrame={frame}
+            typingDelay={2}
+            y={600}
+            x={490}
+            fontSize={18}
+            success={false}
+          />
+          <TerminalLine
+            text="npm ERR! response status 401"
+            startFrame={188}
+            currentFrame={frame}
+            typingDelay={2}
+            y={630}
+            x={490}
+            fontSize={18}
+            success={false}
+          />
+        </>
+      )}
 
       <Cursor
         waypoints={[

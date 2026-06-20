@@ -16,13 +16,16 @@ const ghostY = 200;
 const ghostW = 800;
 const ghostH = 480;
 
+const fileSizes = ["2.4 MB", "1.1 MB", "4.7 MB", "0.8 MB", "3.2 MB"];
+
 const GhostBox: React.FC<{
   label: string;
   x: number;
   y: number;
   revealed: boolean;
   progress: number;
-}> = ({ label, x, y, revealed, progress }) => {
+  fileSize: string;
+}> = ({ label, x, y, revealed, progress, fileSize }) => {
   const slideY = interpolate(progress, [0, 0.4, 1], [-16, 4, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -45,17 +48,31 @@ const GhostBox: React.FC<{
         opacity: revealed ? progress : 0.3,
       }}
     >
-      <span
-        style={{
-          fontFamily: "monospace",
-          fontSize: 24,
-          color: revealed
-            ? `rgba(56, 189, 248, ${0.5 + 0.5 * progress})`
-            : "rgba(255,255,255,0.15)",
-        }}
-      >
-        {revealed ? label : "???"}
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 24,
+            color: revealed
+              ? `rgba(56, 189, 248, ${0.5 + 0.5 * progress})`
+              : "rgba(255,255,255,0.15)",
+            flex: 1,
+          }}
+        >
+          {revealed ? label : "???"}
+        </span>
+        {revealed && (
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 13,
+              color: `rgba(56, 189, 248, ${0.25 * progress})`,
+            }}
+          >
+            {fileSize}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
@@ -82,6 +99,20 @@ export const Beat6Ghost: React.FC = () => {
     config: { damping: 10, stiffness: 60, mass: 0.8 },
   });
 
+  const revealedCount = (() => {
+    for (let i = ghostDirs.length - 1; i >= 0; i--) {
+      if (frame >= 50 + i * 25) return i + 1;
+    }
+    return 0;
+  })();
+
+  const scanProgress = revealedCount / ghostDirs.length;
+  const progressWidth = interpolate(
+    Math.min(scanProgress, frame >= 195 ? 1 : scanProgress),
+    [0, 1],
+    [0, 440],
+  );
+
   return (
     <AbsoluteFill
       style={{
@@ -89,7 +120,17 @@ export const Beat6Ghost: React.FC = () => {
           "linear-gradient(180deg, #0d0f12 0%, #111318 30%, #131313 100%)",
       }}
     >
-      <ParticleBg count={25} color="56, 189, 248" baseOpacity={0.04} />
+      {/* Dot grid background */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        <defs>
+          <pattern id="g6" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="20" cy="20" r="0.6" fill="rgba(56, 189, 248, 0.06)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#g6)" />
+      </svg>
+
+      <ParticleBg count={35} color="56, 189, 248" baseOpacity={0.05} />
 
       {/* Scan line effect */}
       <div
@@ -129,6 +170,44 @@ export const Beat6Ghost: React.FC = () => {
         </span>
       </div>
 
+      {/* Scan counter */}
+      <div
+        style={{
+          position: "absolute",
+          right: ghostX + 680,
+          top: ghostY + 80 + ghostDirs.length * 70 + 10,
+          fontFamily: "monospace",
+          fontSize: 14,
+          color: "rgba(56, 189, 248, 0.3)",
+          textAlign: "right",
+        }}
+      >
+        {revealedCount} / {ghostDirs.length} directories
+      </div>
+
+      {/* Progress bar */}
+      <div
+        style={{
+          position: "absolute",
+          left: ghostX,
+          top: ghostY + 80 + ghostDirs.length * 70 + 32,
+          width: 680,
+          height: 4,
+          borderRadius: 2,
+          background: "rgba(56, 189, 248, 0.08)",
+        }}
+      >
+        <div
+          style={{
+            width: progressWidth,
+            height: "100%",
+            borderRadius: 2,
+            background: "linear-gradient(90deg, rgba(56,189,248,0.2), rgba(56,189,248,0.5))",
+            transition: "width 0.1s",
+          }}
+        />
+      </div>
+
       {/* Ghost directory lines */}
       <div
         style={{
@@ -158,6 +237,7 @@ export const Beat6Ghost: React.FC = () => {
               y={d.y}
               revealed={revealed}
               progress={progress}
+              fileSize={fileSizes[i]}
             />
           );
         })}
@@ -187,7 +267,7 @@ export const Beat6Ghost: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            bottom: 140,
+            bottom: 100,
             left: 0,
             right: 0,
             textAlign: "center",

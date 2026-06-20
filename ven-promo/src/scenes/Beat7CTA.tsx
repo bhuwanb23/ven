@@ -58,7 +58,17 @@ export const Beat7CTA: React.FC = () => {
           "linear-gradient(180deg, #060d1a 0%, #0c1a30 40%, #131313 100%)",
       }}
     >
-      <ParticleBg count={40} color="0, 150, 255" baseOpacity={0.06} accentColor="#00c8ff" />
+      {/* Dot grid background */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        <defs>
+          <pattern id="g7" width="48" height="48" patternUnits="userSpaceOnUse">
+            <circle cx="24" cy="24" r="0.8" fill="rgba(0, 150, 255, 0.08)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#g7)" />
+      </svg>
+
+      <ParticleBg count={40} color="0, 150, 255" baseOpacity={0.06} />
 
       {/* Decorative rings */}
       <div
@@ -199,6 +209,91 @@ export const Beat7CTA: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Stats row */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 40,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          gap: 60,
+          opacity: interpolate(frame, [60, 90], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+        }}
+      >
+        {[
+          { value: "10k+", label: "stars" },
+          { value: "50k+", label: "downloads" },
+          { value: "MIT", label: "license" },
+        ].map((stat, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              fontFamily: "Inter, sans-serif",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 28,
+                fontWeight: "700",
+                color: "rgba(0, 200, 255, 0.5)",
+                letterSpacing: 1,
+              }}
+            >
+              {stat.value}
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                color: "rgba(255,255,255,0.2)",
+                letterSpacing: 2,
+                textTransform: "uppercase",
+              }}
+            >
+              {stat.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Feature badges */}
+      {frame >= 80 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 160,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            gap: 12,
+            opacity: interpolate(frame, [80, 110], [0, 0.5], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          }}
+        >
+          {["Zero Config", "Auto-switch", "Ghost Detection", "Multi-lang"].map((badge, i) => (
+            <span
+              key={i}
+              style={{
+                fontFamily: "monospace",
+                fontSize: 13,
+                color: "rgba(0, 200, 255, 0.3)",
+                border: "1px solid rgba(0, 200, 255, 0.08)",
+                borderRadius: 20,
+                padding: "6px 16px",
+                letterSpacing: 0.5,
+              }}
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Cursor: idle entrance then exits */}
       <Cursor

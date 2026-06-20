@@ -266,12 +266,71 @@ export const Beat4Autoswitch: React.FC = () => {
         showTrail
       />
 
+      {/* Dot grid background */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        <defs>
+          <pattern id="g4" width="48" height="48" patternUnits="userSpaceOnUse">
+            <circle cx="24" cy="24" r="0.6" fill="rgba(168, 85, 247, 0.08)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#g4)" />
+      </svg>
+
+      {/* Terminal log panel */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 80,
+          left: panelLeft + 20,
+          right: panelLeft + 20,
+          maxWidth: panelW * 2 + panelGap - 40,
+          borderRadius: 10,
+          border: "1px solid rgba(168, 85, 247, 0.08)",
+          background: "rgba(0, 0, 0, 0.3)",
+          padding: "16px 22px",
+          opacity: panelOpacity,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "monospace",
+            fontSize: 12,
+            color: "rgba(168, 85, 247, 0.4)",
+            marginBottom: 10,
+            letterSpacing: 1,
+          }}
+        >
+          $ ven use --auto
+        </div>
+        {[
+          { text: "frontend/  switched to Node v20.20.2", frame: 75 },
+          { text: "backend/   switched to Node v22.11.0", frame: 135 },
+          { text: "shared/    switched to Node v1.5.0", frame: 195 },
+        ].map((log, i) => (
+          <div
+            key={i}
+            style={{
+              fontFamily: "monospace",
+              fontSize: 14,
+              color: frame >= log.frame ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.06)",
+              padding: "3px 0",
+              opacity: frame >= log.frame
+                ? interpolate(Math.min(1, (frame - log.frame) / 10), [0, 1], [0, 1])
+                : 0,
+            }}
+          >
+            <span style={{ color: "#4ade80", marginRight: 12 }}>✓</span>
+            {log.text}
+          </div>
+        ))}
+      </div>
+
       {/* Subtitle */}
       {frame >= 180 && (
         <div
           style={{
             position: "absolute",
-            bottom: 120,
+            bottom: 170,
             left: 0,
             right: 0,
             textAlign: "center",

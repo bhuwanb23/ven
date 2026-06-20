@@ -75,6 +75,8 @@ export const Beat3Graph: React.FC = () => {
     config: { damping: 12, stiffness: 180, mass: 0.4 },
   });
 
+  const dataPulse = (frame * 0.02) % 1;
+
   return (
     <AbsoluteFill
       style={{
@@ -82,6 +84,54 @@ export const Beat3Graph: React.FC = () => {
           "linear-gradient(180deg, #080f0f 0%, #0a1414 30%, #131313 100%)",
       }}
     >
+      {/* Dot grid background */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        <defs>
+          <pattern id="g3" width="48" height="48" patternUnits="userSpaceOnUse">
+            <circle cx="24" cy="24" r="0.8" fill="rgba(0, 200, 255, 0.12)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#g3)" />
+      </svg>
+
+      {/* Data-pulse dots traveling along graph edges */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 5 }}>
+        {graphEdges.map((_, i) => {
+          const t = (dataPulse + i * 0.22) % 1;
+          const target = langNodes[i];
+          const px = centerX + t * (target.x - centerX);
+          const py = centerY + t * (target.y - centerY);
+          return (
+            <circle
+              key={i}
+              cx={px}
+              cy={py}
+              r={3 + Math.sin(frame * 0.1 + i * 2) * 1}
+              fill="#4ade80"
+              opacity={Math.sin(t * Math.PI) * 0.5}
+            />
+          );
+        })}
+        {/* Sub-graph data pulse */}
+        {frame >= 270 && subEdges.map((edge, i) => {
+          const t = ((frame - 270) * 0.025 + i * 0.35) % 1;
+          const from = subNodes[edge.from];
+          const to = subNodes[edge.to];
+          const px = from.x + t * (to.x - from.x);
+          const py = from.y + t * (to.y - from.y);
+          return (
+            <circle
+              key={`sub-${i}`}
+              cx={px}
+              cy={py}
+              r={2.5}
+              fill="#4ade80"
+              opacity={Math.sin(t * Math.PI) * 0.4}
+            />
+          );
+        })}
+      </svg>
+
       <ParticleBg count={50} color="0, 180, 120" baseOpacity={0.05} />
 
       <div

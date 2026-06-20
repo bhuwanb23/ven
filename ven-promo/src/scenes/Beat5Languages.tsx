@@ -106,7 +106,66 @@ export const Beat5Languages: React.FC = () => {
           "linear-gradient(180deg, #0a140a 0%, #0f1a0f 30%, #131313 100%)",
       }}
     >
-      <ParticleBg count={30} color="74, 222, 128" baseOpacity={0.05} />
+      {/* Dot grid background */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        <defs>
+          <pattern id="g5" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="20" cy="20" r="0.6" fill="rgba(74, 222, 128, 0.08)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#g5)" />
+      </svg>
+
+      {/* Orb connection lines */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        {orbs.map((_, i) => {
+          const next = (i + 1) % orbs.length;
+          const a1 = orbs[i].angle;
+          const a2 = orbs[next].angle;
+          const r1 = orbRadius + 4 * Math.sin(frame * 0.015 + i * 0.8);
+          const r2 = orbRadius + 4 * Math.sin(frame * 0.015 + next * 0.8);
+          const x1 = cx + r1 * Math.cos(a1);
+          const y1 = cy + r1 * Math.sin(a1);
+          const x2 = cx + r2 * Math.cos(a2);
+          const y2 = cy + r2 * Math.sin(a2);
+          const bothActive = i + 1 <= activeOrbCount && next + 1 <= activeOrbCount;
+          const lineOpacity = bothActive
+            ? 0.15 + 0.1 * Math.sin(frame * 0.03 + i * 1.5)
+            : 0;
+          return (
+            <line
+              key={i}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="rgba(74, 222, 128, 0.2)"
+              strokeWidth={1}
+              opacity={lineOpacity}
+            />
+          );
+        })}
+      </svg>
+
+      {/* Orbital accent dots */}
+      <svg style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = (i / 12) * Math.PI * 2 + frame * 0.005;
+          const r = orbRadius + 60 + 20 * Math.sin(frame * 0.01 + i);
+          return (
+            <circle
+              key={i}
+              cx={cx + r * Math.cos(a)}
+              cy={cy + r * Math.sin(a)}
+              r={1.5}
+              fill="rgba(74, 222, 128, 0.15)"
+              opacity={0.3 + 0.2 * Math.sin(frame * 0.03 + i * 0.7)}
+            />
+          );
+        })}
+      </svg>
+
+      <ParticleBg count={40} color="74, 222, 128" baseOpacity={0.05} />
 
       {/* Title */}
       <div
@@ -150,7 +209,7 @@ export const Beat5Languages: React.FC = () => {
         />
       ))}
 
-      {/* Center glow */}
+      {/* Center glow + hub */}
       {activeOrbCount > 0 && (
         <div
           style={{
@@ -162,13 +221,24 @@ export const Beat5Languages: React.FC = () => {
             borderRadius: "50%",
             background: "rgba(74, 222, 128, 0.12)",
             boxShadow: `0 0 ${120 + 20 * Math.sin(frame * 0.04)}px rgba(74, 222, 128, ${0.08 + 0.06 * Math.sin(frame * 0.04)})`,
-            opacity: interpolate(
-              activeOrbCount,
-              [0, 1, 8],
-              [0, 0.6, 1]
-            ),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: interpolate(activeOrbCount, [0, 1, 8], [0, 0.6, 1]),
           }}
-        />
+        >
+          <span
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: 28,
+              fontWeight: "700",
+              color: "rgba(74, 222, 128, 0.6)",
+              letterSpacing: 2,
+            }}
+          >
+            ven
+          </span>
+        </div>
       )}
 
       {/* Cursor clicks orb 0 and orb 2 */}
