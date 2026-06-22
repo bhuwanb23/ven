@@ -196,7 +196,7 @@ const CMD_DOCS = {
       'Unified health report — pulls package CVEs from osv.dev and runtime end-of-life status from endoflife.date.',
     sections: [
       { kind: 'h2', text: 'Usage' },
-      { kind: 'code', lang: 'bash', code: 'ven check                  # CVE + EOL\nven check --security       # CVE only\nven check --eol            # EOL only\nven check --json           # CI / scripting' },
+      { kind: 'code', lang: 'bash', code: 'ven check                  # CVE + EOL + outdated\nven check --security       # CVE only\nven check --eol            # EOL only\nven check --json           # CI / scripting' },
       { kind: 'h2', text: 'How it works' },
       {
         kind: 'ul', items: [
@@ -216,11 +216,20 @@ const CMD_DOCS = {
           ['> 0', 'LOW'],
         ]
       },
+      { kind: 'h2', text: 'Runtime status labels' },
+      {
+        kind: 'table', head: ['Label', 'Meaning'], rows: [
+          ['[OK]', 'Runtime is up-to-date and supported'],
+          ['[OUTDATED]', 'Newer version available'],
+          ['[SUPPORT-ENDED]', 'Active support ended, security-only patches'],
+          ['[EOL]', 'End-of-life — no further updates'],
+        ]
+      },
       { kind: 'h2', text: 'Exit codes' },
       {
         kind: 'table', head: ['Code', 'Meaning'], rows: [
           ['0', 'No actionable issues'],
-          ['1', 'Any HIGH/CRITICAL CVE or a passed-EOL runtime'],
+          ['1', 'Any HIGH/CRITICAL CVE, passed-EOL, support-ended, or outdated runtime'],
         ]
       },
       { kind: 'callout', tone: 'info', title: 'Offline-friendly', text: 'OSV cache lives 6 hours, EOL cache 24 hours. On network failure, ven serves the last-known-good entry and prints a "stale" warning.' },
@@ -571,7 +580,7 @@ const CMD_DOCS = {
       'Scan the current dependency graph, find every conflict, compute an optimal version set, and apply it in one shot.',
     sections: [
       { kind: 'h2', text: 'Usage' },
-      { kind: 'code', lang: 'bash', code: 'ven resolve            # scan + propose + ask\nven resolve --apply    # scan + apply without confirming\nven resolve --json     # machine-readable plan' },
+      { kind: 'code', lang: 'bash', code: 'ven resolve            # scan + propose + ask\nven resolve --yes      # scan + apply without confirming (CI/scripts)\nven resolve -y         # short flag\nven resolve --json     # machine-readable plan' },
       { kind: 'h2', text: 'Output' },
       { kind: 'code', lang: 'text', code: 'Scanning dependency graph...\nFound 2 conflicts:\n  [1] lodash@4.17 <-> express@1.3\n      Fix: lodash -> 4.16  OR  express -> 1.2\n  [2] axios@1.7 <-> Node 20\n      Fix: axios -> 1.6.8\n\nOptimal resolution:\n  lodash:  4.17 -> 4.16\n  axios:   1.7.0 -> 1.6.8\n  express: unchanged\n\nApply? [y/N]:' },
     ],
