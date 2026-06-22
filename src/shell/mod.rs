@@ -193,6 +193,7 @@ __ven_activate() {{
         unset VEN_DENO_VERSION 2>/dev/null
         unset VEN_BUN_VERSION 2>/dev/null
         unset VEN_RUBY_VERSION 2>/dev/null
+        unset VEN_PHP_VERSION 2>/dev/null
         unset VEN_TOML 2>/dev/null
         unset VIRTUAL_ENV 2>/dev/null
         unset NODE_PATH 2>/dev/null
@@ -273,6 +274,7 @@ function __ven_on_prompt --on-event fish_prompt
         set -e VEN_DENO_VERSION 2>/dev/null
         set -e VEN_BUN_VERSION 2>/dev/null
         set -e VEN_RUBY_VERSION 2>/dev/null
+        set -e VEN_PHP_VERSION 2>/dev/null
         set -e VEN_TOML 2>/dev/null
         set -e VIRTUAL_ENV 2>/dev/null
         set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
@@ -382,6 +384,7 @@ function global:__ven_clear_ven_state {{
     if (Test-Path Env:VEN_DENO_VERSION)   {{ Remove-Item Env:VEN_DENO_VERSION }}
     if (Test-Path Env:VEN_BUN_VERSION)     {{ Remove-Item Env:VEN_BUN_VERSION }}
     if (Test-Path Env:VEN_RUBY_VERSION)   {{ Remove-Item Env:VEN_RUBY_VERSION }}
+    if (Test-Path Env:VEN_PHP_VERSION)    {{ Remove-Item Env:VEN_PHP_VERSION }}
     if (Test-Path Env:VEN_TOML)            {{ Remove-Item Env:VEN_TOML }}
     if (Test-Path Env:VIRTUAL_ENV)         {{ Remove-Item Env:VIRTUAL_ENV }}
     if (Test-Path Env:NODE_PATH)           {{ Remove-Item Env:NODE_PATH }}

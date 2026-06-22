@@ -54,6 +54,7 @@ pub fn scan_project(cwd: &Path, cfg: &VenConfig, kind: RuntimeKind) -> Result<Gh
         RuntimeKind::Java => scan_java(cwd, cfg),
         RuntimeKind::Ruby => scan_ruby(cwd, cfg),
         RuntimeKind::Deno => scan_deno(cwd, cfg),
+        RuntimeKind::Php => scan_php(cwd, cfg),
         RuntimeKind::Stub => Ok(GhostReport {
             ecosystem: "unknown",
             project_root: cwd.to_string_lossy().into_owned(),
@@ -1159,6 +1160,74 @@ fn deno_import_regex() -> &'static Regex {
     R.get_or_init(|| {
         Regex::new(r#"(?m)(?:from\s+['"]([^'"]+)['"]|import\s*\(?\s*['"]([^'"]+)['"])"#).unwrap()
     })
+}
+
+fn scan_php(cwd: &Path, cfg: &VenConfig) -> Result<GhostReport> {
+    let declared = collect_declared(cwd, cfg, "packagist");
+    let use_re = php_use_regex();
+
+    let mut occurrences: HashMap<String, (usize, String)> = HashMap::new();
+    let mut files_scanned = 0usize;
+
+    for entry in project_walker(cwd).build() {
+        let Ok(entry) = entry else { continue };
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|e| e.to_str()) != Some("php") {
+            continue;
+        }
+        files_scanned += 1;
+        let Ok(body) = fs::read_to_string(path) else {
+            continue;
+        };
+        for cap in use_re.captures_iter(&body) {
+            let Some(m) = cap.get(1) else { continue };
+            let raw = m.as_str();
+            // PHP use statements: use Vendor\Package\Something;
+            // Extract the vendor/package part (first two segments)
+            let parts: Vec<&str> = raw.split('\\').collect();
+            if parts.len() >= 2 {
+                let name = format!(
+                    "{}/{}",
+                    parts[0].to_ascii_lowercase(),
+                    parts[1].to_ascii_lowercase()
+                );
+                if declared.contains(&name) {
+                    continue;
+                }
+                let rel = path
+                    .strip_prefix(cwd)
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .unwrap_or_else(|_| path.to_string_lossy().into_owned());
+                let (count, first) = occurrences.entry(name).or_insert_with(|| (0, rel.clone()));
+                *count += 1;
+                if first.is_empty() {
+                    *first = rel;
+                }
+            }
+        }
+    }
+
+    let mut ghosts: Vec<Ghost> = occurrences
+        .into_iter()
+        .map(|(name, (count, first))| Ghost {
+            name,
+            ecosystem: "packagist",
+            first_seen_in: first,
+            occurrences: count,
+        })
+        .collect();
+    ghosts.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(GhostReport {
+        ecosystem: "packagist",
+        project_root: cwd.to_string_lossy().into_owned(),
+        ghosts,
+        files_scanned,
+    })
+}
+
+fn php_use_regex() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| Regex::new(r#"(?m)^\s*use\s+([A-Za-z0-9_\\]+)\s*;"#).unwrap())
 }
 
 // ── Updated node ghost regex implementation: deal with multi-group captures ──

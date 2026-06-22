@@ -61,6 +61,9 @@ pub struct RuntimeConfig {
     /// MRI Ruby version (installed under ~/.ven/ruby/<version>)
     #[serde(default)]
     pub ruby: String,
+    /// PHP version (installed under ~/.ven/php/<version>)
+    #[serde(default)]
+    pub php: String,
 }
 
 /// Walks up the directory tree to find the nearest `ven.toml` file.
@@ -452,6 +455,49 @@ pub fn resolve_deno_version(spec: &str, installed: &[String]) -> Result<String> 
             } else {
                 Err(anyhow::anyhow!(
                     "Deno {} is not installed. Run: ven install deno {}",
+                    spec,
+                    spec
+                ))
+            }
+        }
+    }
+}
+
+/// Resolve ven.toml `runtime.php` against versions installed under ~/.ven/php
+pub fn resolve_php_version(spec: &str, installed: &[String]) -> Result<String> {
+    let spec = spec.trim().trim_start_matches('v');
+    match spec {
+        "latest" => installed
+            .iter()
+            .max_by(|a, b| version_cmp(a, b))
+            .cloned()
+            .ok_or_else(|| {
+                anyhow::anyhow!("No PHP versions installed. Run: ven install php latest")
+            }),
+        _ if !spec.contains('.') => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No PHP {}.x installed.", spec))
+        }
+        _ if spec.matches('.').count() == 1 => {
+            let prefix = format!("{}.", spec);
+            installed
+                .iter()
+                .filter(|v| v.starts_with(&prefix))
+                .max_by(|a, b| version_cmp(a, b))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No PHP {}.z installed.", spec))
+        }
+        _ => {
+            if installed.iter().any(|v| v == spec) {
+                Ok(spec.to_string())
+            } else {
+                Err(anyhow::anyhow!(
+                    "PHP {} is not installed. Run: ven install php {}",
                     spec,
                     spec
                 ))

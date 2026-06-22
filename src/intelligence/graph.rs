@@ -13,6 +13,7 @@ pub enum RuntimeKind {
     Java,
     Deno,
     Ruby,
+    Php,
     Stub,
 }
 

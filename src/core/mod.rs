@@ -16,6 +16,7 @@ pub mod java_manifest;
 pub mod npm_registry;
 pub mod osv;
 pub mod packages;
+pub mod php_install;
 pub mod project_venv;
 pub mod python_install;
 pub mod requirements;
@@ -35,8 +36,8 @@ pub mod ven_home;
 pub use bun_install::{install_bun as install_bun_native, BunDownloader};
 pub use config::{
     find_ven_toml, load_config, parse_ven_toml, resolve_bun_version, resolve_deno_version,
-    resolve_go_version, resolve_java_version, resolve_node_version, resolve_python_version,
-    resolve_ruby_version, resolve_rust_version,
+    resolve_go_version, resolve_java_version, resolve_node_version, resolve_php_version,
+    resolve_python_version, resolve_ruby_version, resolve_rust_version,
 };
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use deno_install::{install_deno as install_deno_native, DenoDownloader};
@@ -46,6 +47,8 @@ pub use extract::install_node as install_node_native;
 pub use go_install::{install_go as install_go_native, GoDownloader};
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use java_install::{install_java as install_java_native, JavaDownloader};
+#[allow(unused_imports)] // crate root re-exports for `ven` as a library
+pub use php_install::{install_php as install_php_native, PhpDownloader};
 #[allow(unused_imports)] // crate root re-exports for `ven` as a library
 pub use python_install::{install_python as install_python_native, PythonDownloader};
 #[allow(unused_imports)]

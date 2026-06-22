@@ -5,6 +5,7 @@ use crate::core::bun_install::{fetch_bun_release_versions, resolve_bun_version_s
 use crate::core::deno_install::{fetch_deno_release_versions, resolve_deno_version_spec};
 use crate::core::go_install::{fetch_go_release_versions, resolve_go_version_spec};
 use crate::core::java_install::{fetch_java_release_versions, resolve_java_version_spec};
+use crate::core::php_install::{fetch_php_release_versions, resolve_php_version_spec};
 use crate::core::python_install::{fetch_python_release_versions, resolve_python_version_spec};
 use crate::core::ruby_install::{fetch_ruby_release_versions, resolve_ruby_version_spec};
 use crate::core::rust_install::{fetch_rust_release_versions, resolve_rust_version_spec};
@@ -99,6 +100,11 @@ pub(super) fn resolve_install_version(
         let avail = fetch_bun_release_versions()
             .map_err(|e| anyhow::anyhow!("Cannot list Bun releases: {}", e))?;
         resolve_bun_version_spec(version, &avail)?
+    } else if language == "php" {
+        println!("{} Resolving PHP from windows.php.net...", "[FETCH]".cyan());
+        let avail = fetch_php_release_versions()
+            .map_err(|e| anyhow::anyhow!("Cannot list PHP releases: {}", e))?;
+        resolve_php_version_spec(version, &avail)?
     } else if version == "lts" || version == "latest" {
         println!(
             "{} Fetching {} release list...",
@@ -167,6 +173,8 @@ pub(super) fn fetch_available_versions(language: &str) -> Result<Vec<String>> {
             .map_err(|e| anyhow::anyhow!("Cannot list Ruby releases: {}", e))
     } else if language == "bun" {
         fetch_bun_release_versions().map_err(|e| anyhow::anyhow!("Cannot list Bun releases: {}", e))
+    } else if language == "php" {
+        fetch_php_release_versions().map_err(|e| anyhow::anyhow!("Cannot list PHP releases: {}", e))
     } else {
         Err(anyhow::anyhow!(
             "Version listing not yet supported for {}",

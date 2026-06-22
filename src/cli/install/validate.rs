@@ -70,6 +70,13 @@ pub(super) fn validate_installation(
                 "ruby"
             }
         }
+        "php" => {
+            if cfg!(target_os = "windows") {
+                "php.exe"
+            } else {
+                "php"
+            }
+        }
         _ => {
             if cfg!(target_os = "windows") {
                 "node.exe"

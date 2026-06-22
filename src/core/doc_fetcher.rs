@@ -319,6 +319,19 @@ fn fetch_doc_body(kind: &RuntimeKind, package: &str, version: &str) -> Result<(S
         RuntimeKind::Stub => {
             anyhow::bail!("No primary runtime configured; cannot resolve docs.")
         }
+        RuntimeKind::Php => {
+            let canonical = format!(
+                "https://www.php.net/manual/en/{}.php",
+                package.replace('-', "_")
+            );
+            Ok((
+                format!(
+                    "PHP docs for `{}@{}` — open in browser:\n\n  {}\n",
+                    package, version, canonical
+                ),
+                canonical,
+            ))
+        }
     }
 }
 
@@ -352,6 +365,12 @@ fn canonical_url(kind: &RuntimeKind, package: &str, version: &str) -> Option<Str
                 format!("https://deno.land/x/{}@{}", package, version)
             }
         }
+        RuntimeKind::Php => {
+            format!(
+                "https://www.php.net/manual/en/{}.php",
+                package.replace('-', "_")
+            )
+        }
         RuntimeKind::Stub => return None,
     })
 }
@@ -365,6 +384,7 @@ fn ecosystem_name(kind: &RuntimeKind) -> &'static str {
         RuntimeKind::Java => "maven",
         RuntimeKind::Ruby => "rubygems",
         RuntimeKind::Deno => "deno",
+        RuntimeKind::Php => "packagist",
         RuntimeKind::Stub => "unknown",
     }
 }

@@ -170,6 +170,9 @@ fn declared_runtimes(cfg: &VenConfig) -> Vec<(&'static str, String)> {
     if !cfg.runtime.ruby.is_empty() {
         out.push(("ruby", cfg.runtime.ruby.clone()));
     }
+    if !cfg.runtime.php.is_empty() {
+        out.push(("php", cfg.runtime.php.clone()));
+    }
     out
 }
 
@@ -198,6 +201,9 @@ pub(crate) fn primary_runtime_kind(cfg: &VenConfig) -> RuntimeKind {
     }
     if !r.ruby.is_empty() {
         return RuntimeKind::Ruby;
+    }
+    if !r.php.is_empty() {
+        return RuntimeKind::Php;
     }
     if !r.deno.is_empty() {
         return RuntimeKind::Deno;

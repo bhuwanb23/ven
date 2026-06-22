@@ -24,6 +24,7 @@ pub fn endoflife_slug_for(kind: &RuntimeKind) -> Option<&'static str> {
         RuntimeKind::Java => Some("java"),
         RuntimeKind::Ruby => Some("ruby"),
         RuntimeKind::Deno => Some("deno"),
+        RuntimeKind::Php => Some("php"),
         RuntimeKind::Stub => None,
     }
 }

@@ -4,6 +4,7 @@ use super::GoPlugin;
 use super::JavaPlugin;
 use super::LanguagePlugin;
 use super::NodePlugin;
+use super::PhpPlugin;
 use super::PythonPlugin;
 use super::RubyPlugin;
 use super::RustPlugin;
@@ -31,6 +32,7 @@ impl PluginRegistry {
         registry.register("java", Box::new(JavaPlugin));
         registry.register("rust", Box::new(RustPlugin));
         registry.register("ruby", Box::new(RubyPlugin));
+        registry.register("php", Box::new(PhpPlugin));
 
         registry
     }

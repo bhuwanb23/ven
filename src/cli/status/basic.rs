@@ -18,8 +18,9 @@ pub(super) fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenCon
     let has_deno = !config.runtime.deno.is_empty();
     let has_bun = !config.runtime.bun.is_empty();
     let has_ruby = !config.runtime.ruby.is_empty();
+    let has_php = !config.runtime.php.is_empty();
     let has_any_runtime =
-        has_node || has_python || has_go || has_rust || has_java || has_deno || has_bun || has_ruby;
+        has_node || has_python || has_go || has_rust || has_java || has_deno || has_bun || has_ruby || has_php;
 
     // Runtime section
     if has_node {
@@ -149,6 +150,21 @@ pub(super) fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenCon
         );
         if !installed {
             println!("    {} Run: ven install bun {}", "[!]".yellow(), bun_spec);
+        }
+    }
+    if has_php {
+        let php_spec = &config.runtime.php;
+        let resolved = resolve_php_for_display(php_spec)?;
+        let installed = is_php_installed(php_spec);
+        let status_icon = if installed { "✓" } else { "✗" };
+        println!(
+            "  {} php {} {}",
+            status_icon,
+            php_spec.bold(),
+            format!("({})", resolved).dimmed()
+        );
+        if !installed {
+            println!("    {} Run: ven install php {}", "[!]".yellow(), php_spec);
         }
     }
 

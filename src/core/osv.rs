@@ -29,6 +29,7 @@ pub fn osv_ecosystem_for(kind: &RuntimeKind) -> Option<&'static str> {
         RuntimeKind::Java => Some("Maven"),
         RuntimeKind::Ruby => Some("RubyGems"),
         RuntimeKind::Deno => Some("npm"),
+        RuntimeKind::Php => Some("Packagist"),
         RuntimeKind::Stub => None,
     }
 }
