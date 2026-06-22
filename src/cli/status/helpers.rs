@@ -1,7 +1,8 @@
 use crate::core::config::VenConfig;
 use crate::core::{
     resolve_bun_version, resolve_deno_version, resolve_go_version, resolve_java_version,
-    resolve_node_version, resolve_python_version, resolve_ruby_version, resolve_rust_version,
+    resolve_node_version, resolve_php_version, resolve_python_version, resolve_ruby_version,
+    resolve_rust_version,
 };
 use anyhow::{anyhow, Result};
 use colored::Colorize;
@@ -100,6 +101,18 @@ pub(super) fn resolve_ruby_for_display(spec: &str) -> Result<String> {
     }
 }
 
+#[allow(dead_code)]
+pub(super) fn resolve_php_for_display(spec: &str) -> Result<String> {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    let plugin = registry.require("php")?;
+    let installed = plugin.list_installed().unwrap_or_default();
+    match resolve_php_version(spec, &installed) {
+        Ok(resolved) => Ok(resolved),
+        Err(_) => Ok(spec.to_string()),
+    }
+}
+
 pub(super) fn is_version_installed(spec: &str) -> bool {
     use crate::plugins::PluginRegistry;
 
@@ -184,6 +197,18 @@ pub(super) fn is_bun_installed(spec: &str) -> bool {
     if let Ok(plugin) = registry.require("bun") {
         let installed = plugin.list_installed().unwrap_or_default();
         resolve_bun_version(spec, &installed).is_ok()
+    } else {
+        false
+    }
+}
+
+#[allow(dead_code)]
+pub(super) fn is_php_installed(spec: &str) -> bool {
+    use crate::plugins::PluginRegistry;
+    let registry = PluginRegistry::new();
+    if let Ok(plugin) = registry.require("php") {
+        let installed = plugin.list_installed().unwrap_or_default();
+        resolve_php_version(spec, &installed).is_ok()
     } else {
         false
     }

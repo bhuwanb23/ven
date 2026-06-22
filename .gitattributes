@@ -1,0 +1,9 @@
+# Font files — always binary, never line-end conversion
+*.otf   binary
+*.ttf   binary
+*.ttc   binary
+*.woff  binary
+*.woff2 binary
+
+# Images
+*.png binary

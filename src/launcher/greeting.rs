@@ -247,6 +247,8 @@ mod tests {
             bun_resolved: None,
             ruby_resolved: None,
             ruby_gem_home_for_env: None,
+            php_resolved: None,
+            php_root_for_env: None,
             virtual_env_root: None,
             toml_normalized: String::new(),
             ven_user_env: HashMap::new(),

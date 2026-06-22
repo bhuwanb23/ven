@@ -8,12 +8,12 @@ use std::path::{Path, PathBuf};
 use crate::core::ruby_install::ruby_gem_home_for_layout;
 use crate::core::{
     find_ven_toml, parse_ven_toml, project_venv, resolve_bun_version, resolve_deno_version,
-    resolve_go_version, resolve_java_version, resolve_node_version, resolve_python_version,
-    resolve_ruby_version, resolve_rust_version,
+    resolve_go_version, resolve_java_version, resolve_node_version, resolve_php_version,
+    resolve_python_version, resolve_ruby_version, resolve_rust_version,
 };
 use crate::plugins::{
-    BunPlugin, DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PythonPlugin,
-    RubyPlugin, RustPlugin,
+    BunPlugin, DenoPlugin, GoPlugin, JavaPlugin, LanguagePlugin, NodePlugin, PhpPlugin,
+    PythonPlugin, RubyPlugin, RustPlugin,
 };
 
 /// Normalizes a [`Path`] for inclusion in `$env:*` assignments (matching `shell activate`).
@@ -117,6 +117,8 @@ pub struct ActivationParts {
     pub bun_resolved: Option<String>,
     pub ruby_resolved: Option<String>,
     pub ruby_gem_home_for_env: Option<PathBuf>,
+    pub php_resolved: Option<String>,
+    pub php_root_for_env: Option<PathBuf>,
     pub virtual_env_root: Option<PathBuf>,
     pub toml_normalized: String,
     pub ven_user_env: HashMap<String, String>,
@@ -193,6 +195,7 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
     let deno_spec = config.runtime.deno.trim();
     let bun_spec = config.runtime.bun.trim();
     let ruby_spec = config.runtime.ruby.trim();
+    let php_spec = config.runtime.php.trim();
 
     if node_spec.is_empty()
         && python_spec.is_empty()
@@ -202,9 +205,10 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
         && deno_spec.is_empty()
         && bun_spec.is_empty()
         && ruby_spec.is_empty()
+        && php_spec.is_empty()
     {
         anyhow::bail!(
-            "ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust` and/or `java` and/or `deno` and/or `bun` and/or `ruby`"
+            "ven.toml [runtime]: set `node` and/or `python` and/or `go` and/or `rust` and/or `java` and/or `deno` and/or `bun` and/or `ruby` and/or `php`"
         );
     }
 
@@ -226,6 +230,8 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
     let mut bun_resolved: Option<String> = None;
     let mut ruby_resolved: Option<String> = None;
     let mut ruby_gem_home_for_env: Option<PathBuf> = None;
+    let mut php_resolved: Option<String> = None;
+    let mut php_root_for_env: Option<PathBuf> = None;
     let mut virtual_env_root: Option<PathBuf> = None;
 
     if !python_spec.is_empty() {
@@ -497,6 +503,34 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
         ruby_resolved = Some(resolved);
     }
 
+    if !php_spec.is_empty() {
+        let plugin = PhpPlugin;
+        let installed = plugin.list_installed().unwrap_or_default();
+        let resolved = match resolve_php_version(php_spec, &installed) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(ActivationResolve::MissingToolchain {
+                    language: "php".into(),
+                    install_with: php_spec.to_string(),
+                });
+            }
+        };
+        let bin = match plugin.bin_path(&resolved) {
+            Ok(p) => p,
+            Err(_) => {
+                return Ok(ActivationResolve::MissingToolchain {
+                    language: "php".into(),
+                    install_with: resolved.clone(),
+                });
+            }
+        };
+        if let Some(root) = bin.parent() {
+            php_root_for_env = Some(root.to_path_buf());
+        }
+        prepend_dirs.push(bin);
+        php_resolved = Some(resolved);
+    }
+
     let toml_normalized = if cfg!(target_os = "windows") {
         toml_absolute.replace('/', "\\")
     } else {
@@ -519,6 +553,8 @@ pub fn resolve_activation_environment(dir: &Path) -> Result<ActivationResolve> {
         bun_resolved,
         ruby_resolved,
         ruby_gem_home_for_env,
+        php_resolved,
+        php_root_for_env,
         virtual_env_root,
         toml_normalized,
         ven_user_env: config.env.clone(),
@@ -539,6 +575,7 @@ if (Test-Path Env:VEN_JAVA_VERSION) { Remove-Item Env:VEN_JAVA_VERSION -ErrorAct
 if (Test-Path Env:VEN_DENO_VERSION) { Remove-Item Env:VEN_DENO_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_BUN_VERSION) { Remove-Item Env:VEN_BUN_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:VEN_RUBY_VERSION) { Remove-Item Env:VEN_RUBY_VERSION -ErrorAction SilentlyContinue }
+if (Test-Path Env:VEN_PHP_VERSION) { Remove-Item Env:VEN_PHP_VERSION -ErrorAction SilentlyContinue }
 if (Test-Path Env:GEM_HOME) { Remove-Item Env:GEM_HOME -ErrorAction SilentlyContinue }
 if (Test-Path Env:GEM_PATH) { Remove-Item Env:GEM_PATH -ErrorAction SilentlyContinue }
 if (Test-Path Env:NODE_PATH) { Remove-Item Env:NODE_PATH -ErrorAction SilentlyContinue }
@@ -641,6 +678,15 @@ if (Test-Path Env:JAVA_HOME) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyCo
             out.push_str(&format!("$env:GEM_HOME = \"{ghv}\"\n"));
             out.push_str(&format!("$env:GEM_PATH = \"{ghv}\"\n"));
         }
+        if let Some(ref v) = parts.php_resolved {
+            out.push_str(&format!(
+                "$env:VEN_PHP_VERSION = \"{}\"\n",
+                sanitize_version_string(v)
+            ));
+        }
+        if let Some(ref root) = parts.php_root_for_env {
+            out.push_str(&format!("$env:PHPRC = \"{}\"\n", path_for_env_value(root)));
+        }
         if let Some(ref vr) = parts.virtual_env_root {
             out.push_str(&format!(
                 "$env:VIRTUAL_ENV = \"{}\"\n",
@@ -668,6 +714,7 @@ unset VEN_JAVA_VERSION 2>/dev/null || true
 unset VEN_DENO_VERSION 2>/dev/null || true
 unset VEN_BUN_VERSION 2>/dev/null || true
 unset VEN_RUBY_VERSION 2>/dev/null || true
+unset VEN_PHP_VERSION 2>/dev/null || true
 unset GEM_HOME 2>/dev/null || true
 unset GEM_PATH 2>/dev/null || true
 unset NODE_PATH 2>/dev/null || true
@@ -769,6 +816,15 @@ unset JAVA_HOME 2>/dev/null || true
             let ghv = path_for_env_value(gh);
             out.push_str(&format!("export GEM_HOME=\"{ghv}\"\n"));
             out.push_str(&format!("export GEM_PATH=\"{ghv}\"\n"));
+        }
+        if let Some(ref v) = parts.php_resolved {
+            out.push_str(&format!(
+                "export VEN_PHP_VERSION=\"{}\"\n",
+                sanitize_version_string(v)
+            ));
+        }
+        if let Some(ref root) = parts.php_root_for_env {
+            out.push_str(&format!("export PHPRC=\"{}\"\n", path_for_env_value(root)));
         }
         if let Some(ref vr) = parts.virtual_env_root {
             out.push_str(&format!(
