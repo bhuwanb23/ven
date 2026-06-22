@@ -41,11 +41,18 @@ pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<Pat
     let canon_base = std::fs::canonicalize(base_dir).unwrap_or_else(|_| base_dir.to_path_buf());
     let canon_base = strip_verbatim_prefix(&canon_base);
 
-    // Normalize the candidate path lexically (resolve `.` and `..` without
-    // requiring the path to exist on disk) so that traversal attempts like
-    // `C:\base\..\..\etc\passwd` are correctly rejected.
-    let normalized = normalize_path(candidate);
-    let normalized = strip_verbatim_prefix(&normalized);
+    // Canonicalize the candidate if it exists (handles macOS /tmp → /private/tmp
+    // symlinks, Windows short-name aliases, and junction differences between CI
+    // runner tempdirs). For paths that don't exist yet (pre-extraction zip/tar
+    // entries), fall back to lexical normalization to still detect traversal
+    // attempts like `C:\base\..\..\etc\passwd`.
+    let normalized = match std::fs::canonicalize(candidate) {
+        Ok(canon) => strip_verbatim_prefix(&canon),
+        Err(_) => {
+            let norm = normalize_path(candidate);
+            strip_verbatim_prefix(&norm)
+        }
+    };
 
     if normalized.starts_with(&canon_base) {
         Ok(normalized)
