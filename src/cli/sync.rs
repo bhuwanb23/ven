@@ -32,6 +32,17 @@ pub fn cmd_sync(dry_run: bool, check: bool, json: bool, skip_validate: bool) -> 
         return sync_python(&cwd, dry_run, check, json, &cfg);
     }
 
+    // PHP-mode: `ven sync` is not supported (no lockfile equivalent).
+    let php_mode =
+        !cfg.runtime.php.is_empty() && cfg.runtime.node.is_empty() && cfg.runtime.bun.is_empty() && cfg.runtime.python.is_empty();
+    if php_mode {
+        println!(
+            "{} `ven sync` is only supported for npm and Python-based projects.",
+            "[INFO]".cyan()
+        );
+        return Ok(());
+    }
+
     let lock_path = cwd.join("ven.lock");
     if !lock_path.is_file() {
         anyhow::bail!(
