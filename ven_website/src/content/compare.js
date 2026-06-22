@@ -17,7 +17,7 @@
 export const COMPARE_HEADERS = ['Capability', 'ven', 'npm + nvm', 'mise / asdf', 'Docker']
 
 export const COMPARE_ROWS = [
-  ['Manages 8 runtimes with one CLI',           true,        false,       true,        'container'],
+  ['Manages 9 runtimes with one CLI',           true,        false,       true,        'container'],
   ['Auto-switching on `cd`',                    true,        false,       true,        false],
   ['Unified package surface (`ven add`)',       true,        'Node only', false,       false],
   ['Pre-install dependency-graph simulation',   true,        false,       false,       false],

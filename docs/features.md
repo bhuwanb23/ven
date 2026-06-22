@@ -449,7 +449,7 @@ A unified report that combines **package CVEs** (osv.dev) and **runtime end-of-l
 |--------|--------|----------|-----------|------------|
 | CVEs (per package@version) | [osv.dev](https://osv.dev) | `POST /v1/querybatch`, then `GET /v1/vulns/<id>` for severity + summary | 6 h (stale-on-failure) | npm, PyPI, Go, crates.io, Maven, RubyGems, Deno (`npm:` only) |
 | Runtime EOL | [endoflife.date](https://endoflife.date) | `GET /api/<product>.json` | 24 h (stale-on-failure) | nodejs, bun, python, go, rust, java, ruby, deno |
-| Ghost imports (no network) | local source walk via `ignore` crate | n/a | n/a | All 8 runtimes (per-language extractors) |
+| Ghost imports (no network) | local source walk via `ignore` crate | n/a | n/a | All 9 runtimes (per-language extractors) |
 
 ### Severity buckets
 

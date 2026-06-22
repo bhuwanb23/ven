@@ -14,6 +14,7 @@ This page is the entry point. See the per-language deep dives for full detail:
 | Deno        | [`languages/deno.md`](languages/deno.md)     | `github.com/denoland/deno/releases`               | _(use `deno.json` / imports)_     |
 | Bun         | [`languages/bun.md`](languages/bun.md)       | `github.com/oven-sh/bun/releases`                 | `bun add` (npm-compatible)        |
 | Ruby (MRI)  | [`languages/ruby.md`](languages/ruby.md)     | RubyInstaller2 (Win) / `ruby/ruby-builder` (Unix) | `gem install`                     |
+| PHP         | [`languages/php.md`](languages/php.md)       | `php.net/downloads.php` (SHA-256 verified)        | `composer require`                |
 
 ## How a language plugin works
 
@@ -51,6 +52,8 @@ After running e.g. `ven install node 20`, `ven install python 3.12.7`, and `ven 
 │   └── 1.40.0/             # single `deno` / `deno.exe` binary
 ├── bun/
 │   └── 1.0.20/             # single `bun` / `bun.exe` binary
+├── php/
+│   └── 8.3.6/              # `php.exe` / `php` binary + extensions
 └── ruby/
     └── 3.4.2/              # full Ruby tree (bin/, lib/ruby/gems/<abi>/, …)
 ```
@@ -99,6 +102,7 @@ If the toolchain isn't installed, activation prints a clean **`MissingToolchain`
 | `go`                      | `go mod init` (if missing), then `go get <spec>`                                    |
 | `rust`                    | `cargo init` (if missing), then `cargo add <spec>`                                  |
 | `ruby`                    | `gem install <name> [-v <version>]`                                                 |
+| `php`                     | `composer require <name>:<version>`                                                 |
 | `java`                    | Notice only — Maven / Gradle owns this                                              |
 | `deno`                    | Notice only — `deno.json` / imports own this                                        |
 

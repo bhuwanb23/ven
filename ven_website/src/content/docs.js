@@ -137,6 +137,7 @@ const CMD_DOCS = {
           ['node / bun', 'npm install / bun add'],
           ['python', 'pip install (venv-aware)'],
           ['ruby', 'gem install'],
+          ['php', 'composer require'],
           ['rust', 'cargo add'],
           ['go / java / deno', 'native — ven coordinates ven.toml + lockfile only'],
         ]

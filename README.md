@@ -94,13 +94,14 @@ another. Simultaneously. No conflicts.
 
 ---
 
-### 📦 8 Languages. One Interface.
+### 📦 9 Languages. One Interface.
 
 ```bash
 ven install node 20          ven install python 3.11
 ven install go 1.21          ven install rust 1.75
 ven install java 17          ven install ruby 3.2
 ven install deno 1.40        ven install bun 1.0
+ven install php 8.3
 ```
 
 Same command. Every language. Official sources. SHA256 verified.
@@ -334,7 +335,7 @@ runtime is registered as installed.
 | Deno       | ✅      | `deno.json` `imports`              | ✅          | Stable  |
 | Go         | ✅      | `go.mod` (`go get`)                | ✅          | Stable  |
 | Rust       | ✅      | `Cargo.toml` (`cargo add/remove`)  | ✅          | Stable  |
-| PHP        | 🔜      | composer                           | 🔜          | Planned |
+| PHP        | ✅      | `composer.json` (Composer)         | ✅          | Stable  |
 | Elixir     | 🔜      | mix                                | 🔜          | Planned |
 | .NET       | 🔜      | nuget                              | 🔜          | Planned |
 
@@ -563,6 +564,8 @@ ven uninstall --json -y         # machine-readable result
 │   └── 1.40.0/         ← single deno binary
 ├── bun/
 │   └── 1.0.20/         ← single bun binary
+├── php/
+│   └── 8.3.6/          ← php binary, extensions
 ├── bin/                ← ven, ven-launcher, ven-setup
 └── cache/
     ├── registry.db     ← SQLite: npm registry metadata (24h TTL)
@@ -678,7 +681,7 @@ No containers. No VMs. Just PATH manipulation.
 
 | What | Source | Cache TTL | Cross-platform |
 |------|--------|-----------|----------------|
-| Package CVE scan (8 ecosystems) | [osv.dev](https://osv.dev) `querybatch` | 6 h, stale-on-failure | yes (pure Rust HTTP) |
+| Package CVE scan (9 ecosystems) | [osv.dev](https://osv.dev) `querybatch` | 6 h, stale-on-failure | yes (pure Rust HTTP) |
 | Runtime end-of-life alerts | [endoflife.date](https://endoflife.date) | 24 h, stale-on-failure | yes |
 | Ghost dependency detection | local source walk (`ignore` crate, gitignore-aware) | n/a | yes (no shell-out) |
 | Version-pinned package docs | npm/PyPI/docs.rs/pkg.go.dev/javadoc.io/rubygems/deno | 7 d | yes (`webbrowser` for `--browser`, `termimad` for terminal render) |

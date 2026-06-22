@@ -215,10 +215,36 @@ lodash  = "*"`,
     includes: ['bun — runtime + bundler + test runner'],
     downloads: 'github.com/oven-sh/bun/releases',
   },
+  {
+    slug: 'php',
+    name: 'PHP',
+    code: 'PH',
+    versions: ['8.2', '8.3', '8.4'],
+    pkgMgr: 'Composer',
+    config: 'composer.json',
+    status: 'stable',
+    tagline: 'The most popular server-side language. ven manages PHP versions per-project and uses Composer for package operations.',
+    install: ['ven install php 8.3', 'ven install php 8.4'],
+    venToml: `[runtime]
+php = "8.3"
+
+[packages]
+laravel = "*"`,
+    env: [
+      ['PATH', '~/.ven/php/8.3.x'],
+      ['PHPRC', '~/.ven/php/8.3.x'],
+    ],
+    packageOps: [
+      ['ven add laravel', 'composer require laravel/laravel'],
+      ['ven remove laravel', 'composer remove laravel/laravel'],
+      ['ven upgrade laravel', 'composer update laravel/laravel'],
+    ],
+    includes: ['php', 'composer'],
+    downloads: 'php.net/downloads.php',
+  },
 ]
 
 export const COMING_SOON = [
-  { name: 'PHP', pkgMgr: 'Composer' },
   { name: 'Elixir', pkgMgr: 'Mix' },
   { name: '.NET', pkgMgr: 'NuGet' },
   { name: 'Zig', pkgMgr: 'Single binary' },
@@ -229,7 +255,6 @@ export const COMING_SOON = [
 ]
 
 export const MOST_REQUESTED = [
-  { name: 'PHP', votes: 342, max: 400 },
   { name: 'Elixir', votes: 218, max: 400 },
   { name: '.NET', votes: 187, max: 400 },
   { name: 'Swift', votes: 143, max: 400 },

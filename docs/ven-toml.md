@@ -18,6 +18,7 @@ java   = "21"            # Adoptium Temurin → ~/.ven/java/<resolved>/     (JAV
 deno   = "1.40"          # Deno             → ~/.ven/deno/<resolved>/
 bun    = "1.0"            # Bun              → ~/.ven/bun/<resolved>/
 ruby   = "3.4"           # MRI Ruby         → ~/.ven/ruby/<resolved>/     (GEM_HOME + GEM_PATH)
+php    = "8.3"           # PHP              → ~/.ven/php/<resolved>/      (PHPRC)
 
 [packages]
 # Free-form pins per ecosystem. `ven add` / `ven remove` / `ven upgrade`

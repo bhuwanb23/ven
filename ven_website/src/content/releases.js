@@ -3,6 +3,25 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.4',
+    date: 'June 22, 2026',
+    tag: 'minor',
+    summary:
+      'PHP support: ven now manages PHP 8.x runtimes with Composer integration. Install PHP via `ven install php`, manage packages via `ven add`/`ven remove`/`ven upgrade`, and get full auto-switching, ghost scanning, CVE checking, and EOL alerts.',
+    sections: {
+      new: [
+        '`ven install php` — install PHP 8.x runtimes from official php.net downloads.',
+        '`ven add` / `ven remove` / `ven upgrade` for PHP projects — routes to `composer require`/`composer remove`/`composer update`.',
+        '`ven scan --ghosts` now detects PHP `use` statements and cross-checks against `composer.json`.',
+        '`ven check --eol` reports PHP runtime end-of-life status.',
+        '`ven docs <package>` for PHP/Composer packages.',
+      ],
+      improved: [
+        'ven now manages **9** language runtimes (Node, Python, Go, Rust, Java, Ruby, Deno, Bun, PHP).',
+      ],
+    },
+  },
+  {
     version: 'v0.2.3',
     date: 'June 22, 2026',
     tag: 'patch',
