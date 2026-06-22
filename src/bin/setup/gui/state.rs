@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 
-use crate::common::InstallMode;
+use crate::common::{ExistingInstall, InstallMode};
 use crate::install_steps::{default_storage_path, ProgressEvent, TOTAL_STEPS};
 
 /// Installer wizard screens (in navigation order).
@@ -272,6 +272,8 @@ pub struct WizardState {
     pub install_hook: bool,
     /// Parallel to [`RUNTIME_OPTIONS`]: whether to pre-install each runtime.
     pub runtime_selected: [bool; 8],
+    /// Existing ven installations found on disk (probed once at init).
+    pub existing_installs: Vec<ExistingInstall>,
     pub progress: ProgressState,
     pub progress_rx: Option<Receiver<ProgressEvent>>,
     pub done_message: Option<String>,
@@ -291,6 +293,7 @@ impl WizardState {
             add_to_path: true,
             install_hook: true,
             runtime_selected: [false; 8],
+            existing_installs: crate::common::detect_existing_installs(),
             progress: ProgressState::new_empty(),
             progress_rx: None,
             done_message: None,

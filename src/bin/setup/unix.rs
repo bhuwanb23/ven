@@ -22,7 +22,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::common::{InstallMode, SetupCli};
+use crate::common::{detect_existing_installs, prompt_existing_install_cli, InstallMode, SetupCli};
 use crate::install_steps::{self, CliSink, InstallConfig};
 use ven::shell::shell_escape_posix;
 
@@ -94,6 +94,15 @@ pub fn run(cli: SetupCli, mode: InstallMode) -> Result<()> {
 
     if cli.dry_run {
         cfg.dry_run = true;
+    }
+
+    // Check for existing installations before proceeding.
+    if !cfg.dry_run {
+        let existing = detect_existing_installs();
+        if !prompt_existing_install_cli(&existing) {
+            println!("  Setup cancelled by user.");
+            return Ok(());
+        }
     }
 
     if matches!(cfg.mode, InstallMode::System) && !cfg.dry_run && !is_root() {

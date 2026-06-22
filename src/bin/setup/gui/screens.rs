@@ -233,6 +233,37 @@ fn welcome(ui: &mut Ui, state: &mut WizardState) {
             }
         });
 
+        // Existing-install detection banner.
+        if !state.existing_installs.is_empty() {
+            ui.add_space(24.0);
+            widgets::card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("⚠").size(20.0).color(theme::WARNING));
+                    ui.add_space(8.0);
+                    ui.vertical(|ui| {
+                        ui.label(theme::body("Existing ven installation detected"));
+                        for inst in &state.existing_installs {
+                            let mode_label = match inst.mode {
+                                InstallMode::User => "user",
+                                InstallMode::System => "system",
+                            };
+                            ui.label(theme::caption(format!(
+                                "ven {} at {} ({})",
+                                inst.version,
+                                inst.install_dir.display(),
+                                mode_label,
+                            )));
+                        }
+                        ui.add_space(4.0);
+                        ui.label(
+                            theme::caption("This wizard will replace the existing binary with the new version.")
+                                .color(theme::MUTED),
+                        );
+                    });
+                });
+            });
+        }
+
         ui.add_space(16.0);
         if ui
             .link(
@@ -495,6 +526,12 @@ fn review(ui: &mut Ui, state: &WizardState) {
 
     widgets::card(ui, |ui| {
         widgets::summary_row(ui, "Install mode", mode_label);
+
+        // Show upgrade info when existing install is detected.
+        if let Some(existing) = state.existing_installs.first() {
+            widgets::summary_row(ui, "Upgrade from", &format!("ven {}", existing.version));
+        }
+
         widgets::summary_row(ui, "Binaries", &install_dir.display().to_string());
         widgets::summary_row(
             ui,

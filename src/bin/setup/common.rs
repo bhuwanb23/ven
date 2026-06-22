@@ -3,11 +3,12 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use dialoguer::theme::ColorfulTheme;
-use dialoguer::Select;
+use dialoguer::{Confirm, Select};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 // ---------------------------------------------------------------------------
 // Embedded binary payloads
@@ -220,6 +221,137 @@ pub fn write_bundled_binary(
         }
     }
     Ok(dst)
+}
+
+// ---------------------------------------------------------------------------
+// Existing-install detection
+// ---------------------------------------------------------------------------
+
+/// Information about an existing ven installation found on disk.
+#[derive(Clone, Debug)]
+pub struct ExistingInstall {
+    pub install_dir: PathBuf,
+    pub version: String,
+    pub mode: InstallMode,
+}
+
+/// Probe the default install locations for an existing ven binary.
+///
+/// Checks both User and System locations regardless of what mode the user
+/// ultimately selects, so both CLI and GUI can surface the info early.
+/// Returns an empty vec when nothing is found or when probing fails
+/// (permission denied, corrupted binary, etc.).
+pub fn detect_existing_installs() -> Vec<ExistingInstall> {
+    let mut results = Vec::new();
+    for (mode, dir) in [
+        (InstallMode::User, existing_install_dir(InstallMode::User)),
+        (
+            InstallMode::System,
+            existing_install_dir(InstallMode::System),
+        ),
+    ] {
+        let exe = if cfg!(windows) {
+            dir.join("ven.exe")
+        } else {
+            dir.join("ven")
+        };
+        if !exe.is_file() {
+            continue;
+        }
+        let version = match get_installed_version(&exe) {
+            Some(v) => v,
+            None => continue,
+        };
+        results.push(ExistingInstall {
+            install_dir: dir,
+            version,
+            mode,
+        });
+    }
+    results
+}
+
+/// Default install directory for a given mode (duplicates the logic from
+/// [`install_steps::default_install_dir`] to avoid a circular dependency
+/// between `common` and `install_steps`).
+fn existing_install_dir(mode: InstallMode) -> PathBuf {
+    #[cfg(windows)]
+    {
+        match mode {
+            InstallMode::User => dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".ven")
+                .join("bin"),
+            InstallMode::System => std::env::var_os("ProgramFiles")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(r"C:\Program Files"))
+                .join("ven")
+                .join("bin"),
+        }
+    }
+    #[cfg(unix)]
+    {
+        match mode {
+            InstallMode::User => dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".ven")
+                .join("bin"),
+            InstallMode::System => PathBuf::from("/usr/local/bin"),
+        }
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = mode;
+        PathBuf::from("/usr/local/bin")
+    }
+}
+
+/// Run `ven --version` against an existing binary. Returns `None` when
+/// the binary is not executable, corrupted, or produces no output.
+fn get_installed_version(exe: &Path) -> Option<String> {
+    let mut binding = Command::new(exe);
+    let cmd = binding.arg("--version");
+    let output = cmd.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if raw.is_empty() {
+        None
+    } else {
+        Some(raw)
+    }
+}
+
+/// Prompt the user about an existing install (CLI flow). Returns `true`
+/// if the user wants to continue, `false` to abort.
+pub fn prompt_existing_install_cli(installs: &[ExistingInstall]) -> bool {
+    if installs.is_empty() {
+        return true;
+    }
+    println!();
+    println!("  Existing installation(s) detected:");
+    for inst in installs {
+        println!(
+            "    {} v{}  ({})",
+            inst.install_dir.display(),
+            inst.version,
+            match inst.mode {
+                InstallMode::User => "user",
+                InstallMode::System => "system",
+            }
+        );
+    }
+    println!(
+        "  This installer will replace the existing binary with ven v{}.",
+        env!("CARGO_PKG_VERSION")
+    );
+    let theme = ColorfulTheme::default();
+    Confirm::with_theme(&theme)
+        .with_prompt("Continue with upgrade?")
+        .default(true)
+        .interact()
+        .unwrap_or(true)
 }
 
 /// Spawn the freshly-installed `ven` and ask it to install shell hooks.
