@@ -3,6 +3,21 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.3',
+    date: 'June 22, 2026',
+    tag: 'patch',
+    summary:
+      'Windows hardening and extraction reliability patch: MoTW (Mark of the Web) no longer crashes developer-mode installs, the GUI wizard handles ANSI OEM-codepage text in MessageBoxA, uninstall auto-elevates through UAC without requiring a manual "Run as administrator", and archive extraction correctly distinguishes sibling paths from traversal attempts on Windows.',
+    sections: {
+      fixed: [
+        'MoTW (Mark of the Web) no longer triggers a developer-mode warning loop during install: the binary silently passes through Zone.Identifier checks instead of crashing with repeated "Allow developer mode" prompts.',
+        'MessageBoxA in the GUI wizard now correctly displays ANSI OEM-codepage text instead of garbled characters, fixing the uninstall confirmation dialog on non-English Windows locales.',
+        '`ven uninstall` auto-elevates on Windows: when system install artifacts are detected, the command spawns a UAC-elevated child via `Start-Process -Verb RunAs` with `--reentry --yes`, eliminating the manual "Run as administrator" step. Pure user installs skip elevation entirely; `--user-only` avoids the UAC prompt.',
+        'Archive extraction no longer produces false-positive path traversal rejections on Windows: the `canonicalize`-based validation was adding a `\\\\?\\` prefix for existing directories on disk while zip entries lacked it, causing legitimate sibling paths to be flagged as traversal. Fixed with lexical `normalize_path` + `strip_verbatim_prefix` comparison.',
+      ],
+    },
+  },
+  {
     version: 'v0.2.2',
     date: 'June 20, 2026',
     tag: 'minor',
