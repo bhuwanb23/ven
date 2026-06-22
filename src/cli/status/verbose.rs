@@ -186,6 +186,24 @@ pub(super) fn display_verbose_status(
             }
         }
     }
+    if !config.runtime.php.is_empty() {
+        let spec = &config.runtime.php;
+        let installed = is_php_installed(spec);
+        let resolved = resolve_php_for_display(spec)?;
+        if installed {
+            println!("    {} php {} ({})", "✓".green(), spec.bold(), resolved);
+        } else {
+            println!(
+                "    {} php {} - {}",
+                "✗".red(),
+                spec.bold(),
+                "not installed"
+            );
+            if fix {
+                auto_install_version("php", spec)?;
+            }
+        }
+    }
 
     println!();
 

@@ -92,6 +92,16 @@ pub(super) fn output_json_status(
             "installed": installed
         });
     }
+    if !config.runtime.php.is_empty() {
+        let php_spec = &config.runtime.php;
+        let resolved = resolve_php_for_display(php_spec)?;
+        let installed = is_php_installed(php_spec);
+        runtime_info["php"] = json!({
+            "version_required": php_spec,
+            "version_resolved": resolved,
+            "installed": installed
+        });
+    }
 
     // Build package list
     let mut pkg_list = Vec::new();
