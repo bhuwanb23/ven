@@ -39,11 +39,16 @@ impl<W: std::io::Write> std::io::Write for LimitWriter<W> {
 /// extraction directory.
 pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<PathBuf> {
     let canon_base = std::fs::canonicalize(base_dir).unwrap_or_else(|_| base_dir.to_path_buf());
-    let canon_candidate =
-        std::fs::canonicalize(candidate).unwrap_or_else(|_| candidate.to_path_buf());
+    let canon_base = strip_verbatim_prefix(&canon_base);
 
-    if canon_candidate.starts_with(&canon_base) {
-        Ok(canon_candidate)
+    // Normalize the candidate path lexically (resolve `.` and `..` without
+    // requiring the path to exist on disk) so that traversal attempts like
+    // `C:\base\..\..\etc\passwd` are correctly rejected.
+    let normalized = normalize_path(candidate);
+    let normalized = strip_verbatim_prefix(&normalized);
+
+    if normalized.starts_with(&canon_base) {
+        Ok(normalized)
     } else {
         Err(anyhow!(
             "Path traversal detected: {} escapes extraction directory {}",
@@ -51,6 +56,60 @@ pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<Pat
             base_dir.display()
         ))
     }
+}
+
+/// Lexically normalize a path by resolving `.` and `..` components.
+/// This is equivalent to `std::fs::canonicalize` but doesn't require the
+/// path to exist, and won't resolve symlinks.
+fn normalize_path(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut components: Vec<&std::ffi::OsStr> = Vec::new();
+    for c in path.components() {
+        match c {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                // Pop the last Normal component if present; otherwise keep
+                // the `..` (leading parent-dir or consecutive parent-dirs).
+                let mut popped = false;
+                if let Some(prev) = components.last() {
+                    if *prev != Component::ParentDir.as_os_str() {
+                        components.pop();
+                        popped = true;
+                    }
+                }
+                if !popped {
+                    components.push(Component::ParentDir.as_os_str());
+                }
+            }
+            other => components.push(other.as_os_str()),
+        }
+    }
+    let mut result = PathBuf::new();
+    for c in &components {
+        result.push(c);
+    }
+    result
+}
+
+/// On Windows, `std::fs::canonicalize` prepends `\\?\` (the verbatim /
+/// extended-length path prefix) for paths that exist. Strip it for
+/// consistent comparison against paths that haven't been created yet.
+#[cfg(windows)]
+fn strip_verbatim_prefix(p: &Path) -> PathBuf {
+    let s = p.to_string_lossy();
+    // Handle both `\\?\` and `\??\` forms
+    if let Some(rest) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else if let Some(rest) = s.strip_prefix(r"\??\") {
+        PathBuf::from(rest)
+    } else {
+        p.to_path_buf()
+    }
+}
+
+#[cfg(not(windows))]
+fn strip_verbatim_prefix(p: &Path) -> PathBuf {
+    p.to_path_buf()
 }
 
 /// Extract a ZIP archive (Windows)
