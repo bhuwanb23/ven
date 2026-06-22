@@ -667,6 +667,11 @@ pub enum Commands {
         /// Machine-readable output. Requires --dry-run OR -y / --yes.
         #[arg(long)]
         json: bool,
+
+        /// Internal: the elevated child re-entry flag.
+        /// Set automatically when the command is re-launched via UAC.
+        #[arg(long, hide = true)]
+        reentry: bool,
     },
 
     /// Shell integration (internal — called by shell hook)
@@ -810,7 +815,8 @@ pub fn run(cli: Cli) -> Result<()> {
             user_only,
             system_only,
             json,
-        } => uninstall::cmd_uninstall(yes, json, dry_run, user_only, system_only),
+            reentry,
+        } => uninstall::cmd_uninstall(yes, json, dry_run, user_only, system_only, reentry),
         Commands::Shell { action } => match action {
             ShellCommands::Hook { shell } => shell::cmd_shell_hook(&shell),
             ShellCommands::Activate { dir } => shell::cmd_shell_activate(&dir),

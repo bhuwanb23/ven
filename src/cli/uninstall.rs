@@ -16,6 +16,17 @@
 //! | `+ --user-only`                     | Skip the system install layer                    |
 //! | `+ --system-only`                   | Skip the user install layer (rare; for admins)   |
 //! | `+ --json`                          | Machine-readable result (requires -y / --dry-run)|
+//! | `+ --reentry`                        | Internal: set when re-launched via UAC/sudo      |
+//!
+//! ## Elevation
+//!
+//! When the uninstall touches system-level artifacts (e.g. `C:\Program
+//! Files\ven`) and the process is not running with admin privileges, the
+//! command automatically re-launches itself via UAC (Windows) or `sudo`
+//! (Unix) with `--reentry --yes` and exits. The elevated child performs
+//! the full teardown and the original process reports its exit code.
+//!
+//! Pass `--user-only` to skip system artifacts and avoid elevation.
 //!
 //! Safety: unlike `ven delete`, this never auto-confirms on a piped stdin.
 //! Uninstall is FAR more destructive (every runtime + cache + state), so
@@ -37,6 +48,7 @@ pub fn cmd_uninstall(
     dry_run: bool,
     user_only: bool,
     system_only: bool,
+    reentry: bool,
 ) -> Result<()> {
     if user_only && system_only {
         return Err(anyhow!(
@@ -84,10 +96,11 @@ pub fn cmd_uninstall(
         return Ok(());
     }
 
-    // Elevation gate. We don't fork sudo / UAC from here — the user is
-    // expected to re-run from an elevated shell, same convention as the
-    // bundled `ven-uninstall.{ps1,sh}` fallback scripts.
-    if plan.needs_elevation && !dry_run {
+    // Elevation gate. When the plan touches system artifacts and we're NOT
+    // already elevated (reentry), auto-elevate via UAC (Windows) or
+    // prompt for sudo (Unix). The elevated child runs with --reentry --yes
+    // so it skips the elevation check and the confirmation prompt.
+    if plan.needs_elevation && !dry_run && !reentry {
         println!();
         println!(
             "  {} this would touch a system install at {}",
@@ -98,21 +111,24 @@ pub fn cmd_uninstall(
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        if cfg!(target_os = "windows") {
-            println!(
-                "    Re-run from an elevated PowerShell ({})",
-                "Start PowerShell -> Run as Administrator".dimmed()
-            );
-        } else {
-            println!("    Re-run with sudo: {}", "sudo ven uninstall".bold());
+        println!("    Elevating to proceed with the teardown...");
+        println!();
+        #[cfg(target_os = "windows")]
+        {
+            reexec_elevated_windows(yes, user_only, system_only, json)?;
+            return Ok(());
         }
-        println!(
-            "    Or pass {} to skip the system layer for now.",
-            "--user-only".bold()
-        );
-        return Err(anyhow!(
-            "Insufficient privileges for the system install layer."
-        ));
+        #[cfg(not(target_os = "windows"))]
+        {
+            println!("    Re-run with sudo: {}", "sudo ven uninstall".bold());
+            println!(
+                "    Or pass {} to skip the system layer for now.",
+                "--user-only".bold()
+            );
+            return Err(anyhow!(
+                "Insufficient privileges for the system install layer."
+            ));
+        }
     }
 
     if dry_run {
@@ -455,6 +471,69 @@ fn plan_to_json(plan: &UninstallPlan) -> serde_json::Value {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Elevation (UAC / sudo re-launch)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Re-launch `ven uninstall` elevated via Windows UAC.
+///
+/// Uses `Start-Process -Verb RunAs` to spawn a new elevated process that
+/// runs the uninstall with `--reentry --yes` (skipping elevation check and
+/// confirmation prompt). The calling process waits for the child to finish.
+#[cfg(target_os = "windows")]
+fn reexec_elevated_windows(
+    _yes: bool,
+    user_only: bool,
+    system_only: bool,
+    json: bool,
+) -> Result<()> {
+    use anyhow::Context;
+
+    let exe =
+        std::env::current_exe().context("Could not resolve current exe path for UAC re-launch")?;
+
+    let mut args = vec![
+        "uninstall".to_string(),
+        "--yes".to_string(),
+        "--reentry".to_string(),
+    ];
+    if user_only {
+        args.push("--user-only".to_string());
+    }
+    if system_only {
+        args.push("--system-only".to_string());
+    }
+    if json {
+        args.push("--json".to_string());
+    }
+
+    let arg_array = args
+        .iter()
+        .map(|a| format!("'{}'", a.replace('\'', "''")))
+        .collect::<Vec<_>>()
+        .join(",");
+    let exe_quoted = exe.display().to_string().replace('\'', "''");
+    let ps_cmd = format!(
+        "Start-Process -FilePath '{}' -Verb RunAs -ArgumentList @({}) -Wait",
+        exe_quoted, arg_array
+    );
+
+    let status = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &ps_cmd])
+        .status()
+        .context("Could not launch elevated PowerShell (UAC). Is PowerShell available?")?;
+
+    if !status.success() {
+        return Err(anyhow::anyhow!(
+            "Elevated uninstall did not complete (PowerShell exit code {:?}). \
+             If you cancelled the UAC prompt, re-run `ven uninstall` from an \
+             elevated terminal, or pass `--user-only` to skip the system layer.",
+            status.code()
+        ));
+    }
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -503,7 +582,7 @@ mod tests {
         let _g = lock_env();
         let _scrub = EnvGuard::new(&["VEN_HOME", "VEN_STORAGE_PATH"]);
 
-        let err = cmd_uninstall(false, true, false, false, false)
+        let err = cmd_uninstall(false, true, false, false, false, false)
             .expect_err("plain --json must be rejected");
         let msg = err.to_string();
         assert!(
@@ -514,7 +593,7 @@ mod tests {
 
     #[test]
     fn user_only_and_system_only_are_mutually_exclusive() {
-        let err = cmd_uninstall(true, false, false, true, true)
+        let err = cmd_uninstall(true, false, false, true, true, false)
             .expect_err("conflicting scope flags must be rejected");
         assert!(err.to_string().contains("mutually exclusive"));
     }
