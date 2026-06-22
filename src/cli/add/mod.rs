@@ -12,7 +12,8 @@ use colored::Colorize;
 use std::collections::HashMap;
 
 use languages::{
-    cmd_add_bun, cmd_add_deno, cmd_add_go, cmd_add_java, cmd_add_python, cmd_add_ruby, cmd_add_rust,
+    cmd_add_bun, cmd_add_deno, cmd_add_go, cmd_add_java, cmd_add_php, cmd_add_python, cmd_add_ruby,
+    cmd_add_rust,
 };
 pub use toml::update_ven_toml_packages;
 
@@ -75,6 +76,7 @@ pub fn cmd_add(
     let deno_version = cfg.runtime.deno.clone();
     let bun_version = cfg.runtime.bun.clone();
     let ruby_version = cfg.runtime.ruby.clone();
+    let php_version = cfg.runtime.php.clone();
     let python_mode = !python_version.is_empty() && node_version.is_empty();
     let go_mode = !go_version.is_empty()
         && node_version.is_empty()
@@ -119,6 +121,19 @@ pub fn cmd_add(
         && java_version.is_empty()
         && deno_version.is_empty();
 
+    let php_mode = !php_version.is_empty()
+        && node_version.is_empty()
+        && python_version.is_empty()
+        && go_version.is_empty()
+        && rust_version.is_empty()
+        && java_version.is_empty()
+        && deno_version.is_empty()
+        && ruby_version.is_empty()
+        && bun_version.is_empty();
+
+    if php_mode {
+        return cmd_add_php(package_specs, dry_run);
+    }
     if python_mode {
         return cmd_add_python(package_specs, dry_run);
     }

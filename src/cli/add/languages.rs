@@ -13,6 +13,48 @@ use crate::core::requirements::{requirement_from_spec, Requirements};
 use crate::core::ruby_gems;
 use crate::core::runtime_bin::runtime_tool;
 
+pub(super) fn cmd_add_php(package_specs: &[String], dry_run: bool) -> Result<()> {
+    println!("\n{}", "ven add (php)".bold().cyan());
+    println!("  {} {} package(s)", "[PLAN]".cyan(), package_specs.len());
+
+    if dry_run {
+        println!(
+            "  {} Dry run mode — no changes will be made",
+            "[DRY-RUN]".yellow()
+        );
+        println!();
+        for spec in package_specs {
+            println!("  {} {} => composer require {}", "[PREVIEW]".cyan(), spec.bold(), spec);
+        }
+        println!();
+        return Ok(());
+    }
+
+    let mut installed: Vec<(String, String)> = Vec::new();
+    for spec in package_specs {
+        let composer = runtime_tool("php", "composer");
+        let status = Command::new(&composer)
+            .args(["require", "--no-interaction", spec])
+            .status()
+            .map_err(|e| anyhow::anyhow!("composer failed to start ({:?}): {e}", composer))?;
+
+        if status.success() {
+            println!("  {} {}", "[OK]".green(), format!("Installed {}", spec.bold()));
+            // Determine the package name (without version constraint) for ven.toml
+            let pkg_name = spec.split(':').next().unwrap_or(spec);
+            installed.push((pkg_name.to_string(), spec.clone()));
+        } else {
+            println!("  {} {} — composer require failed", "[ERROR]".red(), spec);
+        }
+    }
+
+    if !installed.is_empty() {
+        update_ven_toml_packages(&installed)?;
+    }
+    println!();
+    Ok(())
+}
+
 pub(super) fn cmd_add_python(package_specs: &[String], dry_run: bool) -> Result<()> {
     let mut installed = Vec::new();
     println!("\n{}", "ven add (python)".bold().cyan());
