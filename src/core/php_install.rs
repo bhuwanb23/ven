@@ -48,7 +48,17 @@ impl PhpDownloader {
     fn archive_filename(version: &str) -> Result<String> {
         let (os, arch, ext) = Self::platform_info()?;
         if os == "windows" {
-            Ok(format!("php-{}-nts-Win32-vs17-{}.{}", version, arch, ext))
+            // PHP 8.3 and below use vs16, 8.4+ use vs17
+            let vs = if version.starts_with("8.3.")
+                || version.starts_with("8.2.")
+                || version.starts_with("8.1.")
+                || version.starts_with("8.0.")
+            {
+                "vs16"
+            } else {
+                "vs17"
+            };
+            Ok(format!("php-{}-nts-Win32-{}-{}.{}", version, vs, arch, ext))
         } else {
             Ok(format!("php-{}.{}", version, ext))
         }
@@ -58,7 +68,7 @@ impl PhpDownloader {
         let (os, _, _) = Self::platform_info()?;
         if os == "windows" {
             Ok(format!(
-                "https://downloads.php.net/~windows/releases/archives/{}",
+                "https://downloads.php.net/~windows/releases/{}",
                 Self::archive_filename(version)?
             ))
         } else {
@@ -114,25 +124,30 @@ impl PhpDownloader {
 }
 
 pub fn fetch_php_release_versions() -> Result<Vec<String>> {
-    // PHP Windows releases page - parse version numbers
+    // Scrape the archives directory listing (has actual PHP binaries)
     let resp = Client::new()
-        .get("https://windows.php.net/download/")
+        .get("https://downloads.php.net/~windows/releases/archives/")
         .send()
-        .context("Cannot reach windows.php.net")?
+        .context("Cannot reach downloads.php.net")?
         .error_for_status()?;
 
-    let body = resp.text().context("Failed to read PHP download page")?;
+    let body = resp.text().context("Failed to read PHP archives page")?;
 
-    // Extract version numbers from the page
+    // Extract version numbers from the HTML
+    // Files look like: php-8.3.31-nts-Win32-vs16-x64.zip
     let mut versions = Vec::new();
     for line in body.lines() {
-        if let Some(start) = line.find("php-") {
-            let after_php = &line[start + 4..];
-            if let Some(end) = after_php.find('-') {
-                let ver = &after_php[..end];
-                // Validate it looks like a version
-                if ver.chars().all(|c| c.is_ascii_digit() || c == '.') && ver.contains('.') {
-                    versions.push(ver.to_string());
+        // Look for lines containing php-8.x.x-nts-Win32 (NTS binaries only)
+        if line.contains("php-8.") && line.contains("-nts-Win32") && line.contains(".zip") {
+            // Extract version: find "php-" then get version until next "-"
+            if let Some(start) = line.find("php-8.") {
+                let after_php = &line[start + 4..]; // skip "php-"
+                if let Some(end) = after_php.find('-') {
+                    let ver = &after_php[..end];
+                    // Validate it's a proper version
+                    if ver.chars().all(|c| c.is_ascii_digit() || c == '.') && ver.contains('.') {
+                        versions.push(ver.to_string());
+                    }
                 }
             }
         }
