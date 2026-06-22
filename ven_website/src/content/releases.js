@@ -19,6 +19,7 @@ export const RELEASES = [
       improved: [
         'ven now manages **9** language runtimes (Node, Python, Go, Rust, Java, Ruby, Deno, Bun, PHP).',
       ],
+      fixed: [],
     },
   },
   {
