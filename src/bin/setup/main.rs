@@ -40,6 +40,11 @@ mod windows;
 mod gui;
 
 fn main() -> Result<()> {
+    // Strip Zone.Identifier ADS at startup so Windows SmartScreen doesn't
+    // block the binary after the user has already allowed it once.
+    #[cfg(windows)]
+    windows::strip_zone_identifier();
+
     let cli = common::SetupCli::parse();
 
     // Hook up the parent terminal early so any clap parse error or panic
@@ -63,18 +68,44 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "gui")]
     {
-        match gui::run(cli.clone()) {
-            Ok(()) => Ok(()),
-            Err(gui::GuiUnavailable) => {
+        let cli_for_gui = cli.clone();
+        let result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| gui::run(cli_for_gui)));
+        match result {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(gui::GuiUnavailable)) => {
                 // The eframe initializer failed (no display server, headless
-                // VM, X forwarding broken). Fall back to the CLI flow so a
-                // double-click install on a broken display still succeeds
-                // — surfacing the dialoguer prompts in the same terminal
-                // ven-setup was launched from.
+                // VM, X forwarding broken, etc.). On Windows (double-click
+                // from Explorer) there's no console to write the fallback
+                // message to, so show a message box.
+                #[cfg(windows)]
+                if !cli.cli && !cli.no_input {
+                    windows::show_message_box(
+                        "ven-setup",
+                        "The graphical installer could not start.\n\nRun from a terminal with:\n  ven-setup.exe --cli --mode user",
+                    );
+                }
                 eprintln!("ven-setup: no GUI session detected, falling back to CLI flow.");
                 common::print_banner(cli.elevated_child);
                 let mode = common::resolve_mode(&cli)?;
                 dispatch_cli(cli, mode)
+            }
+            Err(panic_payload) => {
+                let msg = panic_payload
+                    .downcast_ref::<&str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| panic_payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "Unknown error".to_string());
+                #[cfg(windows)]
+                windows::show_message_box(
+                    "ven-setup: unexpected error",
+                    &format!(
+                        "The installer encountered an unexpected error:\n\n{msg}\n\n\
+                         Try running from a terminal with:\n  ven-setup.exe --cli --mode user\n\n\
+                         for more detailed output."
+                    ),
+                );
+                anyhow::bail!("GUI panicked: {msg}")
             }
         }
     }

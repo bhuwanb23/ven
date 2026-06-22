@@ -73,6 +73,57 @@ pub fn attach_parent_console() {
 }
 
 // ---------------------------------------------------------------------------
+// Zone.Identifier (MoTW) stripping
+// ---------------------------------------------------------------------------
+
+/// Remove the `Zone.Identifier` alternate data stream from the current
+/// executable. Files downloaded from the internet carry this stream, which
+/// causes Windows SmartScreen to prompt "Windows protected your PC".
+/// Removing it at startup prevents blocking after the user has already
+/// allowed the app once.
+///
+/// Best-effort: silently ignores all errors (stream absent, no permission,
+/// non-NTFS volume, etc.).
+pub fn strip_zone_identifier() {
+    use windows_sys::Win32::Storage::FileSystem::DeleteFileW;
+
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    // NTFS ADS path: "C:\path\to\ven-setup.exe:Zone.Identifier"
+    let stream_path = format!("{}:Zone.Identifier", exe.display());
+    let wide: Vec<u16> = stream_path
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
+    unsafe {
+        // DeleteFileW returns non-zero on success. Silently ignore failure
+        // (stream missing, not elevated, etc.).
+        let _ = DeleteFileW(wide.as_ptr());
+    }
+}
+
+/// Show a Win32 message box with the given title and message.
+///
+/// Used to surface errors when there is no console attached (the common
+/// double-click-from-Explorer case).
+pub fn show_message_box(title: &str, message: &str) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+
+    let title_wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+    let msg_wide: Vec<u16> = message.encode_utf16().chain(std::iter::once(0)).collect();
+    unsafe {
+        MessageBoxW(
+            0,
+            msg_wide.as_ptr(),
+            title_wide.as_ptr(),
+            MB_OK | MB_ICONERROR,
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // CLI driver (legacy + auto-fallback)
 // ---------------------------------------------------------------------------
 
