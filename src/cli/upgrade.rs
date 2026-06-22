@@ -8,8 +8,8 @@ use crate::intelligence::suggestions::print_conflict_report;
 use anyhow::Result;
 use colored::Colorize;
 use languages::{
-    cmd_upgrade_bun, cmd_upgrade_deno, cmd_upgrade_go, cmd_upgrade_java, cmd_upgrade_python,
-    cmd_upgrade_ruby, cmd_upgrade_rust,
+    cmd_upgrade_bun, cmd_upgrade_deno, cmd_upgrade_go, cmd_upgrade_java, cmd_upgrade_php,
+    cmd_upgrade_python, cmd_upgrade_ruby, cmd_upgrade_rust,
 };
 use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
@@ -105,6 +105,16 @@ pub fn cmd_upgrade(
         && cfg.runtime.java.is_empty()
         && cfg.runtime.deno.is_empty();
 
+    let php_mode = !cfg.runtime.php.is_empty()
+        && cfg.runtime.node.is_empty()
+        && cfg.runtime.python.is_empty()
+        && cfg.runtime.go.is_empty()
+        && cfg.runtime.rust.is_empty()
+        && cfg.runtime.java.is_empty()
+        && cfg.runtime.deno.is_empty()
+        && cfg.runtime.ruby.is_empty()
+        && cfg.runtime.bun.is_empty();
+
     // Handle --all flag: get all packages from ven.toml
     let target_packages = if all {
         cfg.packages.keys().cloned().collect::<Vec<String>>()
@@ -125,6 +135,9 @@ pub fn cmd_upgrade(
         packages.to_vec()
     };
 
+    if php_mode {
+        return cmd_upgrade_php(&target_packages, apply, dry_run, json);
+    }
     if python_mode {
         return cmd_upgrade_python(&target_packages, apply, dry_run, json);
     }

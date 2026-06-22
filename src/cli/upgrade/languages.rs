@@ -9,6 +9,62 @@ use crate::core::gemfile::Gemfile;
 use crate::core::java_manifest::{self, JavaCoord};
 use crate::core::requirements::Requirements;
 use crate::core::ruby_gems;
+use crate::core::runtime_bin::runtime_tool;
+
+pub(super) fn cmd_upgrade_php(
+    packages: &[String],
+    apply: bool,
+    dry_run: bool,
+    json: bool,
+) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"php",
+                "apply": apply,
+                "dry_run": dry_run,
+                "packages": packages
+            }))?
+        );
+    } else {
+        println!("\n  {}", "ven upgrade (php)".bold().cyan());
+    }
+    for pkg in packages {
+        if dry_run || !apply {
+            if !json {
+                println!("  {} composer update {}", "[PREVIEW]".cyan(), pkg.bold());
+            }
+            continue;
+        }
+        let composer = runtime_tool("php", "composer");
+        let status = Command::new(&composer)
+            .args(["update", "--no-interaction", pkg])
+            .status();
+        match status {
+            Ok(s) if s.success() => {
+                if !json {
+                    println!("  {} Updated {}", "[OK]".green(), pkg.bold());
+                }
+                let _ = update_ven_toml_packages(&[(pkg.clone(), "latest".to_string())]);
+            }
+            Ok(_) => {
+                if !json {
+                    println!("  {} Failed to update {}", "[WARN]".yellow(), pkg);
+                }
+            }
+            Err(e) => {
+                if !json {
+                    println!("  {} {}", "[ERROR]".red(), e);
+                }
+            }
+        }
+    }
+    if !json {
+        println!();
+    }
+    Ok(())
+}
 
 pub(super) fn cmd_upgrade_bun(
     packages: &[String],
