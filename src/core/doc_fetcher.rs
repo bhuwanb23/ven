@@ -495,6 +495,7 @@ mod tests {
             RuntimeKind::Java,
             RuntimeKind::Ruby,
             RuntimeKind::Deno,
+            RuntimeKind::Php,
         ] {
             let name = ecosystem_name(&kind);
             assert_ne!(name, "unknown", "missing ecosystem name for {:?}", kind);

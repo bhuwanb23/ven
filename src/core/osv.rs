@@ -523,6 +523,7 @@ mod tests {
         assert_eq!(osv_ecosystem_for(&RuntimeKind::Java), Some("Maven"));
         assert_eq!(osv_ecosystem_for(&RuntimeKind::Ruby), Some("RubyGems"));
         assert_eq!(osv_ecosystem_for(&RuntimeKind::Deno), Some("npm"));
+        assert_eq!(osv_ecosystem_for(&RuntimeKind::Php), Some("Packagist"));
         assert_eq!(osv_ecosystem_for(&RuntimeKind::Stub), None);
     }
 

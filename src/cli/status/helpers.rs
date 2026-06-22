@@ -309,6 +309,7 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
         && config.runtime.deno.is_empty()
         && config.runtime.bun.is_empty()
         && config.runtime.ruby.is_empty()
+        && config.runtime.php.is_empty()
     {
         issues.push("No runtime version specified".to_string());
     }
@@ -366,6 +367,13 @@ pub(super) fn print_health_summary(config: &VenConfig) -> Result<()> {
             issues.push(format!("Ruby {} not installed", config.runtime.ruby));
         } else {
             ok_items.push(format!("Ruby {} ready", config.runtime.ruby));
+        }
+    }
+    if !config.runtime.php.is_empty() {
+        if !is_php_installed(&config.runtime.php) {
+            issues.push(format!("PHP {} not installed", config.runtime.php));
+        } else {
+            ok_items.push(format!("PHP {} ready", config.runtime.php));
         }
     }
 

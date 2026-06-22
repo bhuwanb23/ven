@@ -41,6 +41,7 @@ pub fn endoflife_slug_for_runtime_name(name: &str) -> Option<&'static str> {
         "java" => Some("java"),
         "ruby" => Some("ruby"),
         "deno" => Some("deno"),
+        "php" => Some("php"),
         _ => None,
     }
 }
@@ -361,6 +362,7 @@ mod tests {
         assert_eq!(endoflife_slug_for(&RuntimeKind::Java), Some("java"));
         assert_eq!(endoflife_slug_for(&RuntimeKind::Ruby), Some("ruby"));
         assert_eq!(endoflife_slug_for(&RuntimeKind::Deno), Some("deno"));
+        assert_eq!(endoflife_slug_for(&RuntimeKind::Php), Some("php"));
         assert_eq!(endoflife_slug_for(&RuntimeKind::Stub), None);
     }
 

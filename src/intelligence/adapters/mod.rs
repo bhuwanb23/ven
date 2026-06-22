@@ -318,6 +318,18 @@ pub fn adapter_from_ven_config(cfg: &VenConfig) -> Box<dyn DependencyRuntimeAdap
     {
         return Box::new(GenericStubAdapter::new(RuntimeKind::Ruby, r.ruby.clone()));
     }
+    if !r.php.is_empty()
+        && r.node.is_empty()
+        && r.python.is_empty()
+        && r.go.is_empty()
+        && r.rust.is_empty()
+        && r.java.is_empty()
+        && r.deno.is_empty()
+        && r.bun.is_empty()
+        && r.ruby.is_empty()
+    {
+        return Box::new(GenericStubAdapter::new(RuntimeKind::Php, r.php.clone()));
+    }
     if !r.node.is_empty() {
         return Box::new(NpmFamilyAdapter::new(r.node.clone()));
     }
