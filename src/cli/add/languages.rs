@@ -24,7 +24,12 @@ pub(super) fn cmd_add_php(package_specs: &[String], dry_run: bool) -> Result<()>
         );
         println!();
         for spec in package_specs {
-            println!("  {} {} => composer require {}", "[PREVIEW]".cyan(), spec.bold(), spec);
+            println!(
+                "  {} {} => composer require {}",
+                "[PREVIEW]".cyan(),
+                spec.bold(),
+                spec
+            );
         }
         println!();
         return Ok(());
@@ -39,7 +44,11 @@ pub(super) fn cmd_add_php(package_specs: &[String], dry_run: bool) -> Result<()>
             .map_err(|e| anyhow::anyhow!("composer failed to start ({:?}): {e}", composer))?;
 
         if status.success() {
-            println!("  {} {}", "[OK]".green(), format!("Installed {}", spec.bold()));
+            println!(
+                "  {} {}",
+                "[OK]".green(),
+                format!("Installed {}", spec.bold())
+            );
             // Determine the package name (without version constraint) for ven.toml
             let pkg_name = spec.split(':').next().unwrap_or(spec);
             installed.push((pkg_name.to_string(), spec.clone()));

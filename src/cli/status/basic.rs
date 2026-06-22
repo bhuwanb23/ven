@@ -19,8 +19,15 @@ pub(super) fn display_basic_status(cwd: &Path, toml_path: &Path, config: &VenCon
     let has_bun = !config.runtime.bun.is_empty();
     let has_ruby = !config.runtime.ruby.is_empty();
     let has_php = !config.runtime.php.is_empty();
-    let has_any_runtime =
-        has_node || has_python || has_go || has_rust || has_java || has_deno || has_bun || has_ruby || has_php;
+    let has_any_runtime = has_node
+        || has_python
+        || has_go
+        || has_rust
+        || has_java
+        || has_deno
+        || has_bun
+        || has_ruby
+        || has_php;
 
     // Runtime section
     if has_node {
