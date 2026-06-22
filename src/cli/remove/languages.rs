@@ -13,6 +13,74 @@ use crate::core::runtime_bin::runtime_tool;
 
 use super::remove_from_ven_toml;
 
+pub(super) fn cmd_remove_php(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
+    if packages.is_empty() {
+        if json {
+            println!("{{\"error\":\"No packages specified\"}}");
+        } else {
+            println!("  {} No packages specified", "[ERROR]".red());
+        }
+        return Ok(());
+    }
+    if dry_run {
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "mode":"php_dry_run",
+                    "packages": packages
+                }))?
+            );
+        } else {
+            println!(
+                "\n  {} {}",
+                "ven remove".bold().cyan(),
+                "[PHP DRY RUN]".yellow()
+            );
+            for pkg in packages {
+                println!(
+                    "  {} Would composer remove {}",
+                    "[PREVIEW]".cyan(),
+                    pkg.bold()
+                );
+            }
+            println!();
+        }
+        return Ok(());
+    }
+
+    let mut removed: Vec<String> = Vec::new();
+    for pkg in packages {
+        let composer = runtime_tool("php", "composer");
+        let status = Command::new(&composer)
+            .args(["remove", "--no-interaction", pkg])
+            .status()
+            .map_err(|e| anyhow::anyhow!("composer failed to start ({:?}): {e}", composer))?;
+        if status.success() {
+            println!("  {} Removed {}", "[OK]".green(), pkg.bold());
+            removed.push(pkg.clone());
+            let _ = remove_from_ven_toml(pkg);
+        } else {
+            println!(
+                "  {} Failed to remove {} (maybe not installed)",
+                "[WARN]".yellow(),
+                pkg
+            );
+        }
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "mode":"php",
+                "removed": removed
+            }))?
+        );
+    }
+    println!();
+    Ok(())
+}
+
 pub(super) fn cmd_remove_ruby(packages: &[String], dry_run: bool, json: bool) -> Result<()> {
     if packages.is_empty() {
         if json {

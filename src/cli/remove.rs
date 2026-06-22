@@ -6,8 +6,8 @@ use crate::core::utils::{calculate_package_size, format_bytes};
 use anyhow::Result;
 use colored::Colorize;
 use languages::{
-    cmd_remove_bun, cmd_remove_deno, cmd_remove_go, cmd_remove_java, cmd_remove_python,
-    cmd_remove_ruby, cmd_remove_rust,
+    cmd_remove_bun, cmd_remove_deno, cmd_remove_go, cmd_remove_java, cmd_remove_php,
+    cmd_remove_python, cmd_remove_ruby, cmd_remove_rust,
 };
 use std::collections::HashSet;
 
@@ -96,6 +96,22 @@ pub fn cmd_remove(
                 && c.runtime.bun.is_empty()
         })
         .unwrap_or(false);
+    let php_mode = load_config(&cwd)?
+        .map(|c| {
+            !c.runtime.php.is_empty()
+                && c.runtime.node.is_empty()
+                && c.runtime.python.is_empty()
+                && c.runtime.go.is_empty()
+                && c.runtime.rust.is_empty()
+                && c.runtime.java.is_empty()
+                && c.runtime.deno.is_empty()
+                && c.runtime.ruby.is_empty()
+                && c.runtime.bun.is_empty()
+        })
+        .unwrap_or(false);
+    if php_mode && !cleanup {
+        return cmd_remove_php(packages, dry_run, json);
+    }
     if python_mode && !cleanup {
         return cmd_remove_python(packages, dry_run, json);
     }
