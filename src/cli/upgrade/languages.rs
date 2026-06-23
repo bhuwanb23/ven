@@ -39,7 +39,7 @@ pub(super) fn cmd_upgrade_php(
         }
         let composer = runtime_tool("php", "composer");
         let status = Command::new(&composer)
-            .args(["update", "--no-interaction", pkg])
+            .args(["update", "--no-interaction", "--no-scripts", pkg])
             .status();
         match status {
             Ok(s) if s.success() => {

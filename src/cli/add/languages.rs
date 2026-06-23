@@ -39,7 +39,7 @@ pub(super) fn cmd_add_php(package_specs: &[String], dry_run: bool) -> Result<()>
     for spec in package_specs {
         let composer = runtime_tool("php", "composer");
         let status = Command::new(&composer)
-            .args(["require", "--no-interaction", spec])
+            .args(["require", "--no-interaction", "--no-scripts", spec])
             .status()
             .map_err(|e| anyhow::anyhow!("composer failed to start ({:?}): {e}", composer))?;
 

@@ -53,7 +53,7 @@ pub(super) fn cmd_remove_php(packages: &[String], dry_run: bool, json: bool) -> 
     for pkg in packages {
         let composer = runtime_tool("php", "composer");
         let status = Command::new(&composer)
-            .args(["remove", "--no-interaction", pkg])
+            .args(["remove", "--no-interaction", "--no-scripts", pkg])
             .status()
             .map_err(|e| anyhow::anyhow!("composer failed to start ({:?}): {e}", composer))?;
         if status.success() {
