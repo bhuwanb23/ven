@@ -3,8 +3,8 @@
 
 export const RELEASES = [
   {
-    version: 'v0.2.4',
-    date: 'June 22, 2026',
+    version: 'v0.2.4.1',
+    date: 'June 23, 2026',
     tag: 'minor',
     summary:
       'PHP support: ven now manages PHP 8.x runtimes with Composer integration. Install PHP via `ven install php`, manage packages via `ven add`/`ven remove`/`ven upgrade`, and get full auto-switching, ghost scanning, CVE checking, and EOL alerts.',
