@@ -4,6 +4,7 @@
 use anyhow::{anyhow, Context, Result};
 use colored::Colorize;
 use reqwest::blocking::Client;
+use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -15,6 +16,11 @@ use crate::core::integrity;
 
 #[allow(dead_code)]
 const GET_PIP_URL: &str = "https://bootstrap.pypa.io/get-pip.py";
+
+/// Expected SHA256 hash of get-pip.py from https://bootstrap.pypa.io/get-pip.py
+/// This provides integrity verification for the bootstrap script.
+/// Update this hash when get-pip.py changes (check https://bootstrap.pypa.io/get-pip.py.sha256)
+const GET_PIP_SHA256: &str = "4a5debcf097820985aad156a85171bbca508f6c7f2326ded8c048e07dd835731";
 
 pub struct PythonDownloader {
     base: BaseInstaller,
@@ -323,8 +329,27 @@ fn bootstrap_pip(install_dir: &Path) -> Result<()> {
         "{} ensurepip failed or unavailable; trying get-pip.py",
         "!".yellow()
     );
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .context("Failed to build HTTP client for get-pip.py")?;
     let script = client.get(GET_PIP_URL).send()?.error_for_status()?.text()?;
+
+    // Verify SHA256 integrity of get-pip.py before execution
+    let script_bytes = script.as_bytes();
+    let mut hasher = Sha256::new();
+    hasher.update(script_bytes);
+    let actual_hash = format!("{:x}", hasher.finalize());
+
+    if actual_hash != GET_PIP_SHA256 {
+        return Err(anyhow!(
+            "SHA256 mismatch for get-pip.py! Expected: {}, Got: {}. \
+             Download may be compromised. Aborting.",
+            GET_PIP_SHA256,
+            actual_hash
+        ));
+    }
+
     let gp = install_dir.join("get-pip.py");
     fs::write(&gp, script)?;
 
