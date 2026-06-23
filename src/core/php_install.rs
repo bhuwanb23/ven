@@ -222,7 +222,9 @@ fn fetch_php_checksum(version: &str) -> Result<String> {
     // Parse the SHA256 from the sidecar file (format: "hexhash  filename")
     for line in body.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() == 2 && parts[0].len() == 64 && parts[0].chars().all(|c| c.is_ascii_hexdigit())
+        if parts.len() == 2
+            && parts[0].len() == 64
+            && parts[0].chars().all(|c| c.is_ascii_hexdigit())
         {
             return Ok(parts[0].to_string());
         }
@@ -239,19 +241,17 @@ pub fn install_php(downloader: &PhpDownloader, version: &str) -> Result<()> {
 
     // Try to fetch and verify SHA256 checksum
     match fetch_php_checksum(version) {
-        Ok(expected) => {
-            match integrity::verify_sha256(&archive, &expected) {
-                Ok(()) => integrity::print_checksum_ok(&downloader.archive_filename(version)?),
-                Err(e) => {
-                    fs::remove_file(&archive)?;
-                    return Err(anyhow!(
-                        "PHP archive checksum mismatch for {} ({}). Cached file removed; rerun.",
-                        version,
-                        e
-                    ));
-                }
+        Ok(expected) => match integrity::verify_sha256(&archive, &expected) {
+            Ok(()) => integrity::print_checksum_ok(&downloader.archive_filename(version)?),
+            Err(e) => {
+                fs::remove_file(&archive)?;
+                return Err(anyhow!(
+                    "PHP archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                    version,
+                    e
+                ));
             }
-        }
+        },
         Err(e) => {
             println!(
                 "{} Checksum unavailable for PHP {} ({}). Continuing without verification.",
