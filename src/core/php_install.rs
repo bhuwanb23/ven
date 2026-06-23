@@ -259,6 +259,8 @@ fn extract_php_archive(archive_path: &Path, dest: &Path) -> Result<()> {
             let path = e.path()?;
             // PHP tar contains files directly (no top-level directory to strip)
             let outpath = dest.join(&path);
+            // Defense-in-depth: validate path stays within extraction directory
+            super::extract::validate_path_within_dir(&outpath, dest)?;
             if let Some(parent) = outpath.parent() {
                 fs::create_dir_all(parent)?;
             }
