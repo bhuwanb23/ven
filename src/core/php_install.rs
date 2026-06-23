@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use colored::Colorize;
 use reqwest::blocking::Client;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -193,15 +194,73 @@ pub fn resolve_php_version_spec(spec: &str, available: &[String]) -> Result<Stri
     Err(anyhow!("Invalid PHP version spec: {}", spec))
 }
 
+/// Fetch SHA256 checksum for a PHP release from php.net
+fn fetch_php_checksum(version: &str) -> Result<String> {
+    let (_, _, ext) = PhpDownloader::platform_info()?;
+    let filename = format!("php-{}.{}", version, ext);
+
+    // Try fetching the .sha256 sidecar file
+    let sha_url = format!("https://www.php.net/distributions/{}.sha256", filename);
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .context("Failed to build HTTP client")?;
+
+    let resp = client
+        .get(&sha_url)
+        .send()
+        .with_context(|| format!("Failed to fetch {}", sha_url))?;
+
+    if !resp.status().is_success() {
+        return Err(anyhow!("No checksum file at {}", sha_url));
+    }
+
+    let body = resp
+        .text()
+        .with_context(|| format!("Failed to read body of {}", sha_url))?;
+
+    // Parse the SHA256 from the sidecar file (format: "hexhash  filename")
+    for line in body.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() == 2 && parts[0].len() == 64 && parts[0].chars().all(|c| c.is_ascii_hexdigit())
+        {
+            return Ok(parts[0].to_string());
+        }
+    }
+
+    Err(anyhow!(
+        "Could not parse SHA256 from checksum file for PHP {}",
+        version
+    ))
+}
+
 pub fn install_php(downloader: &PhpDownloader, version: &str) -> Result<()> {
     let archive = downloader.download(version)?;
 
-    // Note: PHP Windows builds don't have separate .sha256 files
-    // We skip SHA256 verification for now (same as some other runtimes)
-    println!(
-        "{} Archive downloaded (no checksum file available for PHP Windows builds)",
-        "[INFO]".cyan()
-    );
+    // Try to fetch and verify SHA256 checksum
+    match fetch_php_checksum(version) {
+        Ok(expected) => {
+            match integrity::verify_sha256(&archive, &expected) {
+                Ok(()) => integrity::print_checksum_ok(&downloader.archive_filename(version)?),
+                Err(e) => {
+                    fs::remove_file(&archive)?;
+                    return Err(anyhow!(
+                        "PHP archive checksum mismatch for {} ({}). Cached file removed; rerun.",
+                        version,
+                        e
+                    ));
+                }
+            }
+        }
+        Err(e) => {
+            println!(
+                "{} Checksum unavailable for PHP {} ({}). Continuing without verification.",
+                "!".yellow(),
+                version,
+                e
+            );
+        }
+    }
 
     let install_root = downloader.get_install_dir(version);
     if install_root.exists() {
