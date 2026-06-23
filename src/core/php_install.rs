@@ -242,7 +242,7 @@ pub fn install_php(downloader: &PhpDownloader, version: &str) -> Result<()> {
     // Try to fetch and verify SHA256 checksum
     match fetch_php_checksum(version) {
         Ok(expected) => match integrity::verify_sha256(&archive, &expected) {
-            Ok(()) => integrity::print_checksum_ok(&downloader.archive_filename(version)?),
+            Ok(()) => integrity::print_checksum_ok(&PhpDownloader::archive_filename(version)?),
             Err(e) => {
                 fs::remove_file(&archive)?;
                 return Err(anyhow!(
@@ -328,5 +328,3 @@ fn extract_php_archive(archive_path: &Path, dest: &Path) -> Result<()> {
     }
     Ok(())
 }
-
-use colored::Colorize;
