@@ -281,6 +281,8 @@ fn extract_go_archive(archive_path: &Path, dest: &Path) -> Result<()> {
                 continue;
             }
             let outpath = dest.join(rel);
+            // Defense-in-depth: validate path stays within extraction directory
+            super::extract::validate_path_within_dir(&outpath, dest)?;
             if let Some(parent) = outpath.parent() {
                 fs::create_dir_all(parent)?;
             }
