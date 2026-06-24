@@ -281,6 +281,7 @@ pub struct WizardState {
     pub pending_browse: bool,
     pub logo_texture: Option<egui::TextureHandle>,
     pub dry_run: bool,
+    pub window_centered: bool,
 }
 
 impl WizardState {
@@ -301,6 +302,7 @@ impl WizardState {
             pending_browse: false,
             logo_texture: None,
             dry_run,
+            window_centered: false,
         }
     }
 

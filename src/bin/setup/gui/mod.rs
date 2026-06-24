@@ -160,11 +160,16 @@ impl VenSetupApp {
 
 impl eframe::App for VenSetupApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if !self.state.window_centered {
+            if let Some(cmd) = egui::ViewportCommand::center_on_screen(ctx) {
+                ctx.send_viewport_cmd(cmd);
+            }
+            self.state.window_centered = true;
+        }
+
         self.ensure_logo(ctx);
         if self.state.screen == Screen::Progress {
             self.poll_progress();
-            // 50 ms repaint keeps the spinner smooth without burning
-            // CPU on screens that don't animate.
             ctx.request_repaint_after(std::time::Duration::from_millis(50));
         }
 
