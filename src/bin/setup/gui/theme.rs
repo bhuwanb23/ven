@@ -151,8 +151,8 @@ pub fn code(s: impl Into<String>) -> RichText {
 
 /// Bundled font payloads. Loaded at compile time so the binary is
 /// fully self-contained — no system font fallback path.
-const INTER_REGULAR: &[u8] = include_bytes!("../../../../assets/fonts/Inter-Regular.otf");
-const INTER_SEMIBOLD: &[u8] = include_bytes!("../../../../assets/fonts/Inter-SemiBold.otf");
+const INTER_REGULAR: &[u8] = include_bytes!("../../../../assets/fonts/Inter-Regular.ttf");
+const INTER_SEMIBOLD: &[u8] = include_bytes!("../../../../assets/fonts/Inter-SemiBold.ttf");
 const JETBRAINS_MONO_REGULAR: &[u8] =
     include_bytes!("../../../../assets/fonts/JetBrainsMono-Regular.ttf");
 
