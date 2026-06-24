@@ -3,6 +3,30 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.5',
+    date: 'June 25, 2026',
+    tag: 'minor',
+    summary:
+      'Security hardening and PHP improvements: path traversal protection for all installers, SHA256 verification for PHP/get-pip.py, Composer --no-scripts flag, and PHP version listing fix.',
+    sections: {
+      new: [
+        'SHA256 verification for PHP archive downloads.',
+        'SHA256 verification for Python get-pip.py bootstrap script.',
+        '`--no-scripts` flag added to Composer commands to prevent malicious package scripts.',
+      ],
+      improved: [
+        'Path traversal protection added to PHP, Go, and Java Unix tar extraction.',
+        'PHP version listing now shows all versions from archives directory.',
+        'Shell profile backup before modification.',
+        'Font fix: replaced CFF OTF with TrueType TTF for ven-setup GUI.',
+      ],
+      fixed: [
+        'Compilation errors in php_install.rs resolved.',
+        'Cargo fmt formatting fixes across codebase.',
+      ],
+    },
+  },
+  {
     version: 'v0.2.4',
     date: 'June 23, 2026',
     tag: 'minor',
