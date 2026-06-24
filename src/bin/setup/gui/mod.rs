@@ -205,6 +205,12 @@ impl eframe::App for VenSetupApp {
         egui::TopBottomPanel::bottom("nav")
             .resizable(false)
             .min_height(64.0)
+            .frame(
+                egui::Frame::none()
+                    .fill(theme::PANEL)
+                    .stroke(egui::Stroke::new(1.0, theme::BORDER))
+                    .inner_margin(egui::Margin::symmetric(24.0, 0.0)),
+            )
             .show(ctx, |ui| {
                 let action = draw_nav(ui, &mut self.state, ctx);
                 nav_action.set(action);
