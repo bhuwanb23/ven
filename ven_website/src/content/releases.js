@@ -3,7 +3,7 @@
 
 export const RELEASES = [
   {
-    version: 'v0.2.4.1',
+    version: 'v0.2.4',
     date: 'June 23, 2026',
     tag: 'minor',
     summary:
