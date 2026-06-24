@@ -53,6 +53,7 @@ pub fn run(cli: SetupCli) -> std::result::Result<(), GuiUnavailable> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([920.0, 640.0])
         .with_min_inner_size([720.0, 540.0])
+        .with_decorations(false)
         .with_title(format!("Ven Setup v{}", env!("CARGO_PKG_VERSION")));
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
@@ -213,30 +214,128 @@ impl eframe::App for VenSetupApp {
 }
 
 // ---------------------------------------------------------------------------
-// Top header — logo + "Ven Setup" + version pill + step indicator.
+// Custom title bar — logo + title + drag + minimize/close.
 // ---------------------------------------------------------------------------
 
 fn draw_header(ctx: &egui::Context, state: &WizardState) {
-    egui::TopBottomPanel::top("header")
+    egui::TopBottomPanel::top("title_bar")
         .resizable(false)
-        .min_height(64.0)
+        .min_height(40.0)
         .frame(
             egui::Frame::none()
                 .fill(theme::PANEL)
-                .inner_margin(egui::Margin::symmetric(20.0, 12.0)),
+                .inner_margin(egui::Margin::symmetric(12.0, 0.0)),
         )
         .show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if let Some(tex) = &state.logo_texture {
-                    ui.image((tex.id(), egui::vec2(28.0, 28.0)));
-                    ui.add_space(8.0);
-                }
-                ui.label(theme::subheading("Ven Setup"));
-                ui.add_space(8.0);
-                widgets::version_pill(ui, env!("CARGO_PKG_VERSION"));
+            let height = 40.0;
+            let avail = ui.available_rect_before_wrap();
+            let rect = egui::Rect::from_min_size(
+                egui::pos2(avail.left(), avail.top()),
+                egui::vec2(avail.width(), height),
+            );
+
+            // Drag-to-move on the entire title bar.
+            let drag_id = ui.next_auto_id();
+            if ui.interact(rect, drag_id, egui::Sense::click()).is_pointer_button_down_on() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+            }
+
+            let painter = ui.painter();
+
+            // Logo
+            if let Some(tex) = &state.logo_texture {
+                painter.image(
+                    tex.id(),
+                    egui::Rect::from_min_size(
+                        egui::pos2(rect.left(), rect.center().y - 14.0),
+                        egui::vec2(28.0, 28.0),
+                    ),
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+            }
+
+            // Title
+            let title_pos = egui::pos2(rect.left() + 36.0, rect.center().y);
+            painter.text(
+                title_pos,
+                egui::Align2::LEFT_CENTER,
+                "Ven Setup",
+                egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                theme::TEXT,
+            );
+
+            // Version badge (painted, not a widget)
+            let ver = format!("v{}", env!("CARGO_PKG_VERSION"));
+            let ver_font = egui::FontId::new(theme::SIZE_CAPTION, egui::FontFamily::Proportional);
+            let ver_galley = painter.layout_no_wrap(ver, ver_font, theme::ACCENT);
+            let badge_pad = egui::vec2(6.0, 2.0);
+            let badge_min = egui::pos2(
+                rect.left() + 36.0
+                    + ui.fonts(|f| {
+                        f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'V',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'e',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'n',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            ' ',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'S',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'e',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            't',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'u',
+                        ) + f.glyph_width(
+                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            'p',
+                        )
+                    })
+                        + 8.0,
+                rect.center().y - ver_galley.size().y / 2.0,
+            );
+            let badge_rect = egui::Rect::from_min_size(
+                badge_min,
+                ver_galley.size() + badge_pad * 2.0,
+            );
+            painter.rect(
+                badge_rect,
+                egui::Rounding::same(3.0),
+                theme::ACCENT.linear_multiply(0.15),
+                egui::Stroke::new(1.0, theme::ACCENT.linear_multiply(0.3)),
+            );
+            painter.galley(
+                badge_min + badge_pad,
+                ver_galley,
+                theme::ACCENT,
+            );
+
+            // Right side: step label + minimize + close buttons.
+            let right_rect = egui::Rect::from_min_size(
+                egui::pos2(rect.right() - 180.0, rect.top()),
+                egui::vec2(180.0, height),
+            );
+            ui.allocate_ui_at_rect(right_rect, |ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let step_idx = state.screen.index();
-                    ui.label(theme::caption(format!("Step {step_idx} of 7")));
+                    if widgets::close_button(ui).clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                    if widgets::minimize_button(ui).clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                    }
+                    ui.add_space(8.0);
+                    ui.label(theme::caption(format!("Step {} of 7", state.screen.index())));
                 });
             });
         });
