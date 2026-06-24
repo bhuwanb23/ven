@@ -262,7 +262,10 @@ fn draw_header(ctx: &egui::Context, state: &WizardState) {
 
             // Drag-to-move on the entire title bar.
             let drag_id = ui.next_auto_id();
-            if ui.interact(rect, drag_id, egui::Sense::click()).is_pointer_button_down_on() {
+            if ui
+                .interact(rect, drag_id, egui::Sense::click())
+                .is_pointer_button_down_on()
+            {
                 ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
             }
 
@@ -297,55 +300,77 @@ fn draw_header(ctx: &egui::Context, state: &WizardState) {
             let ver_galley = painter.layout_no_wrap(ver, ver_font, theme::ACCENT);
             let badge_pad = egui::vec2(6.0, 2.0);
             let badge_min = egui::pos2(
-                rect.left() + 36.0
+                rect.left()
+                    + 36.0
                     + ui.fonts(|f| {
                         f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'V',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'e',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'n',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             ' ',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'S',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'e',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             't',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'u',
                         ) + f.glyph_width(
-                            &egui::FontId::new(theme::SIZE_SUBHEADING, egui::FontFamily::Proportional),
+                            &egui::FontId::new(
+                                theme::SIZE_SUBHEADING,
+                                egui::FontFamily::Proportional,
+                            ),
                             'p',
                         )
                     })
-                        + 8.0,
+                    + 8.0,
                 rect.center().y - ver_galley.size().y / 2.0,
             );
-            let badge_rect = egui::Rect::from_min_size(
-                badge_min,
-                ver_galley.size() + badge_pad * 2.0,
-            );
+            let badge_rect =
+                egui::Rect::from_min_size(badge_min, ver_galley.size() + badge_pad * 2.0);
             painter.rect(
                 badge_rect,
                 egui::Rounding::same(3.0),
                 theme::ACCENT.linear_multiply(0.15),
                 egui::Stroke::new(1.0, theme::ACCENT.linear_multiply(0.3)),
             );
-            painter.galley(
-                badge_min + badge_pad,
-                ver_galley,
-                theme::ACCENT,
-            );
+            painter.galley(badge_min + badge_pad, ver_galley, theme::ACCENT);
 
             // Right side: step label + minimize + close buttons.
             let right_rect = egui::Rect::from_min_size(
@@ -361,7 +386,10 @@ fn draw_header(ctx: &egui::Context, state: &WizardState) {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                     }
                     ui.add_space(8.0);
-                    ui.label(theme::caption(format!("Step {} of 7", state.screen.index())));
+                    ui.label(theme::caption(format!(
+                        "Step {} of 7",
+                        state.screen.index()
+                    )));
                 });
             });
         });
