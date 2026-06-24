@@ -191,7 +191,7 @@ fn draw_cancel_modal(ctx: &egui::Context, state: &mut WizardState) -> NavAction 
 // ---------------------------------------------------------------------------
 
 fn welcome(ui: &mut Ui, state: &mut WizardState) {
-    ui.add_space(48.0);
+    ui.add_space((ui.available_height() * 0.15).max(24.0));
     widgets::hero_logo(ui, state.logo_texture.as_ref(), 96.0);
     ui.add_space(20.0);
     ui.vertical_centered(|ui| {
@@ -713,7 +713,7 @@ fn paint_x_glyph(painter: &egui::Painter, center: egui::Pos2, scale: f32, color:
 
 fn done(ui: &mut Ui, state: &WizardState) {
     let success = state.progress.success;
-    ui.add_space(48.0);
+    ui.add_space((ui.available_height() * 0.15).max(24.0));
 
     ui.vertical_centered(|ui| {
         widgets::check_circle(ui, success, 96.0);
