@@ -76,7 +76,7 @@ pub fn draw_nav(ui: &mut Ui, state: &mut WizardState, ctx: &egui::Context) -> Na
             ui.add_enabled_ui(has_prev, |ui| {
                 if widgets::text_button(ui, "Back").clicked() {
                     if let Some(prev) = state.screen.prev() {
-                        state.screen = prev;
+                        state.set_screen(prev);
                     }
                 }
             });
@@ -137,7 +137,7 @@ pub fn draw_nav(ui: &mut Ui, state: &mut WizardState, ctx: &egui::Context) -> Na
                 if on_review {
                     action = NavAction::StartInstall;
                 } else if let Some(next) = state.screen.next() {
-                    state.screen = next;
+                    state.set_screen(next);
                 }
             }
 

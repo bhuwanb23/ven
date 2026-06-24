@@ -282,6 +282,8 @@ pub struct WizardState {
     pub logo_texture: Option<egui::TextureHandle>,
     pub dry_run: bool,
     pub window_centered: bool,
+    pub fading: bool,
+    pub fade_progress: f32,
 }
 
 impl WizardState {
@@ -303,6 +305,16 @@ impl WizardState {
             logo_texture: None,
             dry_run,
             window_centered: false,
+            fading: false,
+            fade_progress: 0.0,
+        }
+    }
+
+    pub fn set_screen(&mut self, screen: Screen) {
+        if self.screen != screen {
+            self.screen = screen;
+            self.fading = true;
+            self.fade_progress = 0.0;
         }
     }
 

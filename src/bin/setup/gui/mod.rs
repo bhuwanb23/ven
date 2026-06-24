@@ -134,7 +134,7 @@ impl VenSetupApp {
             );
             self.state.progress.apply_event(&ev);
             if finished {
-                self.state.screen = Screen::Done;
+                self.state.set_screen(Screen::Done);
                 if self.state.progress.success {
                     self.state.done_message = self.state.progress.ven_version.clone();
                 }
@@ -145,7 +145,7 @@ impl VenSetupApp {
     fn start_install(&mut self) {
         self.state.progress = state::ProgressState::new_empty();
         self.state.progress_rx = Some(worker::spawn_install(&self.state));
-        self.state.screen = Screen::Progress;
+        self.state.set_screen(Screen::Progress);
     }
 
     fn show_step_rail(&self) -> bool {
@@ -168,6 +168,25 @@ impl eframe::App for VenSetupApp {
             self.state.window_centered = true;
         }
 
+        // Fade transition animation.
+        let mut fading_now = self.state.fading;
+        if self.state.fading {
+            let dt = ctx.input(|i| i.unstable_dt);
+            self.state.fade_progress = (self.state.fade_progress + dt / 0.15).min(1.0);
+            if self.state.fade_progress >= 1.0 {
+                self.state.fading = false;
+                fading_now = false;
+            }
+            ctx.request_repaint_after(std::time::Duration::from_millis(16));
+        }
+
+        let opacity = if fading_now {
+            let t = (self.state.fade_progress * 2.0 - 1.0).abs();
+            t * 0.3 + 0.7
+        } else {
+            1.0
+        };
+
         self.ensure_logo(ctx);
         if self.state.screen == Screen::Progress {
             self.poll_progress();
@@ -179,7 +198,7 @@ impl eframe::App for VenSetupApp {
         }
 
         if self.show_step_rail() {
-            draw_step_rail(ctx, &self.state);
+            draw_step_rail(ctx, &self.state, opacity);
         }
 
         let nav_action = std::cell::Cell::new(NavAction::None);
@@ -198,6 +217,7 @@ impl eframe::App for VenSetupApp {
                     .inner_margin(egui::Margin::symmetric(32.0, 24.0)),
             )
             .show(ctx, |ui| {
+                ui.set_opacity(opacity);
                 egui::ScrollArea::vertical()
                     .auto_shrink([false; 2])
                     .show(ui, |ui| {
@@ -345,7 +365,7 @@ fn draw_header(ctx: &egui::Context, state: &WizardState) {
 // Left step rail — vertical list of all wizard steps with status dots.
 // ---------------------------------------------------------------------------
 
-fn draw_step_rail(ctx: &egui::Context, state: &WizardState) {
+fn draw_step_rail(ctx: &egui::Context, state: &WizardState, opacity: f32) {
     egui::SidePanel::left("steps")
         .resizable(false)
         .exact_width(220.0)
@@ -355,6 +375,7 @@ fn draw_step_rail(ctx: &egui::Context, state: &WizardState) {
                 .inner_margin(egui::Margin::symmetric(12.0, 16.0)),
         )
         .show(ctx, |ui| {
+            ui.set_opacity(opacity);
             ui.add_space(4.0);
             ui.label(theme::caption("INSTALLATION"));
             ui.add_space(8.0);
