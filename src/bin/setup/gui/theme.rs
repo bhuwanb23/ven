@@ -302,5 +302,24 @@ fn install_styles(ctx: &egui::Context) {
     style.spacing.window_margin = egui::Margin::same(0.0);
     style.spacing.menu_margin = egui::Margin::same(8.0);
 
+    // Smoother scrollbar: thin floating bars that appear on hover.
+    use egui::style::ScrollStyle;
+    style.spacing.scroll = ScrollStyle {
+        floating: true,
+        bar_width: 4.0,
+        floating_width: 3.0,
+        floating_allocated_width: 4.0,
+        handle_min_length: 24.0,
+        bar_inner_margin: 2.0,
+        bar_outer_margin: 0.0,
+        foreground_color: true,
+        dormant_background_opacity: 0.0,
+        active_background_opacity: 0.3,
+        interact_background_opacity: 0.5,
+        dormant_handle_opacity: 0.0,
+        active_handle_opacity: 0.5,
+        interact_handle_opacity: 0.8,
+    };
+
     ctx.set_style(style);
 }

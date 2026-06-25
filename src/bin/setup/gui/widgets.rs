@@ -475,7 +475,9 @@ pub fn card<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::In
 }
 
 /// Render a centered label inside a small "pill" frame — used by the
-/// header for the version tag.
+/// header for the version tag. Currently unused: the title bar now paints the
+/// version badge directly via the painter for precise layout with the logo.
+#[expect(dead_code)]
 pub fn version_pill(ui: &mut Ui, version: &str) -> Response {
     let label = format!("v{version}");
     let size = vec2(72.0, 22.0);
@@ -543,6 +545,48 @@ pub fn footer_row(ui: &mut Ui, add_left: impl FnOnce(&mut Ui), add_right: impl F
             add_right(ui);
         });
     });
+}
+
+/// Title bar button — small square for minimize/close in the custom title bar.
+pub fn title_bar_button(
+    ui: &mut Ui,
+    label: &str,
+    size: Vec2,
+    hover_bg: Color32,
+    fg: Color32,
+) -> Response {
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let painter = ui.painter();
+    let bg = if response.hovered() {
+        hover_bg
+    } else {
+        Color32::TRANSPARENT
+    };
+    painter.rect_filled(rect, 0.0, bg);
+    painter.text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        label,
+        FontId::new(theme::SIZE_BODY, egui::FontFamily::Proportional),
+        fg,
+    );
+    response
+}
+
+/// Close/X button for the custom title bar.
+pub fn close_button(ui: &mut Ui) -> Response {
+    title_bar_button(
+        ui,
+        "✕",
+        vec2(40.0, 36.0),
+        theme::ERROR.linear_multiply(0.7),
+        theme::TEXT,
+    )
+}
+
+/// Minimize button for the custom title bar.
+pub fn minimize_button(ui: &mut Ui) -> Response {
+    title_bar_button(ui, "—", vec2(40.0, 36.0), theme::CARD_HOVER, theme::MUTED)
 }
 
 /// Helper used by the Review screen — renders a `(label, value)`

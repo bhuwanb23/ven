@@ -31,7 +31,7 @@ const FAQ = [
   },
   {
     q: 'Is there a GUI?',
-    a: 'The day-to-day `ven` CLI stays terminal-first. Since v0.2.0, `ven-setup` ships a native GUI wizard (install mode, storage path, PATH/hook toggles, optional runtime pre-install). v0.2.1 adds a full visual redesign — branded cyan theme, left step rail, option cards, and no stray console window on Windows. Use `ven-setup --cli` for SSH, CI, or headless servers.',
+    a: 'The day-to-day `ven` CLI stays terminal-first. Since v0.2.0, `ven-setup` ships a native GUI wizard (install mode, storage path, PATH/hook toggles, optional runtime pre-install). v0.2.5 adds a custom title bar, fade transitions between screens, vertical centering, and a floating scrollbar. Use `ven-setup --cli` for SSH, CI, or headless servers.',
   },
   {
     q: 'How is it different from mise / asdf?',
@@ -74,7 +74,7 @@ const KIND_META = {
   setup: {
     label: 'Standalone installer',
     tagline:
-      'Self-contained ven-setup opens an eight-screen GUI wizard (v0.2.3): branded theme, left step rail, option cards, storage path, PATH/hook toggles, optional runtime pre-install, live progress. UAC on Windows, sudo on Unix. Use --cli for headless/SSH.',
+      'Self-contained ven-setup opens an eight-screen GUI wizard (v0.2.5): custom title bar, fade transitions, polished footer, floating scrollbar, branded cyan theme, left step rail, option cards, storage path, PATH/hook toggles, optional runtime pre-install, live progress. UAC on Windows, sudo on Unix. Use --cli for headless/SSH.',
     accent: 'text-tertiary-fixed-dim',
   },
 }
@@ -812,7 +812,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.2.3 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.2.5 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>
