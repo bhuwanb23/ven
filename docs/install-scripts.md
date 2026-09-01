@@ -4,7 +4,9 @@
 
 > **Supported shells**: bash, zsh, fish, PowerShell (5.1+ and 7+). Windows `cmd.exe` is **not** supported — run `install.ps1` from PowerShell. The shell hooks installed by `ven setup` likewise target bash/zsh/fish/PowerShell only.
 
-## One-liners### Windows (PowerShell 5.1+)
+## One-liners
+
+### Windows (PowerShell 5.1+)
 
 ```powershell
 # user install, interactive prompt if a TTY is attached

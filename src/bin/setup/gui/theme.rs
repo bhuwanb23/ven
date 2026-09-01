@@ -240,15 +240,15 @@ fn install_visuals(ctx: &egui::Context) {
     visuals.widgets.open.bg_fill = CARD_HOVER;
 
     // Borders — hairline rules everywhere, accent on focus.
-    let hairline = egui::Stroke::new(1.0, BORDER);
+    let hairline = egui::Stroke::new(1.0_f32, BORDER);
     visuals.widgets.noninteractive.bg_stroke = hairline;
     visuals.widgets.inactive.bg_stroke = hairline;
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, BORDER_ACTIVE);
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.5, BORDER_ACTIVE);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, BORDER_ACTIVE);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.5_f32, BORDER_ACTIVE);
 
     // Selection (text input drag, list row highlight).
     visuals.selection.bg_fill = ACCENT.linear_multiply(0.35);
-    visuals.selection.stroke = egui::Stroke::new(1.0, ACCENT);
+    visuals.selection.stroke = egui::Stroke::new(1.0_f32, ACCENT);
 
     // Window shadows — used by the cancel-confirm modal.
     visuals.popup_shadow = egui::epaint::Shadow {

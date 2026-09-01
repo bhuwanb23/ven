@@ -208,7 +208,7 @@ impl eframe::App for VenSetupApp {
             .frame(
                 egui::Frame::none()
                     .fill(theme::PANEL)
-                    .stroke(egui::Stroke::new(1.0, theme::BORDER))
+                    .stroke(egui::Stroke::new(1.0_f32, theme::BORDER))
                     .inner_margin(egui::Margin::symmetric(24.0, 0.0)),
             )
             .show(ctx, |ui| {
@@ -368,7 +368,7 @@ fn draw_header(ctx: &egui::Context, state: &WizardState) {
                 badge_rect,
                 egui::Rounding::same(3.0),
                 theme::ACCENT.linear_multiply(0.15),
-                egui::Stroke::new(1.0, theme::ACCENT.linear_multiply(0.3)),
+                egui::Stroke::new(1.0_f32, theme::ACCENT.linear_multiply(0.3)),
             );
             painter.galley(badge_min + badge_pad, ver_galley, theme::ACCENT);
 

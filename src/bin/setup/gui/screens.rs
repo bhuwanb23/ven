@@ -160,7 +160,7 @@ fn draw_cancel_modal(ctx: &egui::Context, state: &mut WizardState) -> NavAction 
         .frame(
             egui::Frame::window(&ctx.style())
                 .fill(theme::CARD)
-                .stroke(Stroke::new(1.0, theme::BORDER))
+                .stroke(Stroke::new(1.0_f32, theme::BORDER))
                 .rounding(theme::RADIUS_CARD)
                 .inner_margin(20.0),
         )
@@ -653,7 +653,7 @@ fn draw_step_icon(ui: &mut Ui, status: &StepStatus) {
     let painter = ui.painter();
     match status {
         StepStatus::Pending => {
-            painter.circle_stroke(center, 9.0, Stroke::new(1.5, theme::BORDER));
+            painter.circle_stroke(center, 9.0, Stroke::new(1.5_f32, theme::BORDER));
         }
         StepStatus::Running => {
             // Real spinner — paint over the same 18×18 cell.
@@ -693,8 +693,8 @@ fn paint_check_glyph(
     let p1 = center + Vec2::new(-scale * 0.7, scale * 0.1);
     let p2 = center + Vec2::new(-scale * 0.2, scale * 0.6);
     let p3 = center + Vec2::new(scale * 0.7, -scale * 0.5);
-    painter.line_segment([p1, p2], Stroke::new(1.5, color));
-    painter.line_segment([p2, p3], Stroke::new(1.5, color));
+    painter.line_segment([p1, p2], Stroke::new(1.5_f32, color));
+    painter.line_segment([p2, p3], Stroke::new(1.5_f32, color));
 }
 
 fn paint_x_glyph(painter: &egui::Painter, center: egui::Pos2, scale: f32, color: egui::Color32) {
@@ -702,8 +702,8 @@ fn paint_x_glyph(painter: &egui::Painter, center: egui::Pos2, scale: f32, color:
     let p1b = center + Vec2::new(scale, scale);
     let p2a = center + Vec2::new(-scale, scale);
     let p2b = center + Vec2::new(scale, -scale);
-    painter.line_segment([p1a, p1b], Stroke::new(1.5, color));
-    painter.line_segment([p2a, p2b], Stroke::new(1.5, color));
+    painter.line_segment([p1a, p1b], Stroke::new(1.5_f32, color));
+    painter.line_segment([p2a, p2b], Stroke::new(1.5_f32, color));
 }
 
 // ---------------------------------------------------------------------------

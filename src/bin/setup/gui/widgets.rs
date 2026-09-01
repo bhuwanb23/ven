@@ -150,7 +150,7 @@ fn outline_button(ui: &mut Ui, label: impl Into<String>, size: Vec2) -> Response
         Color32::TRANSPARENT
     };
     painter.rect_filled(rect, theme::RADIUS_CONTROL, fill);
-    painter.rect_stroke(rect, theme::RADIUS_CONTROL, Stroke::new(1.5, stroke_color));
+    painter.rect_stroke(rect, theme::RADIUS_CONTROL, Stroke::new(1.5_f32, stroke_color));
     painter.text(
         rect.center(),
         Align2::CENTER_CENTER,
@@ -210,7 +210,7 @@ pub fn option_card(
     } else {
         theme::BORDER
     };
-    let stroke_width = if selected { 2.0 } else { 1.0 };
+    let stroke_width = if selected { 2.0_f32 } else { 1.0_f32 };
 
     painter.rect_filled(rect, theme::RADIUS_CARD, fill);
     painter.rect_stroke(
@@ -265,10 +265,10 @@ fn paint_indicator(painter: &egui::Painter, center: egui::Pos2, selected: bool) 
         let p1 = center + vec2(-3.5, 0.5);
         let p2 = center + vec2(-1.0, 3.0);
         let p3 = center + vec2(4.0, -2.5);
-        painter.line_segment([p1, p2], Stroke::new(1.8, Color32::BLACK));
-        painter.line_segment([p2, p3], Stroke::new(1.8, Color32::BLACK));
+        painter.line_segment([p1, p2], Stroke::new(1.8_f32, Color32::BLACK));
+        painter.line_segment([p2, p3], Stroke::new(1.8_f32, Color32::BLACK));
     } else {
-        painter.circle_stroke(center, radius, Stroke::new(1.5, theme::BORDER));
+        painter.circle_stroke(center, radius, Stroke::new(1.5_f32, theme::BORDER));
     }
 }
 
@@ -322,7 +322,7 @@ pub fn step_rail_row(ui: &mut Ui, idx: usize, status: StepRailStatus, label: &st
             );
         }
         StepRailStatus::Upcoming => {
-            painter.circle_stroke(bullet_center, 10.0, Stroke::new(1.0, theme::BORDER));
+            painter.circle_stroke(bullet_center, 10.0, Stroke::new(1.0_f32, theme::BORDER));
             painter.text(
                 bullet_center,
                 Align2::CENTER_CENTER,
@@ -352,8 +352,8 @@ fn paint_check_glyph(painter: &egui::Painter, center: egui::Pos2, scale: f32, co
     let p1 = center + vec2(-scale * 0.7, scale * 0.1);
     let p2 = center + vec2(-scale * 0.2, scale * 0.6);
     let p3 = center + vec2(scale * 0.7, -scale * 0.5);
-    painter.line_segment([p1, p2], Stroke::new(1.6, color));
-    painter.line_segment([p2, p3], Stroke::new(1.6, color));
+    painter.line_segment([p1, p2], Stroke::new(1.6_f32, color));
+    painter.line_segment([p2, p3], Stroke::new(1.6_f32, color));
 }
 
 // ---------------------------------------------------------------------------
@@ -468,7 +468,7 @@ pub fn check_circle(ui: &mut Ui, success: bool, size: f32) {
 pub fn card<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
     egui::Frame::none()
         .fill(theme::CARD)
-        .stroke(Stroke::new(1.0, theme::BORDER))
+        .stroke(Stroke::new(1.0_f32, theme::BORDER))
         .inner_margin(theme::CARD_PADDING)
         .rounding(theme::RADIUS_CARD)
         .show(ui, add_contents)
@@ -491,7 +491,7 @@ pub fn version_pill(ui: &mut Ui, version: &str) -> Response {
     painter.rect_stroke(
         rect,
         theme::RADIUS_CONTROL,
-        Stroke::new(1.0, theme::ACCENT.linear_multiply(0.5)),
+        Stroke::new(1.0_f32, theme::ACCENT.linear_multiply(0.5)),
     );
     painter.text(
         rect.center(),
@@ -522,7 +522,7 @@ pub fn footer_padding(ui: &mut Ui) {
             ui.cursor().min,
             egui::pos2(ui.cursor().min.x + ui.available_width(), ui.cursor().min.y),
         ],
-        Stroke::new(1.0, theme::BORDER),
+        Stroke::new(1.0_f32, theme::BORDER),
     );
     ui.add_space(8.0);
 }
@@ -609,7 +609,7 @@ pub fn summary_row(ui: &mut Ui, label: &str, value: &str) {
             egui::pos2(sep_rect.left(), sep_rect.center().y),
             egui::pos2(sep_rect.right(), sep_rect.center().y),
         ],
-        Stroke::new(1.0, theme::BORDER.linear_multiply(0.5)),
+        Stroke::new(1.0_f32, theme::BORDER.linear_multiply(0.5)),
     );
     ui.add_space(6.0);
 }
@@ -622,7 +622,7 @@ pub fn big_progress_bar(ui: &mut Ui, fraction: f32, height: f32) -> Rect {
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     let painter = ui.painter();
     painter.rect_filled(rect, theme::RADIUS_CONTROL, theme::CARD);
-    painter.rect_stroke(rect, theme::RADIUS_CONTROL, Stroke::new(1.0, theme::BORDER));
+    painter.rect_stroke(rect, theme::RADIUS_CONTROL, Stroke::new(1.0_f32, theme::BORDER));
     let fill_width = (rect.width() * fraction.clamp(0.0, 1.0)).max(0.0);
     let fill_rect = Rect::from_min_size(rect.min, vec2(fill_width, rect.height()));
     if fill_width > 1.0 {
