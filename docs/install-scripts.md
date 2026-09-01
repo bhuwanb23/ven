@@ -4,39 +4,38 @@
 
 > **Supported shells**: bash, zsh, fish, PowerShell (5.1+ and 7+). Windows `cmd.exe` is **not** supported — run `install.ps1` from PowerShell. The shell hooks installed by `ven setup` likewise target bash/zsh/fish/PowerShell only.
 
-## One-liners
-
-### Windows (PowerShell 5.1+)
+## One-liners### Windows (PowerShell 5.1+)
 
 ```powershell
 # user install, interactive prompt if a TTY is attached
-irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
 
 # explicit modes via env var
-$env:VEN_INSTALL_MODE='user';   irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
-$env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+$env:VEN_INSTALL_MODE='user';   irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
+$env:VEN_INSTALL_MODE='system'; irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
 
 # explicit modes via params (download-then-eval form)
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1))) -Mode system -Version v0.1.0
+& ([scriptblock]::Create((irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1))) -Mode system -Version v0.1.0
+
 ```
 
 ### Linux / macOS
 
 ```sh
 # user install
-curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
 
 # explicit modes via flag (note the `--` separator after `sh -s`)
-curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode user
-sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system"
+curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh -s -- --mode user
+sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh -s -- --mode system"
 
 # explicit modes via env var
-VEN_INSTALL_MODE=user curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+VEN_INSTALL_MODE=user curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
 ```
 
 ### Future short host
 
-A short `get.ven.sh` host will be wired up once the domain is provisioned; until then the `raw.githubusercontent.com` URLs above are the canonical entry points.
+The install scripts are downloaded from GitHub Releases, so they work in corporate environments where `raw.githubusercontent.com` is blocked.
 
 ## Config surface
 

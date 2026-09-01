@@ -198,10 +198,10 @@ repo can be curled directly:
 
 ```bash
 # Unix
-curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/uninstall.sh | sh
+curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/uninstall.sh | sh
 
 # Windows
-irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/uninstall.ps1 | iex
+irm https://github.com/bhuwanb23/ven/releases/latest/download/uninstall.ps1 | iex
 ```
 
 ## Related

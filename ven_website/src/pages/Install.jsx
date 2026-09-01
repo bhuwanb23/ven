@@ -879,7 +879,7 @@ export default function Install() {
               </header>
               <CodeBlock
                 code={
-                  'powershell\n$env:VEN_FORCE_INSTALL = \'true\'\nirm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex\n\n# Unix\nVEN_FORCE_INSTALL=true curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh'
+                  'powershell\n$env:VEN_FORCE_INSTALL = \'true\'\nirm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex\n\n# Unix\nVEN_FORCE_INSTALL=true curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh'
                 }
                 prompt=""
                 tone="cyan"

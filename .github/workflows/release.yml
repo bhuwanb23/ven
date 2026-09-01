@@ -226,6 +226,12 @@ jobs:
           Copy-Item "$src/ven-setup.exe" `
             (Join-Path $dist "ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}.exe")
 
+          # Bundle the install scripts as release assets so users behind
+          # Zscaler / corporate proxies can download from GitHub Releases
+          # instead of raw.githubusercontent.com.
+          Copy-Item "scripts/install.ps1" (Join-Path $dist "install.ps1")
+          Copy-Item "scripts/install.sh"  (Join-Path $dist "install.sh")
+
           # Per-asset sha256 sidecars
           Get-ChildItem $dist -File | Where-Object { $_.Extension -ne '.sha256' } | ForEach-Object {
             $hash = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLower()
@@ -322,6 +328,12 @@ jobs:
 
           install -m 0755 "$src/ven-setup" \
             "$dist/ven-setup-${{ matrix.os_label }}-${{ matrix.arch }}"
+
+          # Bundle the install scripts as release assets so users behind
+          # Zscaler / corporate proxies can download from GitHub Releases
+          # instead of raw.githubusercontent.com.
+          cp scripts/install.ps1 "$dist/install.ps1"
+          cp scripts/install.sh  "$dist/install.sh"
 
           # Per-asset sha256 sidecars (prefer sha256sum, fall back to shasum)
           shacmd() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi }

@@ -8,14 +8,14 @@
   the install steps in PowerShell when only a raw-binary zip is available.
 
   Usage (piped, env-var config):
-    irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
-    $env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+    irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
+    $env:VEN_INSTALL_MODE='system'; irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
 
   Usage (param-style):
-    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1))) -Mode system -Version v0.1.0
+    & ([scriptblock]::Create((irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1))) -Mode system -Version v0.1.0
 
   Reinstall over an existing copy (skip the prompt):
-    $env:VEN_FORCE_INSTALL='true'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+    $env:VEN_FORCE_INSTALL='true'; irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
     pwsh -NoProfile -File scripts\install.ps1 -Force      # local
 
   Local invocation:

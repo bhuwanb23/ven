@@ -243,10 +243,10 @@ The portable launcher bundle is the new addition: download the asset, extract an
 **Windows (PowerShell 5.1+)**
 ```powershell
 # user install (interactive prompt if TTY; defaults to "user" when piped)
-irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
 
 # explicit system install
-$env:VEN_INSTALL_MODE='system'; irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+$env:VEN_INSTALL_MODE='system'; irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
 ```
 
 **Windows (offline / corporate — bundled installer)**
@@ -263,13 +263,13 @@ See [docs/cmds/ven-setup.md](docs/cmds/ven-setup.md) and [docs/cmds/ven-setup-gu
 **macOS / Linux**
 ```bash
 # user install
-curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
 
 # system install (requires sudo on Unix; no UAC equivalent)
-sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system"
+sudo VEN_INSTALL_MODE=system bash -c "curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh -s -- --mode system"
 ```
 
-> The full env-var / flag surface and the release asset naming contract live in [docs/install-scripts.md](docs/install-scripts.md). A short `get.ven.sh` host will be wired up once the domain is provisioned; until then the `raw.githubusercontent.com` URLs above are the canonical entry points.
+> The full env-var / flag surface and the release asset naming contract live in [docs/install-scripts.md](docs/install-scripts.md). The install scripts are downloaded from GitHub Releases, so they work in corporate environments where `raw.githubusercontent.com` is blocked.
 
 **From source (Rust)**
 ```bash

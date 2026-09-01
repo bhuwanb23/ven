@@ -23,7 +23,7 @@
 # Idempotent: re-running after a partial uninstall converges to clean.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/uninstall.sh | sh
+#   curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/uninstall.sh | sh
 #   # ── OR after a successful install ──
 #   "$HOME/.ven/bin/ven-uninstall"
 #

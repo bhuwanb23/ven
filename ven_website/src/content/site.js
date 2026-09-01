@@ -23,11 +23,10 @@ export const DISCUSSIONS_URL = `${GITHUB_URL}/discussions`
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`
 export const REQUEST_LANGUAGE_URL = `${ISSUES_URL}/new?labels=runtime-request`
 
-// Until `get.ven.sh` is provisioned, the install one-liners hit
-// `raw.githubusercontent.com` directly so they resolve on day one of the
-// release. Swap to the short domain in this single place once it's live.
-const INSTALL_PS1_URL = `https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1`
-const INSTALL_SH_URL = `https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh`
+// Install one-liners download from GitHub Releases so they work in corporate
+// environments where raw.githubusercontent.com is blocked.
+const INSTALL_PS1_URL = `https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1`
+const INSTALL_SH_URL = `https://github.com/bhuwanb23/ven/releases/latest/download/install.sh`
 
 export const INSTALL = {
   windows: {

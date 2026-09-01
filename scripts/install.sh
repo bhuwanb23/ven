@@ -4,12 +4,12 @@
 # One-liner installer for ven on Linux / macOS.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
-#   curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh -s -- --mode system
-#   VEN_INSTALL_MODE=system curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+#   curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
+#   curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh -s -- --mode system
+#   VEN_INSTALL_MODE=system curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
 #
 # Reinstall over an existing copy:
-#   VEN_FORCE_INSTALL=true curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+#   VEN_FORCE_INSTALL=true curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
 #   ./install.sh --force            # local invocation, same effect
 #
 # Mirrors src/bin/setup/unix.rs. Keep the rc-file / /etc/profile.d logic here

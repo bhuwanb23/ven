@@ -28,12 +28,12 @@ It is the canonical upgrade path once ven is installed. The command:
 ```powershell
 # Windows (elevated PowerShell for system mode)
 $env:VEN_FORCE_INSTALL = 'true'
-irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.ps1 | iex
+irm https://github.com/bhuwanb23/ven/releases/latest/download/install.ps1 | iex
 ```
 
 ```bash
 # Linux / macOS
-VEN_FORCE_INSTALL=true curl -fsSL https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/install.sh | sh
+VEN_FORCE_INSTALL=true curl -fsSL https://github.com/bhuwanb23/ven/releases/latest/download/install.sh | sh
 ```
 
 Or download `ven-setup-{os}-{arch}` from the [releases](https://github.com/bhuwanb23/ven/releases) page.

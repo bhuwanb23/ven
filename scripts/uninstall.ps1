@@ -26,7 +26,7 @@
 #
 # ## Usage
 #
-#   irm https://raw.githubusercontent.com/bhuwanb23/ven/main/scripts/uninstall.ps1 | iex
+#   irm https://github.com/bhuwanb23/ven/releases/latest/download/uninstall.ps1 | iex
 #   # ── OR after a successful install ──
 #   & "$env:USERPROFILE\.ven\bin\ven-uninstall.ps1"
 #
