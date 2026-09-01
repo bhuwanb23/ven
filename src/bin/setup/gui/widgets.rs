@@ -150,7 +150,11 @@ fn outline_button(ui: &mut Ui, label: impl Into<String>, size: Vec2) -> Response
         Color32::TRANSPARENT
     };
     painter.rect_filled(rect, theme::RADIUS_CONTROL, fill);
-    painter.rect_stroke(rect, theme::RADIUS_CONTROL, Stroke::new(1.5_f32, stroke_color));
+    painter.rect_stroke(
+        rect,
+        theme::RADIUS_CONTROL,
+        Stroke::new(1.5_f32, stroke_color),
+    );
     painter.text(
         rect.center(),
         Align2::CENTER_CENTER,
@@ -622,7 +626,11 @@ pub fn big_progress_bar(ui: &mut Ui, fraction: f32, height: f32) -> Rect {
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     let painter = ui.painter();
     painter.rect_filled(rect, theme::RADIUS_CONTROL, theme::CARD);
-    painter.rect_stroke(rect, theme::RADIUS_CONTROL, Stroke::new(1.0_f32, theme::BORDER));
+    painter.rect_stroke(
+        rect,
+        theme::RADIUS_CONTROL,
+        Stroke::new(1.0_f32, theme::BORDER),
+    );
     let fill_width = (rect.width() * fraction.clamp(0.0, 1.0)).max(0.0);
     let fill_rect = Rect::from_min_size(rect.min, vec2(fill_width, rect.height()));
     if fill_width > 1.0 {
