@@ -1,4 +1,6 @@
-use crate::shell::{detect_shell, has_ven_hook, windows_powershell_profile_paths, HOOK_MARKER};
+use crate::shell::{
+    detect_shell, has_ven_hook, strip_legacy_hook, windows_powershell_profile_paths, HOOK_MARKER,
+};
 use anyhow::Result;
 use colored::Colorize;
 use std::io::Write;
@@ -41,22 +43,20 @@ if ($_ven) {{\n\
                 );
                 continue;
             }
-            if has_ven_hook(&existing) {
+            let cleaned = if has_ven_hook(&existing) {
                 println!(
                     "  {} {}",
-                    "!".yellow(),
-                    format!("Detected older ven hook in {}. Remove the old block and re-run `ven setup` to upgrade.", rc_file.display()).dimmed()
+                    "🔧".cyan(),
+                    format!("Replacing older ven hook in {}...", rc_file.display()).dimmed()
                 );
-                continue;
-            }
+                strip_legacy_hook(&existing)
+            } else {
+                existing
+            };
             if let Some(parent) = rc_file.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            let mut file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&rc_file)?;
-            writeln!(file, "{}", hook_block)?;
+            std::fs::write(&rc_file, format!("{}{}", cleaned.trim(), hook_block))?;
             println!(
                 "  {} {}",
                 "✓".green(),
@@ -102,24 +102,22 @@ if ($_ven) {{\n\
         );
         return Ok(());
     }
-    if has_ven_hook(&existing) {
+    let cleaned = if has_ven_hook(&existing) {
         println!(
             "  {} {}",
-            "!".yellow(),
-            format!("Detected older ven hook in {}. Remove the old block and re-run `ven setup` to upgrade to the current format.", rc_file.display()).dimmed()
+            "🔧".cyan(),
+            format!("Replacing older ven hook in {}...", rc_file.display()).dimmed()
         );
-        return Ok(());
-    }
+        strip_legacy_hook(&existing)
+    } else {
+        existing
+    };
 
     if let Some(parent) = rc_file.parent() {
         std::fs::create_dir_all(parent)?;
     }
 
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&rc_file)?;
-    writeln!(file, "{}", hook_line)?;
+    std::fs::write(rc_file, format!("{}{}", cleaned.trim(), hook_line))?;
 
     println!(
         "  {} {}",

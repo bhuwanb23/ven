@@ -1,6 +1,6 @@
 use crate::shell::{
-    generate_hook, has_ven_hook, try_compute_exports, windows_powershell_profile_paths,
-    ComputeExportsOutcome, HOOK_MARKER,
+    generate_hook, has_ven_hook, strip_legacy_hook, try_compute_exports,
+    windows_powershell_profile_paths, ComputeExportsOutcome, HOOK_MARKER,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -39,16 +39,18 @@ pub fn cmd_shell_install() -> Result<()> {
             if existing_content.contains(HOOK_MARKER) {
                 continue;
             }
-            if has_ven_hook(&existing_content) {
+            let cleaned_content = if has_ven_hook(&existing_content) {
                 println!(
                     "  {} {}",
-                    "!".yellow(),
-                    format!("Detected older ven hook in {}. Remove the old block and re-run `ven shell install` to upgrade.", profile_path.display()).dimmed()
+                    "🔧".cyan(),
+                    format!("Replacing older ven hook in {}...", profile_path.display()).dimmed()
                 );
-                continue;
-            }
+                strip_legacy_hook(&existing_content)
+            } else {
+                existing_content.clone()
+            };
 
-            let mut content = existing_content.clone();
+            let mut content = cleaned_content;
             if !content.is_empty() && !content.ends_with('\n') {
                 content.push('\n');
             }
@@ -110,21 +112,19 @@ pub fn cmd_shell_install() -> Result<()> {
         println!("  {} {}", "Profile:".dimmed(), profile_path.display());
         return Ok(());
     }
-    if has_ven_hook(&existing_content) {
+    let cleaned_content = if has_ven_hook(&existing_content) {
         println!(
             "  {} {}",
-            "!".yellow(),
-            format!(
-                "Detected older ven hook in {}. Remove the old block and re-run `ven shell install` to upgrade.",
-                profile_path.display()
-            )
-            .dimmed()
+            "🔧".cyan(),
+            format!("Replacing older ven hook in {}...", profile_path.display()).dimmed()
         );
-        return Ok(());
-    }
+        strip_legacy_hook(&existing_content)
+    } else {
+        existing_content.clone()
+    };
 
     let hook_code = generate_hook("bash");
-    let mut content = existing_content.clone();
+    let mut content = cleaned_content;
     if !content.is_empty() && !content.ends_with('\n') {
         content.push('\n');
     }

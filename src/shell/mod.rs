@@ -75,6 +75,85 @@ pub fn has_ven_hook(content: &str) -> bool {
         .any(|pattern| content.contains(pattern))
 }
 
+/// Remove legacy ven hook blocks from profile content.
+///
+/// Handles two cases:
+/// 1. Comment-only stubs (e.g. `# ven shell hook - Auto-loads on terminal start`)
+///    — removes the comment line(s).
+/// 2. Full legacy hook blocks (e.g. `# ven shell hook\n...eval...`)
+///    — removes the entire block from the legacy marker onward.
+///
+/// Returns the cleaned content, ready for the new hook to be appended.
+pub fn strip_legacy_hook(content: &str) -> String {
+    let mut result = content.to_string();
+
+    for pattern in LEGACY_HOOK_PATTERNS.iter().rev() {
+        if let Some(marker_pos) = result.find(pattern) {
+            // Find the start of the line containing the marker.
+            let line_start = if marker_pos == 0 {
+                0
+            } else {
+                // Walk backward to find the preceding newline
+                let bytes = result.as_bytes();
+                let mut s = marker_pos;
+                while s > 0 && bytes[s - 1] != b'\n' {
+                    s -= 1;
+                }
+                s
+            };
+
+            // Walk forward from the marker to find the end of the block.
+            // Include the marker line, blank lines, and any lines that look
+            // like ven hook output (shell code, comments, env assignments).
+            let lines_after: Vec<&str> = result[line_start..].lines().collect();
+            let mut chars_to_remove = 0;
+            for line in &lines_after {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    chars_to_remove += line.len() + 1; // +1 for the \n
+                    continue;
+                }
+                // Lines that are part of the legacy hook block
+                if trimmed.contains("ven shell hook")
+                    || trimmed.starts_with("eval ")
+                    || trimmed.starts_with("Invoke-Expression")
+                    || trimmed.starts_with("function ")
+                    || trimmed.starts_with("__ven_")
+                    || trimmed.starts_with("ven-use")
+                    || trimmed.starts_with("$global:VEN")
+                    || trimmed.starts_with("$env:PATH")
+                    || trimmed.starts_with("if (")
+                    || trimmed.starts_with("} else")
+                    || trimmed.starts_with("}} else")
+                    || trimmed.contains("VEN_BIN")
+                    || trimmed.contains("VEN_ORIGINAL")
+                    || trimmed.contains("__ven_")
+                    || trimmed.starts_with("# ")
+                    || pattern.chars().all(|c| trimmed.contains(c))
+                {
+                    chars_to_remove += line.len() + 1;
+                    continue;
+                }
+                break;
+            }
+
+            let line_end = (line_start + chars_to_remove).min(result.len());
+            result = format!("{}{}", &result[..line_start], &result[line_end..]);
+        }
+    }
+
+    // Clean up multiple consecutive blank lines
+    while result.contains("\n\n\n") {
+        result = result.replace("\n\n\n", "\n\n");
+    }
+    let trimmed = result.trim();
+    if trimmed.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", trimmed)
+    }
+}
+
 // ── Detect which shell is running ────────────────────────────────────
 // On Windows: always PowerShell (we don't support cmd.exe)
 // On Unix: read $SHELL env var
@@ -652,5 +731,50 @@ mod tests {
     #[test]
     fn shell_escape_powershell_empty() {
         assert_eq!(shell_escape_powershell(""), r#""""#);
+    }
+
+    // ── strip_legacy_hook ────────────────────────────────────
+
+    #[test]
+    fn strip_legacy_hook_removes_comment_only_stub() {
+        let input = "# ven shell hook - Auto-loads on terminal start\n";
+        let result = strip_legacy_hook(input);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn strip_legacy_hook_removes_full_legacy_block() {
+        let input = "# ven shell hook\neval \"$(ven shell hook bash)\"\n";
+        let result = strip_legacy_hook(input);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn strip_legacy_hook_preserves_user_content() {
+        let input = "alias ll='ls -la'\n# ven shell hook - Auto-loads on terminal start\n";
+        let result = strip_legacy_hook(input);
+        assert!(result.contains("alias ll='ls -la'"));
+        assert!(!result.contains("ven shell hook"));
+    }
+
+    #[test]
+    fn strip_legacy_hook_removes_powershell_legacy_block() {
+        let input = "# ven shell hook (PowerShell)\n$global:VEN_BIN = 'ven'\n";
+        let result = strip_legacy_hook(input);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn strip_legacy_hook_preserves_modern_hook() {
+        let input =
+            "# ven-managed-hook-v2\n# ven shell hook (bash/zsh)\neval \"$(ven shell hook bash)\"\n";
+        let result = strip_legacy_hook(input);
+        // Should NOT touch the modern marker
+        assert!(result.contains("ven-managed-hook-v2"));
+    }
+
+    #[test]
+    fn strip_legacy_hook_empty_input() {
+        assert_eq!(strip_legacy_hook(""), "");
     }
 }
