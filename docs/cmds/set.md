@@ -18,7 +18,9 @@ everywhere without admin access to `C:\Program Files`.
 | Linux / macOS | A fenced block in your rc files (`.bashrc`, `.zshrc`, `.profile`, `config.fish`): `# >>> ven global PATH >>>` … `# <<< ven global PATH <<<`, one `export PATH="…:$PATH"` line per runtime |
 
 Both are idempotent: re-setting the same version is a no-op, and entries
-are never duplicated.
+are never duplicated. Setting a **different version of the same language**
+replaces the old entry — one global version per language, and the
+most recently set one wins.
 
 > **Versions are restricted to what's already installed** under
 > `$VEN_HOME` (`ven list` shows them). This command never fetches or

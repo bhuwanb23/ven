@@ -355,10 +355,13 @@ fn remove_global_block(rc: &std::path::Path, entry: &std::path::Path) -> Result<
 }
 
 /// Pure-string upsert: add or replace `entry`'s line inside the global
-/// PATH block. Appends a fresh block when none exists.
+/// PATH block. Setting a new version of a language *replaces* the old
+/// entry for that language (the last line sourced wins, so the newest
+/// set version takes precedence). Appends a fresh block when none exists.
 #[cfg(unix)]
 fn upsert_global_content(content: &str, entry: &std::path::Path, is_fish: bool) -> String {
     let line = render_global_line(entry, is_fish);
+    let entry_lang = path_language(entry);
     let Some(start) = content.find(VEN_GLOBAL_BLOCK_START) else {
         // No block yet — append one.
         let mut out = content.to_string();
@@ -376,13 +379,28 @@ fn upsert_global_content(content: &str, entry: &std::path::Path, is_fish: bool) 
     let Some(end_rel) = content[start..].find(VEN_GLOBAL_BLOCK_END) else {
         return content.to_string();
     };
+    // Slice START..END (exclusive) so `inner` holds only the export lines.
     let end = start + end_rel + VEN_GLOBAL_BLOCK_END.len();
-    let block = &content[start..end];
-    let inner = block[VEN_GLOBAL_BLOCK_START.len()..].trim_end_matches('\n');
-    // Drop any existing line for the same entry (case-insensitive path cmp).
+    let block = &content[start..start + end_rel];
+    let inner = block[VEN_GLOBAL_BLOCK_START.len()..].trim_matches('\n');
+    // Drop any existing line that is the same entry, or — when the new
+    // entry has a recognizable `<root>/<lang>/<version>/bin` shape — the
+    // same *language* (one global version per language).
     let kept: Vec<&str> = inner
         .lines()
-        .filter(|l| !global_line_matches(l, entry))
+        .filter(|l| {
+            if global_line_matches(l, entry) {
+                return false;
+            }
+            if let Some(lang) = &entry_lang {
+                if let Some(existing) = parse_line_path(l) {
+                    if path_language(&existing).as_deref() == Some(lang.as_str()) {
+                        return false;
+                    }
+                }
+            }
+            true
+        })
         .collect();
     let mut new_block = String::from(VEN_GLOBAL_BLOCK_START);
     for l in &kept {
@@ -400,6 +418,17 @@ fn upsert_global_content(content: &str, entry: &std::path::Path, is_fish: bool) 
     out
 }
 
+/// The `<lang>` component of a `<root>/<lang>/<version>/bin` path
+/// (3rd-from-last), lowercased. `None` for paths without that shape.
+#[cfg(unix)]
+fn path_language(entry: &std::path::Path) -> Option<String> {
+    let mut comps = entry.components().rev();
+    let _bin = comps.next()?;
+    let _version = comps.next()?;
+    let lang = comps.next()?;
+    Some(lang.as_os_str().to_string_lossy().to_lowercase())
+}
+
 /// Pure-string removal: drop `entry`'s line; remove the whole block when
 /// it becomes empty.
 #[cfg(unix)]
@@ -410,9 +439,10 @@ fn remove_global_content(content: &str, entry: &std::path::Path) -> String {
     let Some(end_rel) = content[start..].find(VEN_GLOBAL_BLOCK_END) else {
         return content.to_string();
     };
+    // Slice START..END (exclusive) so `inner` holds only the export lines.
     let end = start + end_rel + VEN_GLOBAL_BLOCK_END.len();
-    let block = &content[start..end];
-    let inner = block[VEN_GLOBAL_BLOCK_START.len()..].trim_end_matches('\n');
+    let block = &content[start..start + end_rel];
+    let inner = block[VEN_GLOBAL_BLOCK_START.len()..].trim_matches('\n');
     let kept: Vec<&str> = inner
         .lines()
         .filter(|l| !global_line_matches(l, entry))
@@ -468,31 +498,33 @@ fn parse_global_block(block: &str) -> Vec<std::path::PathBuf> {
         .strip_prefix(VEN_GLOBAL_BLOCK_START)
         .unwrap_or(block)
         .trim_end_matches('\n');
-    let mut out = Vec::new();
-    for line in inner.lines() {
-        let Some(open) = line.find('\"') else {
-            continue;
-        };
-        let rest = &line[open + 1..];
-        let Some(close) = rest.find('\"') else {
-            continue;
-        };
-        let mut path = rest[..close].to_string();
-        // Bash lines embed the interpolation tail inside the quotes
-        // (`export PATH="<entry>:$PATH"`); fish lines keep it outside
-        // (`set -gx PATH "<entry>" $PATH`). Strip it either way.
-        for suffix in [":$PATH", ":$path", " $PATH", " $path"] {
-            if path.ends_with(suffix) {
-                path.truncate(path.len() - suffix.len());
-                break;
-            }
-        }
-        let path = path.replace("\\\\", "\\").replace("\\\"", "\"");
-        if !path.is_empty() {
-            out.push(std::path::PathBuf::from(path));
+    inner.lines().filter_map(parse_line_path).collect()
+}
+
+/// Extract the quoted bin path from a single block line, undoing the
+/// escaping from [`render_global_line`]. `None` when the line has no
+/// quoted path.
+#[cfg(unix)]
+fn parse_line_path(line: &str) -> Option<std::path::PathBuf> {
+    let open = line.find('\"')?;
+    let rest = &line[open + 1..];
+    let close = rest.find('\"')?;
+    let mut path = rest[..close].to_string();
+    // Bash lines embed the interpolation tail inside the quotes
+    // (`export PATH="<entry>:$PATH"`); fish lines keep it outside
+    // (`set -gx PATH "<entry>" $PATH`). Strip it either way.
+    for suffix in [":$PATH", ":$path", " $PATH", " $path"] {
+        if path.ends_with(suffix) {
+            path.truncate(path.len() - suffix.len());
+            break;
         }
     }
-    out
+    let path = path.replace("\\\\", "\\").replace("\\\"", "\"");
+    if path.is_empty() {
+        None
+    } else {
+        Some(std::path::PathBuf::from(path))
+    }
 }
 
 /// Set `name=value` in the user's persistent environment. Returns `Ok(())`
