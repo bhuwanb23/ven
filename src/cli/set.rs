@@ -251,7 +251,7 @@ fn list_globals(json: bool) -> Result<()> {
     // are globals. On Windows `list_global_paths` returns the whole User
     // PATH (system32 etc. included), so we must filter before showing
     // anything, or `ven set global` looks like it manages the OS.
-    let managed: Vec<PathBuf> = entries
+    let managed: Vec<(PathBuf, String, String)> = entries
         .iter()
         .filter_map(|p| {
             let (lang, ver) = classify_entry(p, &home)?;
