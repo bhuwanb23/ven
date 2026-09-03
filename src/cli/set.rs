@@ -247,12 +247,22 @@ fn unset_global(
 fn list_globals(json: bool) -> Result<()> {
     let entries = user_env::list_global_paths()?;
     let home = ven_home();
+    // Only entries ven itself manages — `<home>/<lang>/<version>[/bin]` —
+    // are globals. On Windows `list_global_paths` returns the whole User
+    // PATH (system32 etc. included), so we must filter before showing
+    // anything, or `ven set global` looks like it manages the OS.
+    let managed: Vec<PathBuf> = entries
+        .iter()
+        .filter_map(|p| {
+            let (lang, ver) = classify_entry(p, &home)?;
+            Some((p.clone(), lang, ver))
+        })
+        .collect();
 
     if json {
-        let items: Vec<serde_json::Value> = entries
+        let items: Vec<serde_json::Value> = managed
             .iter()
-            .map(|p| {
-                let (lang, ver) = classify_entry(p, &home);
+            .map(|(p, lang, ver)| {
                 serde_json::json!({
                     "path": p.display().to_string(),
                     "language": lang,
@@ -268,7 +278,7 @@ fn list_globals(json: bool) -> Result<()> {
     }
 
     println!();
-    if entries.is_empty() {
+    if managed.is_empty() {
         println!(
             "  {} No global runtimes set.\n  Use `ven set global <language> [version]` to make an installed runtime available everywhere.\n",
             "[INFO]".cyan()
@@ -276,17 +286,14 @@ fn list_globals(json: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!(
-        "  {} Global PATH entries (User scope):",
-        "Global".bold().cyan()
-    );
-    for p in &entries {
-        let (lang, ver) = classify_entry(p, &home);
-        let tag = match (lang, ver) {
-            (Some(l), Some(v)) => format!("{} {}  ", l.cyan(), v.green()),
-            _ => String::new(),
-        };
-        println!("    {}{}", tag, p.display().to_string().dimmed());
+    println!("  {}", "Global runtimes (User scope):".bold().cyan());
+    for (p, lang, ver) in &managed {
+        println!(
+            "    {} {}  {}",
+            lang.cyan(),
+            ver.green(),
+            p.display().to_string().dimmed()
+        );
     }
     println!(
         "  {} Use `ven set global <language> --unset` to remove one.\n",
@@ -299,27 +306,40 @@ fn list_globals(json: bool) -> Result<()> {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
 
-/// Map a global PATH entry back to `(language, version)` when it lives
-/// under the ven home (`<home>/<lang>/<version>/bin`).
-fn classify_entry(
-    entry: &std::path::Path,
-    home: &std::path::Path,
-) -> (Option<String>, Option<String>) {
-    // <home>/<lang>/<version>/bin
-    let mut comps = entry.components().rev();
-    let _bin = comps.next();
-    let version = comps
-        .next()
-        .map(|c| c.as_os_str().to_string_lossy().to_string());
-    let lang = comps
-        .next()
-        .map(|c| c.as_os_str().to_string_lossy().to_string());
-    let rest: PathBuf = comps.rev().collect();
-    if rest == *home && lang.is_some() {
-        (lang, version)
-    } else {
-        (None, None)
+/// Map a ven-managed global PATH entry back to `(language, version)`.
+/// Returns `None` for anything that isn't `<home>/<lang>/<version>` or
+/// `<home>/<lang>/<version>/bin` — both layouts occur: most languages put
+/// binaries in a `bin/` subdir, but Windows Node keeps `node.exe` directly
+/// in the version dir, which is what the plugin's bin_path returns.
+fn classify_entry(entry: &std::path::Path, home: &std::path::Path) -> Option<(String, String)> {
+    let rel = match entry.strip_prefix(home) {
+        Ok(r) => r.to_path_buf(),
+        // Fall back to a case-insensitive prefix so a PATH entry recorded
+        // with different casing (common after manual edits) still classifies.
+        Err(_) => {
+            let lower_entry = entry.to_string_lossy().to_lowercase();
+            let lower_home = home.to_string_lossy().to_lowercase();
+            PathBuf::from(lower_entry.strip_prefix(&lower_home)?)
+        }
+    };
+    classify_relative(&rel)
+}
+
+/// Classify `<lang>/<version>` or `<lang>/<version>/bin` relative to the
+/// ven home. Returns `None` for anything else.
+fn classify_relative(rel: &std::path::Path) -> Option<(String, String)> {
+    use std::path::Component;
+    let comps: Vec<Component> = rel.components().collect();
+    if !(2..=3).contains(&comps.len()) {
+        return None;
     }
+    if comps.len() == 3 && comps[2].as_os_str() != "bin" {
+        return None;
+    }
+    Some((
+        comps[0].as_os_str().to_string_lossy().to_string(),
+        comps[1].as_os_str().to_string_lossy().to_string(),
+    ))
 }
 
 /// Shell snippet that prepends `bin` to PATH in the current session.

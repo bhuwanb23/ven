@@ -138,7 +138,9 @@ if ([string]::IsNullOrWhiteSpace($current)) {{
   $new = $current
   $added = $false
 }} else {{
-  $new = $current.TrimEnd(';') + ';' + $target
+  // Prepend so the ven-managed runtime wins over any other User-scope
+  // install of the same tools (Unix does the same via `PATH="…:$PATH"`).
+  $new = $target.TrimEnd(';') + ';' + $current.TrimStart(';')
   $added = $true
 }}
 [Environment]::SetEnvironmentVariable('Path', $new, 'User')

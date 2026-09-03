@@ -22,6 +22,17 @@ are never duplicated. Setting a **different version of the same language**
 replaces the old entry — one global version per language, and the
 most recently set one wins.
 
+The entry is **prepended**, so the ven-managed runtime wins over other
+User-scope installs of the same tools (e.g. a corporate Node.js in
+`%USERPROFILE%\NodeJS`). Note that on Windows the **Machine PATH is
+ordered before the User PATH**: if the same tool is installed at machine
+scope, that copy still resolves first and must be removed or reordered
+for the ven global to take effect.
+
+`ven set global` (no arguments) lists **only ven-managed entries** —
+anything outside `$VEN_HOME` that happens to sit on the User PATH is not
+shown.
+
 > **Versions are restricted to what's already installed** under
 > `$VEN_HOME` (`ven list` shows them). This command never fetches or
 > downloads anything — it only rewrites PATH.

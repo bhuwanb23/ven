@@ -44,14 +44,28 @@ pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<Pat
     // Canonicalize the candidate if it exists (handles macOS /tmp → /private/tmp
     // symlinks, Windows short-name aliases, and junction differences between CI
     // runner tempdirs). For paths that don't exist yet (pre-extraction zip/tar
-    // entries), fall back to lexical normalization to still detect traversal
-    // attempts like `C:\base\..\..\etc\passwd`.
+    // entries), canonicalize the *parent* chain the same way — otherwise a
+    // candidate under a short-named directory (e.g. `%TEMP%` = `C:\Users\BHUWAN~1\…`)
+    // compares its still-short lexical form against the long-form `canon_base`
+    // and is falsely rejected as traversal — then re-apply lexical
+    // normalization to the non-existent tail so `..` attacks are still caught.
     let normalized = match std::fs::canonicalize(candidate) {
         Ok(canon) => strip_verbatim_prefix(&canon),
-        Err(_) => {
-            let norm = normalize_path(candidate);
-            strip_verbatim_prefix(&norm)
-        }
+        Err(_) => match candidate.parent() {
+            Some(parent) => match std::fs::canonicalize(parent) {
+                Ok(canon_parent) => {
+                    let canon_parent = strip_verbatim_prefix(&canon_parent);
+                    match candidate.file_name() {
+                        Some(name) => {
+                            strip_verbatim_prefix(&normalize_path(&canon_parent.join(name)))
+                        }
+                        None => strip_verbatim_prefix(&normalize_path(candidate)),
+                    }
+                }
+                Err(_) => strip_verbatim_prefix(&normalize_path(candidate)),
+            },
+            None => strip_verbatim_prefix(&normalize_path(candidate)),
+        },
     };
 
     if normalized.starts_with(&canon_base) {
@@ -392,6 +406,29 @@ mod tests {
         std::fs::create_dir_all(child.parent().unwrap()).unwrap();
         std::fs::write(&child, b"").unwrap();
         assert!(validate_path_within_dir(&child, dir.path()).is_ok());
+    }
+
+    #[test]
+    fn validate_path_within_dir_accepts_not_yet_existing_child() {
+        // Regression test: the pre-extraction case (zip/tar entry that does
+        // not exist on disk yet). On machines whose %TEMP% resolves through a
+        // Windows 8.3 short name (e.g. C:\Users\BHUWAN~1\…), the base dir
+        // canonicalizes to the long form while a lexically-normalized,
+        // non-existent candidate keeps the short form — which used to be
+        // falsely rejected as traversal. The parent chain must be
+        // canonicalized for the candidate too.
+        let dir = tempdir().unwrap();
+        let extract = dir.path().join("extract");
+        std::fs::create_dir_all(&extract).unwrap();
+        let child = extract.join("ven-launcher.exe");
+        assert!(
+            !child.exists(),
+            "test precondition: entry must not exist yet"
+        );
+        assert!(
+            validate_path_within_dir(&child, &extract).is_ok(),
+            "non-existent child under an existing base must be accepted"
+        );
     }
 
     #[test]
