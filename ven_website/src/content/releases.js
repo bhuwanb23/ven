@@ -3,6 +3,25 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.7',
+    date: 'September 3, 2026',
+    tag: 'patch',
+    summary:
+      'Validation patch for v0.2.6: `ven update` now works on corporate machines whose %TEMP% resolves through a Windows 8.3 short name (the old check falsely flagged legitimate archive entries as path traversal), and `ven set global` lists only ven-managed runtimes on Windows and prepends the PATH entry so the ven runtime actually wins over other User-scope installs.',
+    sections: {
+      new: [],
+      improved: [
+        '`ven set global` on Windows now **prepends** the runtime\'s bin dir to the User PATH (Unix already did via `export PATH="…:$PATH"`), so a corporate Node / Python / etc. earlier on the User PATH no longer silently shadows the ven-managed runtime you explicitly made global.',
+        '`ven set global` (list) on Windows now shows **only ven-managed entries** — `<VEN_HOME>/<lang>/<version>` and `<VEN_HOME>/<lang>/<version>/bin` — instead of the entire User PATH, and correctly classifies Windows Node entries whose binaries live directly in the version directory.',
+        'Extraction regression test added for not-yet-existing archive entries (the previous test pre-created the file, masking the short-name bug).',
+      ],
+      fixed: [
+        '`ven update` failed with a false-positive “Path traversal detected” on machines whose `%TEMP%` contains a Windows 8.3 short name (e.g. `C:\\Users\\BHUWAN~1\\…`): the extraction directory canonicalized to the long form while the not-yet-existing zip entry kept its short lexical form, so a legitimate sibling like `ven-launcher.exe` was rejected. Extraction now canonicalizes the candidate\'s existing parent chain before normalizing the non-existent tail.',
+        '`ven set global` list header no longer reads “Global Global …”.',
+      ],
+    },
+  },
+  {
     version: 'v0.2.6',
     date: 'September 3, 2026',
     tag: 'minor',
