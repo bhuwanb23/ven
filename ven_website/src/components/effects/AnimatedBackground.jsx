@@ -2,26 +2,33 @@ import { useEffect, useRef } from 'react'
 import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion.js'
 
 /**
- * Site-wide ambient background. Mounts once near the root of <AppLayout />,
- * sits behind everything else (`-z-10`, `pointer-events-none`), and:
+ * Site-wide fixed background. Mounts once near the root of <AppLayout />,
+ * behind everything else (`-z-10`, `pointer-events-none`), and stays put
+ * (`position: fixed`) while every page scrolls over it. Stacked layers:
  *
- *   1) Drifts two large radial-gradient blobs — cyan + coral — using a
- *      pure-CSS keyframe so the work stays on the compositor thread.
- *   2) Reacts to scroll by reading `--scroll-y` and `--scroll-progress`
+ *   1) Base scene — a slightly-cool near-black vertical wash painted on
+ *      the container itself, so every route sits on one designed surface.
+ *   2) Two large radial-gradient pools — cyan + coral — drifting via
+ *      pure-CSS keyframes so the work stays on the compositor thread.
+ *   3) Reacts to scroll by reading `--scroll-y` and `--scroll-progress`
  *      from <html> (published by `useScrollY`, mounted once in AppLayout).
- *      The blobs translate slightly slower than the page (parallax) and
+ *      The pools translate slightly slower than the page (parallax) and
  *      shift hue dominance from cyan -> coral as the user scrolls, so
  *      long pages feel like a journey rather than a flat surface.
- *   3) Overlays a faint dot grid for terminal-style texture.
+ *   4) Fine dot grid for terminal texture, masked into the upper-middle
+ *      band; film-grain noise over the whole field to kill banding;
+ *      and a vignette that darkens the top/bottom + side gutters so
+ *      navbar, footer, and long text columns keep contrast.
  *
- * `prefers-reduced-motion` is honored: the animation + parallax are
- * dropped, leaving a static gradient + grid (still on-brand, no chrome
- * jitter for vestibular-sensitive users).
+ * `prefers-reduced-motion` is honored: every keyframe is dropped and the
+ * cursor/scroll vars zeroed, leaving a static gradient + grid (still
+ * on-brand, no chrome jitter for vestibular-sensitive users).
  *
- * Performance budget: two `radial-gradient`s on one fixed div + a CSS
- * mask on another. No JS-driven RAF loop here — `useScrollY` (mounted
- * once globally) does the rAF coalescing and writes the vars; the CSS
- * rules in `index.css` (`.bg-aurora` family) consume them.
+ * Performance budget: a handful of fixed, GPU-composited layers. No JS
+ * RAF loop here — `useScrollY` (mounted once globally) does the rAF
+ * coalescing and writes the vars; the CSS rules in `index.css` (the
+ * `.bg-aurora` family) consume them. `AnimatedBackground` only publishes
+ * `--mouse-x` / `--mouse-y` for the pointer lean.
  */
 export default function AnimatedBackground() {
   const reduced = usePrefersReducedMotion()
@@ -71,17 +78,20 @@ export default function AnimatedBackground() {
       data-reduced-motion={reduced ? 'true' : 'false'}
       className="bg-aurora fixed inset-0 -z-10 pointer-events-none overflow-hidden"
     >
-      {/* Cyan blob — primary brand colour. Drifts slowly + reacts to scroll
+      {/* Cyan pool — primary brand colour. Drifts slowly + reacts to scroll
           progress; fades out as the page is scrolled deeper. */}
       <div className="bg-aurora__cyan absolute" />
-      {/* Coral blob — secondary brand colour from the logo's right half.
-          Mirrors the cyan blob with opposite drift + opposite scroll-tied
+      {/* Coral pool — secondary brand colour from the logo's right half.
+          Mirrors the cyan pool with opposite drift + opposite scroll-tied
           intensity so the colour balance shifts as the user reads down. */}
       <div className="bg-aurora__coral absolute" />
-      {/* Dot grid — terminal-style texture. Pure CSS, no animation, masked
-          with a vignette so the edges fade away. */}
+      {/* Dot grid — terminal-style texture. Pure CSS, masked with a
+          vignette so the edges fade away. */}
       <div className="bg-aurora__grid absolute inset-0" />
-      {/* Vignette — kills the brightness near content-heavy strips so text
+      {/* Film grain — desaturated SVG turbulence that textures the whole
+          field and kills gradient banding on the large dark washes. */}
+      <div className="bg-aurora__noise absolute inset-0" />
+      {/* Vignette — darkens the top/bottom bands and side gutters so text
           on top of the background never loses contrast. */}
       <div className="bg-aurora__vignette absolute inset-0" />
     </div>
