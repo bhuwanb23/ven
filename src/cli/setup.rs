@@ -3,7 +3,6 @@ use crate::shell::{
 };
 use anyhow::Result;
 use colored::Colorize;
-use std::io::Write;
 
 // ── ven setup ─────────────────────────────────────────────────────
 pub fn cmd_setup() -> Result<()> {
@@ -117,7 +116,7 @@ if ($_ven) {{\n\
         std::fs::create_dir_all(parent)?;
     }
 
-    std::fs::write(rc_file, format!("{}{}", cleaned.trim(), hook_line))?;
+    std::fs::write(&rc_file, format!("{}{}", cleaned.trim(), hook_line))?;
 
     println!(
         "  {} {}",
