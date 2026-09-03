@@ -235,6 +235,29 @@ ven-use() {{
     if [ -n "$script" ]; then eval "$script"; fi
 }}
 
+__ven_clear_ven_state() {{
+    export PATH="$__VEN_ORIGINAL_PATH"
+    # Only clear vars ven itself sets on activation. Non-ven vars
+    # (JAVA_HOME, GOROOT, GOPATH, CARGO_HOME, RUSTUP_HOME, GEM_HOME,
+    # GEM_PATH) are *only ever set* by ven, never clobbered by the
+    # hook on transition out — the user may have set them by hand
+    # before cd'ing into a ven project, and silently unsetting them
+    # was a footgun. Use `ven shell deactivate` to fully clean.
+    unset VEN_NODE_VERSION 2>/dev/null
+    unset VEN_PYTHON_VERSION 2>/dev/null
+    unset VEN_GO_VERSION 2>/dev/null
+    unset VEN_RUST_VERSION 2>/dev/null
+    unset VEN_JAVA_VERSION 2>/dev/null
+    unset VEN_DENO_VERSION 2>/dev/null
+    unset VEN_BUN_VERSION 2>/dev/null
+    unset VEN_RUBY_VERSION 2>/dev/null
+    unset VEN_PHP_VERSION 2>/dev/null
+    unset VEN_TOML 2>/dev/null
+    unset VIRTUAL_ENV 2>/dev/null
+    unset NODE_PATH 2>/dev/null
+    unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
+}}
+
 __ven_activate() {{
     if [ -z "$__VEN_ORIGINAL_PATH" ]; then
         __VEN_ORIGINAL_PATH="$PATH"
@@ -251,32 +274,24 @@ __ven_activate() {{
     __VEN_LAST_DIR="$current_dir"
     __VEN_LAST_TOML_SIG="$sig"
 
+    # Fast path: no ven.toml anywhere up the tree means there is nothing
+    # to activate. Skip spawning the ven binary entirely — on Windows a
+    # single subprocess spawn costs ~200-300ms (Defender scans the
+    # unsigned 13MB exe on every execution), so every `cd` into a plain
+    # directory was paying that tax. With an empty signature the spawn
+    # would print nothing anyway; clear state directly instead.
+    if [ -z "$sig" ]; then
+        __ven_clear_ven_state
+        return
+    fi
+
     local exports
     exports=$("$__VEN_BIN" shell activate "$current_dir" 2>/dev/null)
 
     if [ -n "$exports" ]; then
         eval "$exports"
     else
-        export PATH="$__VEN_ORIGINAL_PATH"
-        # Only clear vars ven itself sets on activation. Non-ven vars
-        # (JAVA_HOME, GOROOT, GOPATH, CARGO_HOME, RUSTUP_HOME, GEM_HOME,
-        # GEM_PATH) are *only ever set* by ven, never clobbered by the
-        # hook on transition out — the user may have set them by hand
-        # before cd'ing into a ven project, and silently unsetting them
-        # was a footgun. Use `ven shell deactivate` to fully clean.
-        unset VEN_NODE_VERSION 2>/dev/null
-        unset VEN_PYTHON_VERSION 2>/dev/null
-        unset VEN_GO_VERSION 2>/dev/null
-        unset VEN_RUST_VERSION 2>/dev/null
-        unset VEN_JAVA_VERSION 2>/dev/null
-        unset VEN_DENO_VERSION 2>/dev/null
-        unset VEN_BUN_VERSION 2>/dev/null
-        unset VEN_RUBY_VERSION 2>/dev/null
-        unset VEN_PHP_VERSION 2>/dev/null
-        unset VEN_TOML 2>/dev/null
-        unset VIRTUAL_ENV 2>/dev/null
-        unset NODE_PATH 2>/dev/null
-        unset VEN_SKIP_PROJECT_VENV 2>/dev/null || true
+        __ven_clear_ven_state
     fi
 }}
 
@@ -337,6 +352,25 @@ function __ven_on_prompt --on-event fish_prompt
         return
     end
     set -g __VEN_LAST_SIG $sig
+    # Fast path: no ven.toml anywhere up the tree means there is nothing
+    # to activate. Skip spawning the ven binary entirely (a subprocess
+    # spawn costs ~200-300ms on Windows), just restore the baseline PATH.
+    if test -z "$sig"
+        set -gx PATH $__VEN_ORIGINAL_PATH
+        set -e VEN_NODE_VERSION 2>/dev/null
+        set -e VEN_PYTHON_VERSION 2>/dev/null
+        set -e VEN_GO_VERSION 2>/dev/null
+        set -e VEN_RUST_VERSION 2>/dev/null
+        set -e VEN_JAVA_VERSION 2>/dev/null
+        set -e VEN_DENO_VERSION 2>/dev/null
+        set -e VEN_BUN_VERSION 2>/dev/null
+        set -e VEN_RUBY_VERSION 2>/dev/null
+        set -e VEN_PHP_VERSION 2>/dev/null
+        set -e VEN_TOML 2>/dev/null
+        set -e VIRTUAL_ENV 2>/dev/null
+        set -q VEN_SKIP_PROJECT_VENV; and set -e VEN_SKIP_PROJECT_VENV
+        return
+    end
     set exports (ven shell activate "$PWD" 2>/dev/null)
     if test -n "$exports"
         eval $exports
@@ -423,6 +457,14 @@ function global:__ven_activate {{
     if ($global:VEN_LAST_DIR -eq $current_dir -and $global:VEN_LAST_TOML_SIG -eq $sig) {{ return }}
     $global:VEN_LAST_DIR = $current_dir
     $global:VEN_LAST_TOML_SIG = $sig
+
+    # Fast path: no ven.toml anywhere up the tree means there is nothing
+    # to activate. Skip spawning the ven binary entirely (a subprocess
+    # spawn costs ~200-300ms on Windows), just restore the baseline state.
+    if ([string]::IsNullOrEmpty($sig)) {{
+        __ven_clear_ven_state
+        return
+    }}
 
     try {{
         $lines = & $global:VEN_BIN shell activate $current_dir 2>$null
@@ -657,6 +699,56 @@ mod tests {
         assert!(
             hook.contains(HOOK_MARKER),
             "fish hook missing canonical marker"
+        );
+    }
+
+    // ── No-toml fast path (perf: skip spawning ven when no ven.toml) ──
+
+    /// bash/zsh hook must skip the ven subprocess spawn when the toml
+    /// signature is empty (no ven.toml anywhere up the tree). Without
+    /// this fast path every `cd` into a plain directory paid a
+    /// ~200-300ms subprocess spawn on Windows.
+    #[test]
+    fn bash_hook_has_no_toml_fast_path() {
+        let hook = generate_hook("bash");
+        // The fast-path branch must exist and sit before the spawn.
+        let fast = hook.find("if [ -z \"$sig\" ]; then");
+        let spawn = hook.find("shell activate \"$current_dir\"");
+        assert!(fast.is_some(), "bash hook missing no-toml fast path");
+        assert!(
+            fast < spawn,
+            "bash fast path must precede the ven shell activate spawn"
+        );
+        // And it must restore PATH without spawning.
+        assert!(
+            hook.contains("__ven_clear_ven_state"),
+            "bash hook missing __ven_clear_ven_state helper"
+        );
+    }
+
+    /// fish hook must skip the spawn when the signature is empty.
+    #[test]
+    fn fish_hook_has_no_toml_fast_path() {
+        let hook = generate_hook("fish");
+        let fast = hook.find("if test -z \"$sig\"");
+        let spawn = hook.find("ven shell activate \"$PWD\"");
+        assert!(fast.is_some(), "fish hook missing no-toml fast path");
+        assert!(
+            fast < spawn,
+            "fish fast path must precede the ven shell activate spawn"
+        );
+    }
+
+    /// PowerShell hook must skip the spawn when the signature is empty.
+    #[test]
+    fn powershell_hook_has_no_toml_fast_path() {
+        let hook = generate_hook("powershell");
+        let fast = hook.find("if ([string]::IsNullOrEmpty($sig))");
+        let spawn = hook.find("shell activate $current_dir");
+        assert!(fast.is_some(), "powershell hook missing no-toml fast path");
+        assert!(
+            fast < spawn,
+            "powershell fast path must precede the ven shell activate spawn"
         );
     }
 

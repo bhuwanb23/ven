@@ -338,7 +338,70 @@ fn run_inner(cfg: &InstallConfig, sink: &mut dyn ProgressSink) -> Result<String>
         skipped: false,
     });
 
+    // ── Best-effort: Windows Defender exclusion ───────────────────────
+    // The unsigned 13MB ven.exe is re-scanned by Defender on *every*
+    // execution, costing ~200-300ms warm and 4-8s cold per invocation.
+    // Excluding the ven root removes that tax entirely. Needs admin, so
+    // user-mode installs usually skip it — never fails the install.
+    #[cfg(windows)]
+    step_defender_exclusion(cfg, sink);
+
     Ok(version)
+}
+
+/// Best-effort: add the ven install root (parent of the bin dir) to
+/// Windows Defender's exclusion list so every `ven` invocation isn't
+/// re-scanned. Requires admin; failures are silently downgraded to a
+/// hint because user-mode installs are usually not elevated.
+#[cfg(windows)]
+fn step_defender_exclusion(cfg: &InstallConfig, sink: &mut dyn ProgressSink) {
+    let exclude_root = cfg
+        .install_dir
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| cfg.install_dir.clone());
+    let dir = exclude_root.to_string_lossy().replace('\'', "''");
+
+    if cfg.dry_run {
+        sink.emit(ProgressEvent::StepDetail {
+            sub_label: format!(
+                "[dry-run] would add {} to Windows Defender exclusions",
+                exclude_root.display()
+            ),
+        });
+        return;
+    }
+
+    // Add-MpPreference needs an elevated shell. Best-effort: if it
+    // fails we leave a hint pointing at the manual command.
+    let script = format!(
+        "try {{ Add-MpPreference -ExclusionPath '{}' -ErrorAction Stop; 'OK' }} catch {{ 'FAIL' }}",
+        dir
+    );
+    let ok = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+        .map(|out| String::from_utf8_lossy(&out.stdout).contains("OK"))
+        .unwrap_or(false);
+
+    if ok {
+        sink.emit(ProgressEvent::StepDetail {
+            sub_label: format!(
+                "Added {} to Windows Defender exclusions (faster startup)",
+                exclude_root.display()
+            ),
+        });
+    } else {
+        sink.emit(ProgressEvent::StepDetail {
+            sub_label: format!(
+                "Windows Defender exclusion for {} skipped (needs admin). \
+                 For faster startup run in an elevated shell: \
+                 Add-MpPreference -ExclusionPath '{}'",
+                exclude_root.display(),
+                exclude_root.display()
+            ),
+        });
+    }
 }
 
 // ---------------------------------------------------------------------------

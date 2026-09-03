@@ -13,6 +13,7 @@ This folder is the canonical reference for **CLI behavior**, **per-language plug
 | Every CLI command, one table                                         | [`commands-reference.md`](commands-reference.md)           |
 | Shell hooks · `ven setup` · `ven-use` flow                           | [`shell-integration.md`](shell-integration.md)             |
 | `ven-launcher` (spawn a terminal in a project)                       | [`ven-launcher.md`](ven-launcher.md)                       |
+| **Performance** — why commands feel slow, Defender / hook fixes      | [`performance.md`](performance.md)                         |
 
 ## Per-language deep dives
 
