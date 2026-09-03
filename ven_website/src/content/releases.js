@@ -3,6 +3,20 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.8',
+    date: 'September 3, 2026',
+    tag: 'patch',
+    summary:
+      'Hotfix for v0.2.7: `ven set global <language> <version>` (the prepend path) failed with a PowerShell parser error on Windows PowerShell 5.1 because the generated script used `//` comments, which 5.1 does not support. The comment style is now 5.1-safe, and setting a runtime global works again — verified add / re-add / prepend against a real registry.',
+    sections: {
+      new: [],
+      improved: [],
+      fixed: [
+        '`ven set global <lang> <ver>` on Windows threw “Missing closing \') in expression” and exited 1: the prepend step introduced in v0.2.7 embedded `//` comments inside the generated PowerShell, and `powershell.exe` (5.1) parses `//` as code — so the hint text containing `PATH="…:$PATH"` broke the whole script before it ran. The comments now use `#` (valid in both 5.1 and pwsh), and the runtime is prepended to the front of the User PATH as intended.',
+      ],
+    },
+  },
+  {
     version: 'v0.2.7',
     date: 'September 3, 2026',
     tag: 'patch',

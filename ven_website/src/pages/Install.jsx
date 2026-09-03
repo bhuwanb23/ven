@@ -74,7 +74,7 @@ const KIND_META = {
   setup: {
     label: 'Standalone installer',
     tagline:
-      'Self-contained ven-setup opens an eight-screen GUI wizard (v0.2.7): custom title bar, fade transitions, polished footer, floating scrollbar, branded cyan theme, left step rail, option cards, storage path, PATH/hook toggles, optional runtime pre-install, live progress, plus a Windows Defender exclusion for the install root. UAC on Windows, sudo on Unix. Use --cli for headless/SSH.',
+      'Self-contained ven-setup opens an eight-screen GUI wizard (v0.2.8): custom title bar, fade transitions, polished footer, floating scrollbar, branded cyan theme, left step rail, option cards, storage path, PATH/hook toggles, optional runtime pre-install, live progress, plus a Windows Defender exclusion for the install root. UAC on Windows, sudo on Unix. Use --cli for headless/SSH.',
     accent: 'text-tertiary-fixed-dim',
   },
 }
@@ -812,7 +812,7 @@ export default function Install() {
             <p className="text-xs uppercase text-on-surface-variant opacity-50 mb-2 font-bold tracking-widest">
               Expected output
             </p>
-            <code className="font-mono text-secondary-fixed-dim block">ven 0.2.7 (x86_64-pc-windows-msvc)</code>
+            <code className="font-mono text-secondary-fixed-dim block">ven 0.2.8 (x86_64-pc-windows-msvc)</code>
           </div>
         </div>
       </Reveal>
