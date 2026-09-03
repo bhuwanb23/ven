@@ -185,7 +185,17 @@ pub fn build_plan(scope: UninstallScope) -> Result<UninstallPlan> {
     let pointer_file = ven_config::config_path().filter(|p| p.is_file());
 
     let user_path_entries: Vec<PathBuf> = if cfg!(target_os = "windows") && scope.includes_user() {
-        user_install_root.iter().cloned().collect()
+        // The installer adds `%USERPROFILE%\.ven\bin` to the User PATH, and
+        // `ven set global` adds per-runtime `<root>/<lang>/<version>/bin`
+        // entries. Collect all of them so uninstall leaves PATH clean.
+        match &user_install_root {
+            Some(root) => {
+                let mut entries = vec![root.join("bin")];
+                entries.extend(detect_user_global_path_entries(root));
+                entries
+            }
+            None => Vec::new(),
+        }
     } else {
         Vec::new()
     };
@@ -410,6 +420,32 @@ fn detect_user_install_root() -> Option<PathBuf> {
     }
 }
 
+/// Per-runtime global PATH entries (`<root>/<lang>/<version>/bin`) that
+/// `ven set global` may have persisted on the User PATH. Best-effort walk
+/// of the two-level `<root>/<lang>/<version>/` layout.
+fn detect_user_global_path_entries(root: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let Ok(langs) = std::fs::read_dir(root) else {
+        return out;
+    };
+    for lang in langs.flatten() {
+        let lang_path = lang.path();
+        if !lang_path.is_dir() {
+            continue;
+        }
+        let Ok(vers) = std::fs::read_dir(&lang_path) else {
+            continue;
+        };
+        for ver in vers.flatten() {
+            let bin = ver.path().join("bin");
+            if bin.is_dir() {
+                out.push(bin);
+            }
+        }
+    }
+    out
+}
+
 /// System-mode artifacts: the files / dirs that `install.{ps1,sh}` places
 /// outside `$HOME` when run with elevation. Each path is checked for
 /// existence by `build_plan`; we return the canonical candidate list so
@@ -496,6 +532,7 @@ const KNOWN_BLOCKS: &[(&str, &str)] = &[
     ("# >>> ven env >>>", "# <<< ven env <<<"),
     ("# >>> ven-setup PATH >>>", "# <<< ven-setup PATH <<<"),
     ("# >>> ven shell hook >>>", "# <<< ven shell hook <<<"),
+    ("# >>> ven global PATH >>>", "# <<< ven global PATH <<<"),
 ];
 
 /// Head markers for the `ven shell install` hook block. Unlike the fenced

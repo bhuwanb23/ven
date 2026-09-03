@@ -17,6 +17,7 @@ pub mod path;
 pub mod remove;
 pub mod resolve;
 pub mod scan;
+pub mod set;
 pub mod setup;
 pub mod shell;
 pub mod status;
@@ -36,7 +37,7 @@ pub mod why;
     version,
     about,
     long_about = None,
-    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n  ven update                   # Self-update ven + ven-launcher to the latest release\n  ven uninstall --dry-run      # Preview the full-nuke teardown plan (since v0.1.7)\n  ven uninstall                # Remove ven, all runtimes, PATH entries, persisted env\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
+    after_help = "Examples:\n  ven setup                    # Shell hooks + profiles\n  ven install node 20          # Install Node.js\n  ven install python 3.12.7    # Install Python runtime\n  ven install go 1.21.5        # Install Go toolchain\n  ven install rust 1.75.0      # Install Rust toolchain\n  ven install java 21          # Install Java JDK\n  ven install deno 1.40.0      # Install Deno runtime\n  ven install ruby 3.4.2       # MRI Ruby (Win: RubyInstaller2; Unix: ruby-builder)\n  ven list                     # All installed runtimes (node, python, go, rust, java, deno, ruby …)\n  ven list python              # Only Python versions\n  ven delete                   # Wizard: pick a runtime to remove\n  ven delete python 3.12.7     # Delete a specific version\n  ven path show                # Where ven keeps its data on disk (size, free space, source)\n  ven path set D:\\ven          # Relocate storage to a new drive (move data + persist VEN_HOME)\n  ven use                      # Export PATH/env for cwd (evaluate in shell)\n  ven set global node 20       # Make an installed runtime available everywhere (User PATH, no admin)\n  ven deactivate               # Undo PATH overlay in this terminal\n  ven init --template          # Create ven.toml interactively\n  ven add express vite         # Add packages + sync ven.toml\n  ven status --verbose         # Show project runtime + packages\n  ven upgrade --all --apply    # Upgrade pinned packages\n  ven remove --cleanup         # Remove orphaned packages\n  ven update                   # Self-update ven + ven-launcher to the latest release\n  ven uninstall --dry-run      # Preview the full-nuke teardown plan (since v0.1.7)\n  ven uninstall                # Remove ven, all runtimes, PATH entries, persisted env\n\nDocumentation (repo): docs/README.md — Language & command reference: docs/languages.md, docs/commands-reference.md"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -159,6 +160,32 @@ pub enum Commands {
     Path {
         #[command(subcommand)]
         cmd: Option<path::PathCmd>,
+    },
+
+    /// Make an installed runtime globally available (User PATH, no admin needed)
+    ///
+    /// Persists an *already installed* runtime's bin dir on the User PATH so
+    /// it's available in every new shell — no `ven.toml`, no admin rights.
+    /// Versions are restricted to what's installed under `$VEN_HOME`.
+    ///
+    /// Subcommands:
+    ///   global           List current ven-managed global PATH entries
+    ///   global LANG      Set an installed version (interactive picker)
+    ///   global LANG VER  Set a specific installed version
+    ///   global LANG --unset      Remove the language's global entry
+    ///   global LANG VER --unset  Remove that version's global entry
+    ///
+    /// Examples:
+    ///   ven set global                 # list globals
+    ///   ven set global node 20         # latest installed Node 20.x everywhere
+    ///   ven set global python          # pick an installed Python interactively
+    ///   ven set global rust --unset    # stop making Rust global
+    #[command(
+        long_about = "Make an installed runtime globally available on the User PATH.\n\nSets the persistent, user-scoped PATH (HKCU environment on Windows, a fenced\nrc-file block on Unix) to include an installed runtime's bin dir, so its\nbinaries work from any directory in every new shell — without admin rights.\nThe version must already be installed under $VEN_HOME; this command never\ndownloads anything.\n\nSubcommands:\n  ven set global                    List current global entries\n  ven set global <language>         Pick an installed version interactively\n  ven set global <language> <ver>   Set a specific installed version\n  ven set global <language> --unset Remove the language's global entry\n\nExamples:\n  ven set global                    # list\n  ven set global node 20            # highest installed Node 20.x\n  ven set global python             # interactive picker over installed Pythons\n  ven set global rust --unset       # remove Rust from global PATH\n  ven set global node 20.11.0 --json"
+    )]
+    Set {
+        #[command(subcommand)]
+        cmd: Option<set::SetCmd>,
     },
 
     /// Apply nearest ven.toml runtime to your shell session (prints exports; evaluate in shell)
@@ -731,6 +758,7 @@ pub fn run(cli: Cli) -> Result<()> {
             json,
         } => delete::cmd_delete(language, version, yes, force, json),
         Commands::Path { cmd } => path::cmd_path(cmd),
+        Commands::Set { cmd } => set::cmd_set(cmd),
         Commands::Use { dir } => shell::cmd_use(&dir),
         Commands::Deactivate => shell::cmd_shell_deactivate(),
         Commands::Status { json, verbose, fix } => status::cmd_status(json, verbose, fix),

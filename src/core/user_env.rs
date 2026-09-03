@@ -42,6 +42,459 @@ const VEN_ENV_BLOCK_START: &str = "# >>> ven env >>>";
 #[cfg(unix)]
 const VEN_ENV_BLOCK_END: &str = "# <<< ven env <<<";
 
+/// Marker that opens the ven-managed *global PATH* block in user rc files
+/// (Unix only). One `export PATH="…:$PATH"` line per globally-enabled
+/// runtime (`ven set global <lang>`), so a language binary is on PATH in
+/// every new shell without any project `ven.toml`.
+#[cfg(unix)]
+const VEN_GLOBAL_BLOCK_START: &str = "# >>> ven global PATH >>>";
+/// Marker that closes it (Unix only).
+#[cfg(unix)]
+const VEN_GLOBAL_BLOCK_END: &str = "# <<< ven global PATH <<<";
+
+// ─────────────────────────────────────────────────────────────────────────
+// Global PATH management (`ven set global`)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Persists a runtime's bin dir on the *User* PATH (Windows) or in a
+// fenced rc-file block (Unix) so the runtime is available in every new
+// shell — no admin rights needed. All functions are idempotent: adding an
+// entry that's already present is a no-op, removing a missing one is too.
+
+/// Add `entry` to the user's persistent PATH if it isn't already there.
+/// Returns `Ok(true)` when the entry was added, `Ok(false)` when it was
+/// already present.
+pub fn add_global_path(entry: &std::path::Path) -> Result<bool> {
+    #[cfg(windows)]
+    {
+        add_global_path_windows(entry)
+    }
+    #[cfg(unix)]
+    {
+        add_global_path_unix(entry)
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = entry;
+        Err(anyhow!(
+            "Global PATH management is not implemented for this platform"
+        ))
+    }
+}
+
+/// Remove `entry` from the user's persistent PATH. Returns `Ok(true)`
+/// when it was removed, `Ok(false)` when it wasn't present.
+pub fn remove_global_path(entry: &std::path::Path) -> Result<bool> {
+    #[cfg(windows)]
+    {
+        remove_global_path_windows(entry)
+    }
+    #[cfg(unix)]
+    {
+        remove_global_path_unix(entry)
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = entry;
+        Err(anyhow!(
+            "Global PATH management is not implemented for this platform"
+        ))
+    }
+}
+
+/// List the entries currently on the user's persistent PATH.
+pub fn list_global_paths() -> Result<Vec<std::path::PathBuf>> {
+    #[cfg(windows)]
+    {
+        list_global_paths_windows()
+    }
+    #[cfg(unix)]
+    {
+        list_global_paths_unix()
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        Err(anyhow!(
+            "Global PATH management is not implemented for this platform"
+        ))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Windows: User-scope PATH in the registry
+// ─────────────────────────────────────────────────────────────────────────
+
+#[cfg(windows)]
+fn add_global_path_windows(entry: &std::path::Path) -> Result<bool> {
+    let target = entry.to_string_lossy();
+    let target_ps = ps_single_quote(&target);
+    let script = format!(
+        r#"$target = '{target_ps}'
+$current = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ([string]::IsNullOrWhiteSpace($current)) {{
+  $new = $target
+  $added = $true
+}} elseif ($current -split ';' | Where-Object {{ $_.Trim().TrimEnd('\').ToLowerInvariant() -eq $target.TrimEnd('\').ToLowerInvariant() }}) {{
+  $new = $current
+  $added = $false
+}} else {{
+  $new = $current.TrimEnd(';') + ';' + $target
+  $added = $true
+}}
+[Environment]::SetEnvironmentVariable('Path', $new, 'User')
+Write-Output $added
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Win32VenGlobal {{
+  public static class Native {{
+    [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
+    public static extern IntPtr SendMessageTimeout(
+      IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
+      uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+  }}
+}}
+'@
+$HWND_BROADCAST = [IntPtr]0xffff
+$WM_SETTINGCHANGE = 0x001A
+[UIntPtr]$result = [UIntPtr]::Zero
+[Win32VenGlobal.Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result) | Out-Null"#,
+    );
+    let output = run_powershell_capture(&script)
+        .with_context(|| format!("Failed to add {} to User PATH", target))?;
+    Ok(output.contains("True"))
+}
+
+#[cfg(windows)]
+fn remove_global_path_windows(entry: &std::path::Path) -> Result<bool> {
+    let target = entry.to_string_lossy();
+    let target_ps = ps_single_quote(&target);
+    let script = format!(
+        r#"$target = '{target_ps}'
+$current = [Environment]::GetEnvironmentVariable('Path', 'User')
+if (-not $current) {{ Write-Output 'NOOP'; exit 0 }}
+$parts = $current -split ';' | Where-Object {{ $_ -ne '' }}
+$kept = $parts | Where-Object {{ $_.Trim().TrimEnd('\').ToLowerInvariant() -ne $target.TrimEnd('\').ToLowerInvariant() }}
+if ($kept.Count -eq $parts.Count) {{
+  Write-Output 'NOOP'
+  exit 0
+}}
+$new = ($kept -join ';')
+[Environment]::SetEnvironmentVariable('Path', $new, 'User')
+Write-Output 'STRIPPED'
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Win32VenGlobal {{
+  public static class Native {{
+    [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
+    public static extern IntPtr SendMessageTimeout(
+      IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
+      uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+  }}
+}}
+'@
+$HWND_BROADCAST = [IntPtr]0xffff
+$WM_SETTINGCHANGE = 0x001A
+[UIntPtr]$result = [UIntPtr]::Zero
+[Win32VenGlobal.Native]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result) | Out-Null"#,
+    );
+    let output = run_powershell_capture(&script)
+        .with_context(|| format!("Failed to remove {} from User PATH", target))?;
+    Ok(output.contains("STRIPPED"))
+}
+
+#[cfg(windows)]
+fn list_global_paths_windows() -> Result<Vec<std::path::PathBuf>> {
+    let script = r#"$current = [Environment]::GetEnvironmentVariable('Path', 'User')
+if (-not $current) {{ exit 0 }}
+$current -split ';' | Where-Object {{ $_ -ne '' }}"#;
+    let output = run_powershell_capture(script).context("Failed to read User PATH")?;
+    Ok(output
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .map(std::path::PathBuf::from)
+        .collect())
+}
+
+#[cfg(windows)]
+fn run_powershell_capture(script: &str) -> Result<String> {
+    use std::process::Command;
+    let output = Command::new("powershell.exe")
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            script,
+        ])
+        .output()
+        .context("Failed to spawn powershell.exe")?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "PowerShell exited with status {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Unix: fenced `>>> ven global PATH >>>` block in rc files
+// ─────────────────────────────────────────────────────────────────────────
+
+#[cfg(unix)]
+fn add_global_path_unix(entry: &std::path::Path) -> Result<bool> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow!("Cannot resolve $HOME"))?;
+    let candidates = candidate_rc_files(&home);
+    let mut wrote_any = false;
+    for rc in &candidates {
+        if rc.is_file() && upsert_global_block(rc, entry)? {
+            wrote_any = true;
+        }
+    }
+    if wrote_any {
+        return Ok(true);
+    }
+    // No rc file was modified. Either every existing rc already contained
+    // the entry (already set) or no rc file exists at all (fall back to
+    // ~/.profile so a future bash/sh sees it).
+    if candidates.iter().any(|rc| rc.is_file()) {
+        return Ok(false);
+    }
+    upsert_global_block(&home.join(".profile"), entry)?;
+    Ok(true)
+}
+
+#[cfg(unix)]
+fn remove_global_path_unix(entry: &std::path::Path) -> Result<bool> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow!("Cannot resolve $HOME"))?;
+    let mut removed = false;
+    for rc in candidate_rc_files(&home) {
+        if !rc.is_file() {
+            continue;
+        }
+        if remove_global_block(&rc, entry)? {
+            removed = true;
+        }
+    }
+    Ok(removed)
+}
+
+#[cfg(unix)]
+fn list_global_paths_unix() -> Result<Vec<std::path::PathBuf>> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow!("Cannot resolve $HOME"))?;
+    let mut out = Vec::new();
+    for rc in candidate_rc_files(&home) {
+        if !rc.is_file() {
+            continue;
+        }
+        let content =
+            fs::read_to_string(&rc).with_context(|| format!("Failed to read {}", rc.display()))?;
+        if let Some(start) = content.find(VEN_GLOBAL_BLOCK_START) {
+            let Some(end_rel) = content[start..].find(VEN_GLOBAL_BLOCK_END) else {
+                continue;
+            };
+            let end = start + end_rel;
+            let block = &content[start..end];
+            for path in parse_global_block(block) {
+                if !out.contains(&path) {
+                    out.push(path);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Insert/replace `entry` in the global-PATH block of `rc`. Returns
+/// `Ok(true)` if the file changed.
+#[cfg(unix)]
+fn upsert_global_block(rc: &std::path::Path, entry: &std::path::Path) -> Result<bool> {
+    if let Some(parent) = rc.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("Failed to create {}", parent.display()))?;
+        }
+    }
+    let existing = if rc.is_file() {
+        fs::read_to_string(rc).with_context(|| format!("Failed to read {}", rc.display()))?
+    } else {
+        String::new()
+    };
+    let is_fish = rc.extension().is_some_and(|e| e == "fish");
+    let updated = upsert_global_content(&existing, entry, is_fish);
+    if updated != existing {
+        fs::write(rc, updated).with_context(|| format!("Failed to write {}", rc.display()))?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+/// Remove `entry` from the global-PATH block of `rc`. Returns `Ok(true)`
+/// if the file changed.
+#[cfg(unix)]
+fn remove_global_block(rc: &std::path::Path, entry: &std::path::Path) -> Result<bool> {
+    if !rc.is_file() {
+        return Ok(false);
+    }
+    let existing =
+        fs::read_to_string(rc).with_context(|| format!("Failed to read {}", rc.display()))?;
+    let updated = remove_global_content(&existing, entry);
+    if updated != existing {
+        fs::write(rc, updated).with_context(|| format!("Failed to write {}", rc.display()))?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+/// Pure-string upsert: add or replace `entry`'s line inside the global
+/// PATH block. Appends a fresh block when none exists.
+#[cfg(unix)]
+fn upsert_global_content(content: &str, entry: &std::path::Path, is_fish: bool) -> String {
+    let line = render_global_line(entry, is_fish);
+    let Some(start) = content.find(VEN_GLOBAL_BLOCK_START) else {
+        // No block yet — append one.
+        let mut out = content.to_string();
+        if !out.is_empty() && !out.ends_with('\n') {
+            out.push('\n');
+        }
+        out.push_str(VEN_GLOBAL_BLOCK_START);
+        out.push('\n');
+        out.push_str(&line);
+        out.push('\n');
+        out.push_str(VEN_GLOBAL_BLOCK_END);
+        out.push('\n');
+        return out;
+    };
+    let Some(end_rel) = content[start..].find(VEN_GLOBAL_BLOCK_END) else {
+        return content.to_string();
+    };
+    let end = start + end_rel + VEN_GLOBAL_BLOCK_END.len();
+    let block = &content[start..end];
+    let inner = block[VEN_GLOBAL_BLOCK_START.len()..].trim_end_matches('\n');
+    // Drop any existing line for the same entry (case-insensitive path cmp).
+    let kept: Vec<&str> = inner
+        .lines()
+        .filter(|l| !global_line_matches(l, entry))
+        .collect();
+    let mut new_block = String::from(VEN_GLOBAL_BLOCK_START);
+    for l in &kept {
+        new_block.push('\n');
+        new_block.push_str(l);
+    }
+    new_block.push('\n');
+    new_block.push_str(&line);
+    new_block.push('\n');
+    new_block.push_str(VEN_GLOBAL_BLOCK_END);
+    let mut out = String::with_capacity(content.len());
+    out.push_str(&content[..start]);
+    out.push_str(&new_block);
+    out.push_str(&content[end..]);
+    out
+}
+
+/// Pure-string removal: drop `entry`'s line; remove the whole block when
+/// it becomes empty.
+#[cfg(unix)]
+fn remove_global_content(content: &str, entry: &std::path::Path) -> String {
+    let Some(start) = content.find(VEN_GLOBAL_BLOCK_START) else {
+        return content.to_string();
+    };
+    let Some(end_rel) = content[start..].find(VEN_GLOBAL_BLOCK_END) else {
+        return content.to_string();
+    };
+    let end = start + end_rel + VEN_GLOBAL_BLOCK_END.len();
+    let block = &content[start..end];
+    let inner = block[VEN_GLOBAL_BLOCK_START.len()..].trim_end_matches('\n');
+    let kept: Vec<&str> = inner
+        .lines()
+        .filter(|l| !global_line_matches(l, entry))
+        .collect();
+
+    if kept.is_empty() {
+        // Block is now empty — remove it entirely (plus one trailing newline).
+        let mut tail = end;
+        if content[tail..].starts_with('\n') {
+            tail += 1;
+        }
+        return format!("{}{}", &content[..start], &content[tail..]);
+    }
+
+    let mut new_block = String::from(VEN_GLOBAL_BLOCK_START);
+    for l in &kept {
+        new_block.push('\n');
+        new_block.push_str(l);
+    }
+    new_block.push('\n');
+    new_block.push_str(VEN_GLOBAL_BLOCK_END);
+    let mut out = String::with_capacity(content.len());
+    out.push_str(&content[..start]);
+    out.push_str(&new_block);
+    out.push_str(&content[end..]);
+    out
+}
+
+/// Does this rc line reference `entry`'s path? Matches the quoted path
+/// inside `export PATH="…:$PATH"` / `set -gx PATH "…" $PATH` lines.
+#[cfg(unix)]
+fn global_line_matches(line: &str, entry: &std::path::Path) -> bool {
+    let want = entry.to_string_lossy().to_lowercase();
+    line.to_lowercase().contains(&want)
+}
+
+/// Render one `export PATH="<entry>:$PATH"` line (or the fish equivalent).
+#[cfg(unix)]
+fn render_global_line(entry: &std::path::Path, is_fish: bool) -> String {
+    let raw = entry.to_string_lossy();
+    let escaped = raw.replace('\\', "\\\\").replace('"', "\\\"");
+    if is_fish {
+        format!("set -gx PATH \"{escaped}\" $PATH")
+    } else {
+        format!("export PATH=\"{escaped}:$PATH\"")
+    }
+}
+
+/// Extract the quoted bin paths from a global-PATH block's inner content.
+#[cfg(unix)]
+fn parse_global_block(block: &str) -> Vec<std::path::PathBuf> {
+    let inner = block
+        .strip_prefix(VEN_GLOBAL_BLOCK_START)
+        .unwrap_or(block)
+        .trim_end_matches('\n');
+    let mut out = Vec::new();
+    for line in inner.lines() {
+        let Some(open) = line.find('\"') else {
+            continue;
+        };
+        let rest = &line[open + 1..];
+        let Some(close) = rest.find('\"') else {
+            continue;
+        };
+        let mut path = rest[..close].to_string();
+        // Bash lines embed the interpolation tail inside the quotes
+        // (`export PATH="<entry>:$PATH"`); fish lines keep it outside
+        // (`set -gx PATH "<entry>" $PATH`). Strip it either way.
+        for suffix in [":$PATH", ":$path", " $PATH", " $path"] {
+            if path.ends_with(suffix) {
+                path.truncate(path.len() - suffix.len());
+                break;
+            }
+        }
+        let path = path.replace("\\\\", "\\").replace("\\\"", "\"");
+        if !path.is_empty() {
+            out.push(std::path::PathBuf::from(path));
+        }
+    }
+    out
+}
+
 /// Set `name=value` in the user's persistent environment. Returns `Ok(())`
 /// on success, error with a human-readable message on failure. Caller should
 /// downgrade to a warning if appropriate (most `ven path set` flows do).
@@ -410,5 +863,144 @@ mod tests {
         assert!(validate_name("FOO=BAR").is_err());
         assert!(validate_name("FOO").is_ok());
         assert!(validate_name("VEN_HOME").is_ok());
+    }
+
+    // ── Global PATH block ────────────────────────────────────────────
+
+    #[test]
+    fn global_block_appends_fresh_block_when_absent() {
+        let content = "# user stuff\nalias ll='ls -la'\n";
+        let out = upsert_global_content(
+            content,
+            std::path::Path::new("/home/u/.ven/node/20.11.0/bin"),
+            false,
+        );
+        assert!(out.contains(VEN_GLOBAL_BLOCK_START));
+        assert!(out.contains(VEN_GLOBAL_BLOCK_END));
+        assert!(out.contains("export PATH=\"/home/u/.ven/node/20.11.0/bin:$PATH\""));
+        assert!(out.contains("alias ll='ls -la'"));
+    }
+
+    #[test]
+    fn global_block_adds_second_entry_and_keeps_first() {
+        let one = upsert_global_content(
+            "",
+            std::path::Path::new("/home/u/.ven/node/20.11.0/bin"),
+            false,
+        );
+        let two = upsert_global_content(
+            &one,
+            std::path::Path::new("/home/u/.ven/rust/1.98.0/bin"),
+            false,
+        );
+        assert_eq!(two.matches(VEN_GLOBAL_BLOCK_START).count(), 1);
+        assert!(two.contains("node/20.11.0/bin"));
+        assert!(two.contains("rust/1.98.0/bin"));
+    }
+
+    #[test]
+    fn global_block_replaces_same_entry_without_duplicating() {
+        let one = upsert_global_content(
+            "",
+            std::path::Path::new("/home/u/.ven/node/20.11.0/bin"),
+            false,
+        );
+        let two = upsert_global_content(
+            &one,
+            std::path::Path::new("/home/u/.ven/node/22.0.0/bin"),
+            false,
+        );
+        assert_eq!(
+            two.matches("node/").count(),
+            1,
+            "old entry should be replaced: {two}"
+        );
+        assert!(two.contains("node/22.0.0/bin"));
+        assert!(!two.contains("node/20.11.0/bin"));
+    }
+
+    #[test]
+    fn global_block_removal_drops_line_and_keeps_others() {
+        let one = upsert_global_content(
+            "",
+            std::path::Path::new("/home/u/.ven/node/20.11.0/bin"),
+            false,
+        );
+        let two = upsert_global_content(
+            &one,
+            std::path::Path::new("/home/u/.ven/rust/1.98.0/bin"),
+            false,
+        );
+        let out =
+            remove_global_content(&two, std::path::Path::new("/home/u/.ven/node/20.11.0/bin"));
+        assert!(!out.contains("node/20.11.0/bin"));
+        assert!(out.contains("rust/1.98.0/bin"));
+        assert!(out.contains(VEN_GLOBAL_BLOCK_START));
+    }
+
+    #[test]
+    fn global_block_removal_of_last_entry_removes_block() {
+        let one = upsert_global_content(
+            "",
+            std::path::Path::new("/home/u/.ven/node/20.11.0/bin"),
+            false,
+        );
+        let out =
+            remove_global_content(&one, std::path::Path::new("/home/u/.ven/node/20.11.0/bin"));
+        assert!(!out.contains(VEN_GLOBAL_BLOCK_START));
+        assert!(!out.contains("node/20.11.0/bin"));
+    }
+
+    #[test]
+    fn global_block_parse_extracts_quoted_paths() {
+        let one = upsert_global_content(
+            "",
+            std::path::Path::new("/home/u/.ven/node/20.11.0/bin"),
+            false,
+        );
+        let two = upsert_global_content(
+            &one,
+            std::path::Path::new("/home/u/.ven/rust/1.98.0/bin"),
+            false,
+        );
+        let start = two.find(VEN_GLOBAL_BLOCK_START).unwrap();
+        let end_rel = two[start..].find(VEN_GLOBAL_BLOCK_END).unwrap();
+        let block = &two[start..start + end_rel];
+        let parsed = parse_global_block(block);
+        assert_eq!(parsed.len(), 2);
+        assert!(parsed.contains(&std::path::PathBuf::from("/home/u/.ven/node/20.11.0/bin")));
+        assert!(parsed.contains(&std::path::PathBuf::from("/home/u/.ven/rust/1.98.0/bin")));
+    }
+
+    #[test]
+    fn global_block_parse_handles_fish_syntax() {
+        let one = upsert_global_content(
+            "",
+            std::path::Path::new("/home/u/.ven/python/3.12.7/bin"),
+            true,
+        );
+        let start = one.find(VEN_GLOBAL_BLOCK_START).unwrap();
+        let end_rel = one[start..].find(VEN_GLOBAL_BLOCK_END).unwrap();
+        let block = &one[start..start + end_rel];
+        let parsed = parse_global_block(block);
+        assert_eq!(
+            parsed,
+            vec![std::path::PathBuf::from("/home/u/.ven/python/3.12.7/bin")]
+        );
+    }
+
+    #[test]
+    fn global_block_fish_rendering() {
+        let line = render_global_line(std::path::Path::new("/home/u/.ven/python/3.12.7/bin"), true);
+        assert_eq!(
+            line,
+            "set -gx PATH \"/home/u/.ven/python/3.12.7/bin\" $PATH"
+        );
+    }
+
+    #[test]
+    fn global_block_escapes_spaces() {
+        let line = render_global_line(std::path::Path::new("/home/u/my ven/node/bin"), false);
+        assert_eq!(line, "export PATH=\"/home/u/my ven/node/bin:$PATH\"");
     }
 }
