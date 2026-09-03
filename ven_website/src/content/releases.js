@@ -3,6 +3,31 @@
 
 export const RELEASES = [
   {
+    version: 'v0.2.6',
+    date: 'September 3, 2026',
+    tag: 'minor',
+    summary:
+      'Enterprise-friendly release: `ven set global` makes an installed runtime globally available on the User PATH with no admin rights, installation moved fully off raw.githubusercontent.com to GitHub Releases (works behind Zscaler), shell hooks no longer spawn a process on every `cd` outside ven projects, stale legacy hooks are auto-replaced on upgrade, and ven-setup adds a Windows Defender exclusion after install.',
+    sections: {
+      new: [
+        '`ven set global <language> [version]` — persist an installed runtime\'s bin dir on the **User PATH** so its binaries work from every directory in every new shell. Installed versions only (nothing is ever downloaded), interactive picker when the version is omitted, `--unset` removes an entry, bare `ven set global` lists the current ones. No admin rights: Windows writes `HKCU\\Environment\\Path` via PowerShell + `WM_SETTINGCHANGE`; Unix writes a fenced `# >>> ven global PATH >>>` rc-file block. Setting a different version of a language replaces the old entry — one global version per language.',
+        'Installation no longer depends on `raw.githubusercontent.com`: `install.ps1` / `install.sh` are now published as **GitHub Release assets**, and every install one-liner (README, docs, website) points at `github.com/bhuwanb23/ven/releases/latest/download/…`. Corporate proxies / Zscaler that block raw content no longer break installation.',
+        '`ven-setup` now adds the install root to the **Windows Defender exclusion list** at the end of a successful install (best-effort: elevated installs land the exclusion, user-mode installs get a hint instead — never fails the install). Removes the per-run antivirus scan that made every `ven` invocation feel slow.',
+        'New docs page `docs/cmds/set.md` documenting `ven set global` end-to-end, plus `docs/performance.md` explaining the startup-latency diagnosis and fixes.',
+      ],
+      improved: [
+        'Shell hooks (bash / zsh / fish / PowerShell) take a fast path when no `ven.toml` exists in the tree: they no longer spawn the full ven process on every `cd`, so navigating plain directories is instant again (~200–400 ms saved per prompt).',
+        '`ven shell install` / `ven setup` now **auto-replace** stale or comment-only legacy hook markers instead of skipping the profile — upgrading users whose hook was installed but never actually activated get a working hook after one re-run.',
+        '`ven uninstall` now strips `%USERPROFILE%\\.ven\\bin` (the real PATH entry the installer adds, previously missed) plus every per-runtime global PATH entry, and the rc scrubber removes the new global block.',
+        'CI hardened: `cargo clippy` no longer trips on `float_literal_f32_fallback` under newer stable rustc.',
+      ],
+      fixed: [
+        '26 `float_literal_f32_fallback` clippy errors in the ven-setup GUI fixed with explicit `f32` suffixes (the lint becomes a hard error under `-D warnings` on newer rustc).',
+        'Compile errors in `ven setup` rc-file handling (unused import + moved `rc_file` borrow).',
+      ],
+    },
+  },
+  {
     version: 'v0.2.5',
     date: 'June 25, 2026',
     tag: 'minor',
