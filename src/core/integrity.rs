@@ -214,15 +214,14 @@ pub fn print_checksum_ok(filename: &str) {
     println!("  {} checksum verified: {}", "[OK]".green(), filename);
 }
 
-/// Pretty-print a checksum-unavailable warning (matches existing Node UX).
-pub fn print_checksum_unavailable(filename: &str, reason: &str) {
-    println!(
-        "  {} checksum unavailable for {} ({}). Continuing without verification.",
-        "!".yellow(),
-        filename,
-        reason
-    );
-}
+// NOTE: a former `print_checksum_unavailable(filename, reason)` helper used to
+// print "checksum unavailable ... Continuing without verification." and let the
+// install proceed unverified. Every installer now fails closed instead — see
+// `verify_sha256` callers, e.g. `download.rs`'s
+// "refusing to continue without verification" error. That fail-open helper was
+// removed rather than left in place: with zero callers it was dead code whose
+// only remaining effect would be to tempt a future caller into reintroducing
+// the unverified-download path. Do not re-add it.
 
 // ─────────────────────────────────────────────────────────────────────────
 // HTTP client + streaming download (added in v0.1.6)

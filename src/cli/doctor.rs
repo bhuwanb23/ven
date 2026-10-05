@@ -281,6 +281,19 @@ fn which_all_windows(name: &str) -> Result<Vec<PathBuf>> {
 
 #[cfg(not(windows))]
 fn which_all_unix(name: &str) -> Result<Vec<PathBuf>> {
+    // `name` is interpolated into a `sh -c` script below. Every current caller
+    // passes a string literal ("ven"), so this is not reachable today — but an
+    // unrestricted interpolation into a shell script is a latent injection
+    // point the moment anyone passes user- or config-derived input. Reject
+    // anything that isn't a plain command name instead of quoting it, so a
+    // future caller fails loudly rather than inheriting a silent RCE.
+    if name.is_empty()
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
+    {
+        anyhow::bail!("refusing to run `which` for unsafe command name: {name:?}");
+    }
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(

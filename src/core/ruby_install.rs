@@ -152,8 +152,7 @@ pub fn install_ruby(dl: &RubyDownloader, version: &str) -> Result<()> {
         let staging_dir = tempfile::tempdir().context("temp dir for Ruby 7z")?;
         let unpack_base = staging_dir.path().join("ri2");
         fs::create_dir_all(&unpack_base)?;
-        sevenz_rust::decompress_file(&archive, &unpack_base)
-            .map_err(|e| anyhow!("7z unpack: {:?}", e))?;
+        extract_7z_safely(&archive, &unpack_base)?;
         relocate_into_install_dir(&unpack_base, &install_dir)?;
     }
     #[cfg(not(target_os = "windows"))]
@@ -236,6 +235,45 @@ fn apply_ruby_checksum(archive: &Path, filename: &str, hex: &str) -> Result<()> 
             ))
         }
     }
+}
+
+/// Extract a `.7z` archive while rejecting entries whose names would escape
+/// `dest` (zip-slip / path traversal).
+///
+/// `sevenz_rust::decompress_file` joins each archive entry's *raw* header name
+/// onto `dest` (`de_funcs.rs`: `dest.join(entry.name())`) and performs no
+/// validation of its own. A crafted `.7z` containing an entry named
+/// `..\..\..\Users\<user>\Startup\ven.vbs` would therefore write outside the
+/// staging directory before `relocate_into_install_dir` ever runs.
+///
+/// Every other archive path in this crate funnels through
+/// [`crate::core::extract::validate_path_within_dir`] first; this brings the
+/// 7z path in line. We validate and then delegate to the library's own
+/// `default_entry_extract_fn` so the file-write behaviour (including the
+/// `filetime` timestamp preservation) stays exactly as upstream implements it.
+#[cfg(target_os = "windows")]
+fn extract_7z_safely(archive: &Path, dest: &Path) -> Result<()> {
+    sevenz_rust::decompress_file_with_extract_fn(archive, dest, |entry, reader, dest_path| {
+        validate_7z_entry_path(dest_path, dest)?;
+        sevenz_rust::default_entry_extract_fn(entry, reader, dest_path)
+    })
+    .map_err(|e| anyhow!("7z unpack: {e:?}"))
+}
+
+/// Reject a `.7z` entry whose resolved path escapes `dest`.
+///
+/// Split out from [`extract_7z_safely`] so the security decision is directly
+/// unit-testable without having to construct a real archive — `sevenz-rust`'s
+/// writer is behind its `compress` feature, which ven deliberately does not
+/// enable.
+#[cfg(target_os = "windows")]
+fn validate_7z_entry_path(
+    dest_path: &Path,
+    dest: &Path,
+) -> std::result::Result<(), sevenz_rust::Error> {
+    crate::core::extract::validate_path_within_dir(dest_path, dest)
+        .map(|_| ())
+        .map_err(|e| sevenz_rust::Error::other(format!("7z path traversal blocked: {e}")))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -591,4 +629,78 @@ fn version_cmp_parts_desc(a: &str, b: &str) -> std::cmp::Ordering {
             .collect()
     };
     parse(a).cmp(&parse(b))
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    /// Regression test for the `.7z` path-traversal escape.
+    ///
+    /// `sevenz_rust::decompress_file` joined each archive entry's raw header
+    /// name onto the destination with no validation, so a crafted `.7z`
+    /// containing an entry named `..\..\evil.txt` wrote outside the extraction
+    /// directory. Verified against sevenz-rust 0.6.1 before the fix: the old
+    /// call wrote the payload to the parent of the parent of `dest`.
+    #[test]
+    fn rejects_7z_entry_that_escapes_destination() {
+        let base = tempdir().unwrap();
+        let dest = base.path().join("ri2");
+        std::fs::create_dir_all(&dest).unwrap();
+
+        let traversal = dest.join("..").join("..").join("evil.txt");
+        assert!(
+            validate_7z_entry_path(&traversal, &dest).is_err(),
+            "entry escaping the destination must be rejected"
+        );
+    }
+
+    #[test]
+    fn rejects_7z_entry_with_deep_traversal() {
+        let base = tempdir().unwrap();
+        let dest = base.path().join("ri2");
+        std::fs::create_dir_all(&dest).unwrap();
+
+        let deep = dest
+            .join("..")
+            .join("..")
+            .join("..")
+            .join("Users")
+            .join("Public")
+            .join("Startup")
+            .join("payload.vbs");
+        assert!(
+            validate_7z_entry_path(&deep, &dest).is_err(),
+            "multi-level traversal must be rejected"
+        );
+    }
+
+    /// The guard must not break normal archives — RubyInstaller2 layouts are
+    /// nested several directories deep.
+    #[test]
+    fn accepts_ordinary_nested_7z_entries() {
+        let base = tempdir().unwrap();
+        let dest = base.path().join("ri2");
+        std::fs::create_dir_all(&dest).unwrap();
+
+        for name in [
+            "ruby-3.4.1",
+            "ruby-3.4.1/bin/ruby.exe",
+            "ruby-3.4.1/lib/ruby/gems/3.4.0",
+        ] {
+            let candidate = dest.join(name);
+            assert!(
+                validate_7z_entry_path(&candidate, &dest).is_ok(),
+                "ordinary entry {name:?} must be accepted"
+            );
+        }
+    }
+
+    /// A pre-existing destination must still accept entries inside it.
+    #[test]
+    fn accepts_entry_equal_to_destination() {
+        let base = tempdir().unwrap();
+        assert!(validate_7z_entry_path(base.path(), base.path()).is_ok());
+    }
 }

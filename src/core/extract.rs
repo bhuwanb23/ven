@@ -41,32 +41,19 @@ pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<Pat
     let canon_base = std::fs::canonicalize(base_dir).unwrap_or_else(|_| base_dir.to_path_buf());
     let canon_base = strip_verbatim_prefix(&canon_base);
 
-    // Canonicalize the candidate if it exists (handles macOS /tmp → /private/tmp
-    // symlinks, Windows short-name aliases, and junction differences between CI
-    // runner tempdirs). For paths that don't exist yet (pre-extraction zip/tar
-    // entries), canonicalize the *parent* chain the same way — otherwise a
-    // candidate under a short-named directory (e.g. `%TEMP%` = `C:\Users\BHUWAN~1\…`)
-    // compares its still-short lexical form against the long-form `canon_base`
-    // and is falsely rejected as traversal — then re-apply lexical
-    // normalization to the non-existent tail so `..` attacks are still caught.
-    let normalized = match std::fs::canonicalize(candidate) {
-        Ok(canon) => strip_verbatim_prefix(&canon),
-        Err(_) => match candidate.parent() {
-            Some(parent) => match std::fs::canonicalize(parent) {
-                Ok(canon_parent) => {
-                    let canon_parent = strip_verbatim_prefix(&canon_parent);
-                    match candidate.file_name() {
-                        Some(name) => {
-                            strip_verbatim_prefix(&normalize_path(&canon_parent.join(name)))
-                        }
-                        None => strip_verbatim_prefix(&normalize_path(candidate)),
-                    }
-                }
-                Err(_) => strip_verbatim_prefix(&normalize_path(candidate)),
-            },
-            None => strip_verbatim_prefix(&normalize_path(candidate)),
-        },
-    };
+    // Canonicalize the candidate, resolving symlinks, macOS `/tmp` → `/private/tmp`,
+    // Windows junction differences, and Windows 8.3 short-name aliases (e.g.
+    // `%TEMP%` = `C:\Users\BHUWAN~1\…`).
+    //
+    // Archive entries normally don't exist on disk yet, so we canonicalize the
+    // nearest *existing* ancestor and re-append the missing tail. Canonicalizing
+    // only the immediate parent is not enough: for a deeply nested entry such as
+    // `ruby-3.4.1/lib/ruby/gems/3.4.0/specifications` the parent directory
+    // doesn't exist either, and falling back to purely lexical normalization
+    // leaves the candidate in its short-name form while `canon_base` is in long
+    // form — so `starts_with` fails and an entirely legitimate path is falsely
+    // rejected as traversal. See `canonicalize_resolving_tail`.
+    let normalized = canonicalize_resolving_tail(candidate);
 
     if normalized.starts_with(&canon_base) {
         Ok(normalized)
@@ -77,6 +64,37 @@ pub fn validate_path_within_dir(candidate: &Path, base_dir: &Path) -> Result<Pat
             base_dir.display()
         ))
     }
+}
+
+/// Canonicalize `candidate`, tolerating components that don't exist yet.
+///
+/// Walks up to the nearest ancestor that *does* exist, canonicalizes that (which
+/// collapses symlinks, junctions, and Windows 8.3 short names to one canonical
+/// spelling), then re-appends the non-existent tail in order. Falls back to
+/// lexical [`normalize_path`] if nothing along the chain can be canonicalized.
+fn canonicalize_resolving_tail(candidate: &Path) -> PathBuf {
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    let mut cur = candidate.to_path_buf();
+    loop {
+        if let Ok(canon) = std::fs::canonicalize(&cur) {
+            let mut result = strip_verbatim_prefix(&canon);
+            for component in tail.iter().rev() {
+                result.push(component);
+            }
+            return result;
+        }
+        match cur.file_name() {
+            Some(name) => {
+                tail.push(name.to_os_string());
+                match cur.parent() {
+                    Some(parent) => cur = parent.to_path_buf(),
+                    None => break,
+                }
+            }
+            None => break,
+        }
+    }
+    strip_verbatim_prefix(&normalize_path(candidate))
 }
 
 /// Lexically normalize a path by resolving `.` and `..` components.
@@ -428,6 +446,59 @@ mod tests {
         assert!(
             validate_path_within_dir(&child, &extract).is_ok(),
             "non-existent child under an existing base must be accepted"
+        );
+    }
+
+    /// Regression test for a false-rejection bug in the non-existent-path
+    /// branch of `validate_path_within_dir`.
+    ///
+    /// Only the *immediate* parent used to be canonicalized. For a deeply
+    /// nested archive entry (`ruby-3.4.1/lib/ruby/gems/3.4.0`) that parent
+    /// doesn't exist yet either, so the candidate fell back to lexical
+    /// normalization. On a host whose `%TEMP%` resolves through a Windows 8.3
+    /// short name the candidate then kept its short form while the
+    /// canonicalized base was long-form, `starts_with` failed, and a perfectly
+    /// legitimate entry was rejected as path traversal -- which would have
+    /// broken extraction of every deep archive layout (RubyInstaller2, Go,
+    /// Java, PHP) on those machines.
+    #[test]
+    fn validate_path_within_dir_accepts_deeply_nested_missing_paths() {
+        let dir = tempdir().unwrap();
+        let extract = dir.path().join("extract");
+        std::fs::create_dir_all(&extract).unwrap();
+
+        for name in [
+            "ruby-3.4.1",
+            "ruby-3.4.1/bin/ruby.exe",
+            "ruby-3.4.1/lib/ruby/gems/3.4.0",
+            "ruby-3.4.1/lib/ruby/gems/3.4.0/specifications/default",
+        ] {
+            let candidate = extract.join(name);
+            assert!(
+                validate_path_within_dir(&candidate, &extract).is_ok(),
+                "deeply nested missing entry {name:?} must be accepted, not flagged as traversal"
+            );
+        }
+    }
+
+    /// The tail-resolving canonicalization must not blunt the traversal guard:
+    /// a `..` that escapes an existing ancestor is still rejected.
+    #[test]
+    fn validate_path_within_dir_still_rejects_deep_escape() {
+        let dir = tempdir().unwrap();
+        let extract = dir.path().join("extract");
+        std::fs::create_dir_all(&extract).unwrap();
+        std::fs::create_dir_all(extract.join("real")).unwrap();
+
+        let escape = extract
+            .join("real")
+            .join("..")
+            .join("..")
+            .join("..")
+            .join("evil.txt");
+        assert!(
+            validate_path_within_dir(&escape, &extract).is_err(),
+            "multi-level escape from an existing ancestor must still be rejected"
         );
     }
 
