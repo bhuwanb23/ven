@@ -1,8 +1,11 @@
 mod languages;
 mod toml;
 
+use crate::core::install_gate::{
+    self, candidates_from_specs, GateDecision, GatePolicy, SeverityPolicy,
+};
+use crate::core::load_config;
 use crate::core::packages;
-use crate::core::{load_config, SecurityScanner};
 use crate::intelligence::display::{print_intel_summary, print_intel_tree, print_transitive_note};
 use crate::intelligence::engine::DependencyIntelligenceService;
 use crate::intelligence::graph::SimulationResult;
@@ -39,6 +42,8 @@ pub fn cmd_add(
     dry_run: bool,
     verbose: bool,
     yes: bool,
+    ignore_vulns: bool,
+    strict: bool,
 ) -> Result<()> {
     if package_specs.is_empty() {
         println!("  {} No packages specified", "[ERROR]".red());
@@ -131,29 +136,83 @@ pub fn cmd_add(
         && ruby_version.is_empty()
         && bun_version.is_empty();
 
+    // ── Pre-install security gate ───────────────────────────────────────────
+    // Runs BEFORE any language-specific dispatch, so every runtime (not just
+    // npm) is audited. Previously the audit sat after the per-language early
+    // returns and could therefore only ever run for Node projects.
+    let gate_policy = GatePolicy {
+        severity: SeverityPolicy::default(),
+        fail_closed: strict,
+        disabled: ignore_vulns,
+    };
+    let kind = crate::cli::check::primary_runtime_kind(&cfg);
+    let candidates = candidates_from_specs(package_specs);
+    let (decision, _gate_report) =
+        install_gate::run_install_gate(&kind, &candidates, &gate_policy, yes, false)?;
+
+    let mut package_specs = package_specs.to_vec();
+    match decision {
+        GateDecision::Proceed => {}
+        GateDecision::ProceedWithFixed(fixes) => {
+            // Re-pin the affected specs to their patched versions.
+            for (pkg, fixed) in &fixes {
+                for spec in package_specs.iter_mut() {
+                    let name_matches = spec == pkg || spec.starts_with(&format!("{pkg}@"));
+                    if name_matches {
+                        *spec = format!("{pkg}@{fixed}");
+                    }
+                }
+            }
+            println!(
+                "  {} Continuing with patched version(s): {}",
+                "[FIXED]".green(),
+                fixes
+                    .iter()
+                    .map(|(p, v)| format!("{p}@{v}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        GateDecision::Abort => {
+            println!();
+            println!(
+                "  {} Install cancelled — security advisories are unresolved.",
+                "[ERROR]".red()
+            );
+            if !ignore_vulns {
+                println!(
+                    "  {} Re-run with --ignore-vulns to install anyway.",
+                    "[TIP]".cyan()
+                );
+            }
+            println!();
+            std::process::exit(install_gate::EXIT_SECURITY_BLOCKED);
+        }
+    }
+
     if php_mode {
-        return cmd_add_php(package_specs, dry_run);
+        return cmd_add_php(&package_specs, dry_run);
     }
     if python_mode {
-        return cmd_add_python(package_specs, dry_run);
+        return cmd_add_python(&package_specs, dry_run);
     }
     if go_mode {
-        return cmd_add_go(package_specs, dry_run);
+        return cmd_add_go(&package_specs, dry_run);
     }
     if rust_mode {
-        return cmd_add_rust(package_specs, dry_run);
+        return cmd_add_rust(&package_specs, dry_run);
     }
     if java_mode {
-        return cmd_add_java(package_specs, dry_run);
+        return cmd_add_java(&package_specs, dry_run);
     }
     if deno_mode {
-        return cmd_add_deno(package_specs, dry_run);
+        return cmd_add_deno(&package_specs, dry_run);
     }
     if bun_mode {
-        return cmd_add_bun(package_specs, dry_run);
+        return cmd_add_bun(&package_specs, dry_run);
     }
     if ruby_mode {
-        return cmd_add_ruby(package_specs, dry_run);
+        return cmd_add_ruby(&package_specs, dry_run);
     }
 
     let existing_packages = load_existing_packages()?;
@@ -383,45 +442,12 @@ pub fn cmd_add(
         println!();
     }
 
-    println!("\n  {}", "Security Audit".bold().cyan());
-    let mut all_packages: HashMap<String, String> = HashMap::new();
-    for (_, result) in &all_results {
-        for (name, versions) in &result.graph.nodes {
-            for node in versions.values() {
-                all_packages.insert(name.clone(), node.version.clone());
-            }
-        }
-    }
-
-    println!(
-        "  {} Scanning {} packages for known vulnerabilities...",
-        "🔒".cyan(),
-        all_packages.len()
-    );
-
-    let vulnerabilities = crate::core::block_on_async(async {
-        let scanner = SecurityScanner::new()?;
-        scanner.scan_packages(&all_packages).await
-    });
-
-    let vulnerabilities = match vulnerabilities {
-        Ok(advisories) => advisories,
-        Err(e) => {
-            eprintln!("  {} Warning: Security scan failed: {}", "⚠".yellow(), e);
-            Ok(Vec::new())
-        }
-    }?;
-
-    let scanner = SecurityScanner::new()?;
-    scanner.print_audit(&vulnerabilities);
-
-    if scanner.has_critical_vulnerabilities(&vulnerabilities) {
-        println!(
-            "\n  {} Critical/High vulnerabilities detected!",
-            "🚨".red().bold()
-        );
-        println!("  {} Consider updating to patched versions", "⚠".yellow());
-    }
+    // The pre-install security gate already ran above (before language dispatch),
+    // using OSV across every ecosystem. The former post-simulation audit that
+    // lived here queried the npm bulk-advisories API against the dependency
+    // graph — which meant it (a) never ran for the 8 non-npm languages because
+    // their dispatch returns earlier, and (b) scanned an empty package set even
+    // for npm whenever the graph came from a stub adapter.
 
     if dry_run {
         println!();

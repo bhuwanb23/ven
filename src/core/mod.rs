@@ -9,6 +9,7 @@ pub mod extract;
 pub mod gemfile;
 pub mod ghost_scanner;
 pub mod go_install;
+pub mod install_gate;
 pub mod installer_base;
 pub mod integrity;
 pub mod java_install;

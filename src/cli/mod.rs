@@ -315,6 +315,12 @@ pub enum Commands {
         /// Assume "yes" for the final install prompt (default for non-TTY shells / CI)
         #[arg(short = 'y', long)]
         yes: bool,
+        /// Skip the pre-install security scan entirely (use with caution)
+        #[arg(long)]
+        ignore_vulns: bool,
+        /// Fail closed: treat "package could not be audited" as a block, not a warning
+        #[arg(long)]
+        strict: bool,
     },
 
     /// Check add compatibility without installing (dependency intelligence)
@@ -785,7 +791,17 @@ pub fn run(cli: Cli) -> Result<()> {
             dry_run,
             verbose,
             yes,
-        } => add::cmd_add(&packages, skip_check, dry_run, verbose, yes),
+            ignore_vulns,
+            strict,
+        } => add::cmd_add(
+            &packages,
+            skip_check,
+            dry_run,
+            verbose,
+            yes,
+            ignore_vulns,
+            strict,
+        ),
         Commands::CheckAdd { packages, json } => check_add::cmd_check_add(&packages, json),
         Commands::Graph { json, resolve } => graph::cmd_graph(json, resolve),
         Commands::Why { package } => why::cmd_why(&package),
