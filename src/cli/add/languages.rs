@@ -2,6 +2,7 @@ use anyhow::Result;
 use colored::Colorize;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Instant;
 
 use super::update_ven_toml_packages;
 
@@ -11,7 +12,7 @@ use crate::core::java_manifest::{self, JavaCoord};
 use crate::core::project_venv::local_venv_bin_dir;
 use crate::core::requirements::{requirement_from_spec, Requirements};
 use crate::core::ruby_gems;
-use crate::core::runtime_bin::runtime_tool;
+use crate::core::runtime_bin::{resolve_abs, runtime_tool};
 
 pub(super) fn cmd_add_php(package_specs: &[String], dry_run: bool) -> Result<()> {
     println!("\n{}", "ven add (php)".bold().cyan());
@@ -146,7 +147,7 @@ pub(super) fn cmd_add_go(package_specs: &[String], dry_run: bool) -> Result<()> 
     }
 
     ensure_go_mod()?;
-    let go_bin = runtime_tool("go", "go");
+    let go_bin = resolve_abs("go", "go").unwrap_or_else(|| PathBuf::from("go"));
     let mut installed = Vec::new();
     for spec in package_specs {
         let status = Command::new(&go_bin).args(["get", spec]).status();
@@ -185,7 +186,7 @@ pub(super) fn cmd_add_rust(package_specs: &[String], dry_run: bool) -> Result<()
     }
 
     ensure_cargo_manifest()?;
-    let cargo_bin = runtime_tool("rust", "cargo");
+    let cargo_bin = resolve_abs("rust", "cargo").unwrap_or_else(|| PathBuf::from("cargo"));
     let mut installed = Vec::new();
     for spec in package_specs {
         let status = Command::new(&cargo_bin).args(["add", spec]).status();
@@ -325,12 +326,13 @@ pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()
     }
 
     let mut installed = Vec::new();
+    let bundle = resolve_abs("ruby", "bundle").unwrap_or_else(|| PathBuf::from("bundle"));
     for spec in package_specs {
         let (name, version_opt) = parse_ruby_gem_spec(spec);
         let ver = gem_version_arg_from_spec(spec);
 
         let ok = if use_bundler {
-            run_bundle_add(&name, ver.as_deref())
+            run_bundle_add(&bundle, &name, ver.as_deref())
         } else {
             ruby_gems::gem_install(&name, ver.as_deref()).map(|_| ())
         };
@@ -368,7 +370,7 @@ pub(super) fn cmd_add_ruby(package_specs: &[String], dry_run: bool) -> Result<()
 }
 
 fn which_bundle() -> bool {
-    let bundle = runtime_tool("ruby", "bundle");
+    let bundle = resolve_abs("ruby", "bundle").unwrap_or_else(|| PathBuf::from("bundle"));
     Command::new(&bundle)
         .arg("--version")
         .output()
@@ -376,9 +378,8 @@ fn which_bundle() -> bool {
         .unwrap_or(false)
 }
 
-fn run_bundle_add(name: &str, version: Option<&str>) -> Result<()> {
-    let bundle = runtime_tool("ruby", "bundle");
-    let mut cmd = Command::new(&bundle);
+fn run_bundle_add(bundle: &std::path::Path, name: &str, version: Option<&str>) -> Result<()> {
+    let mut cmd = Command::new(bundle);
     cmd.args(["add", name]);
     if let Some(v) = version {
         cmd.args(["--version", v]);
@@ -634,52 +635,9 @@ fn ensure_project_python_venv() -> Result<()> {
 /// environment when `ven init` (for Python) has been run, even without manually
 /// activating the venv first.
 fn resolve_python_cmd() -> PathBuf {
-    if let Ok(cwd) = std::env::current_dir() {
-        if let Some(bin) = local_venv_bin_dir(&cwd) {
-            #[cfg(target_os = "windows")]
-            let exe = bin.join("python.exe");
-            #[cfg(not(target_os = "windows"))]
-            let exe = bin.join("python");
-            if exe.is_file() {
-                return exe;
-            }
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
-            let p = PathBuf::from(venv).join("Scripts").join("python.exe");
-            if p.is_file() {
-                return p;
-            }
-        }
-        let resolved = runtime_tool("python", "python");
-        if resolved != PathBuf::from("python") {
-            return resolved;
-        }
-        if let Ok(ver) = std::env::var("VEN_PYTHON_VERSION") {
-            let p = crate::core::ven_home::ven_home()
-                .join("python")
-                .join(ver)
-                .join("python.exe");
-            if p.is_file() {
-                return p;
-            }
-        }
-        PathBuf::from("python")
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
-            let p = PathBuf::from(venv).join("bin").join("python");
-            if p.is_file() {
-                return p;
-            }
-        }
-        let resolved = runtime_tool("python", "python3");
-        if resolved != PathBuf::from("python3") {
-            return resolved;
-        }
-        PathBuf::from("python3")
-    }
+    // Use the same resolver path as the runtime_tool entrypoint so that
+    // process-wide caching in resolve_abs applies here too.
+    resolve_abs("python", "python")
+        .or_else(|| resolve_abs("python", "python3"))
+        .unwrap_or_else(|| PathBuf::from("python"))
 }

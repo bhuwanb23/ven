@@ -7,6 +7,7 @@
 //! language's package manager lives, instead of every call site re-deriving
 //! `~/.ven/<lang>/<ver>/<bin>` (or worse, hard-coding it).
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::core::config::{
@@ -20,18 +21,36 @@ use crate::plugins::{
     RubyPlugin, RustPlugin,
 };
 
-/// Resolve `<bin_stem>` for `lang` by walking:
+/// Per-invocation cache of resolved binary paths. Avoids re-resolving the same
+/// tool across repeated calls (e.g. `ven add` for multiple packages) within one
+/// process.
+static BIN_CACHE: std::sync::LazyLock<std::sync::Mutex<HashMap<(String, String), PathBuf>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+
+/// Resolve `<bin_stem>` for `lang`, consulting the per-process cache first.
+///
+/// Resolution walks:
 ///   1. project venv (`./venv/Scripts`) for python only,
 ///   2. `ven.toml`'s declared runtime + plugin `bin_path()`,
-///   3. fall back to the bare stem (PATH lookup at exec time).
+///   3. `None`, so the caller can fall back to a bare stem (PATH lookup).
 ///
 /// The returned `PathBuf` is the *exact* path to execute. On Windows we try
 /// `.exe`, `.cmd`, `.bat` extensions before the stem itself.
-pub fn runtime_tool(lang: &str, bin_stem: &str) -> PathBuf {
-    if let Some(p) = resolve_from_project(lang, bin_stem) {
-        return p;
+#[allow(clippy::module_name_repetitions)]
+pub(crate) fn resolve_abs(lang: &str, bin_stem: &str) -> Option<PathBuf> {
+    let key = (lang.to_string(), bin_stem.to_string());
+    if let Some(p) = BIN_CACHE.lock().unwrap().get(&key) {
+        return Some(p.clone());
     }
-    PathBuf::from(bin_stem)
+    let p = resolve_from_project(lang, bin_stem)?;
+    BIN_CACHE.lock().unwrap().insert(key, p.clone());
+    Some(p)
+}
+
+/// Resolve the binary for `lang`/`bin_stem`, falling back to the bare stem so
+/// PATH-based lookup still works when the runtime lives outside ven.
+pub fn runtime_tool(lang: &str, bin_stem: &str) -> PathBuf {
+    resolve_abs(lang, bin_stem).unwrap_or_else(|| PathBuf::from(bin_stem))
 }
 
 fn resolve_from_project(lang: &str, bin_stem: &str) -> Option<PathBuf> {
@@ -170,4 +189,23 @@ fn find_in_dir(dir: &std::path::Path, bin_stem: &str) -> Option<PathBuf> {
 pub fn stdin_is_interactive() -> bool {
     use std::io::IsTerminal;
     std::io::stdin().is_terminal()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_abs_returns_cached_entry_without_touching_project_config() {
+        let lang = "ven-test-lang".to_string();
+        let bin = "ven-test-bin".to_string();
+        let expected = PathBuf::from("C:/ven-test/bin");
+
+        BIN_CACHE
+            .lock()
+            .unwrap()
+            .insert((lang.clone(), bin.clone()), expected.clone());
+
+        assert_eq!(resolve_abs(&lang, &bin), Some(expected));
+    }
 }
