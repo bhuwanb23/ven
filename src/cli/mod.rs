@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 
 // Command modules
 pub mod add;
+pub mod audit;
 pub mod check;
 pub mod check_add;
 pub mod delete;
@@ -334,6 +335,22 @@ pub enum Commands {
         #[arg(required = true)]
         packages: Vec<String>,
         /// JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Comprehensive dependency risk report
+    ///
+    /// Provides a multi-dimensional risk assessment for a ven-managed project's dependencies,
+    /// going beyond just security vulnerabilities to include licensing, version maturity,
+    /// compatibility, package health, and ecosystem health.
+    ///
+    /// Examples:
+    ///   ven audit                    # Full risk assessment
+    ///   ven audit --json             # JSON output for CI/CD
+    #[command(visible_alias = "a")]
+    Audit {
+        /// Output as JSON for scripting and CI/CD pipelines
         #[arg(long)]
         json: bool,
     },
@@ -803,6 +820,7 @@ pub fn run(cli: Cli) -> Result<()> {
             strict,
         ),
         Commands::CheckAdd { packages, json } => check_add::cmd_check_add(&packages, json),
+        Commands::Audit { json } => cmd_audit(json),
         Commands::Graph { json, resolve } => graph::cmd_graph(json, resolve),
         Commands::Why { package } => why::cmd_why(&package),
         Commands::Remove {
