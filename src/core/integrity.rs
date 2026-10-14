@@ -71,8 +71,10 @@ pub const RELEASE_FETCH_USER_AGENT: &str = "ven-update";
 pub fn fetch_text_url(url: &str, user_agent: &str) -> Result<String> {
     let client = http_client(user_agent)?;
     let mut req = client.get(url);
+    // Only attach GITHUB_TOKEN to GitHub API endpoints to prevent credential leakage
+    // to arbitrary hosts (e.g. corporate proxies, third-party services).
     if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-        if !token.is_empty() {
+        if !token.is_empty() && url.contains("api.github.com") {
             req = req.bearer_auth(token);
         }
     }

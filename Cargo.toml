@@ -146,10 +146,30 @@ sha2 = "0.10"
 default = ["gui"]
 gui = ["dep:eframe", "dep:egui", "dep:egui_extras", "dep:image", "dep:rfd"]
 
+# ── Release profile: optimised for *cold start*, not peak throughput ───────
+#
+# Measured on Windows (n=25, release-ish ven.exe v0.2.8):
+#
+#   file size      cold start (`--version`)
+#   1.35 MB        33 ms   (ven-launcher)
+#   4.0  MB        74 ms
+#   8.0  MB       123 ms
+#   13.3 MB       186 ms   (ven.exe)
+#
+# A byte-identical *copy* of ven.exe (different filename) measured the same,
+# and padding ven-launcher's file with unmapped trailing zeros to 13.3 MB
+# reproduced 186 ms with the *same code*. So cold start is bound by image
+# size (~14 ms/MB — OS mapping + Defender real-time scan), not by our
+# startup logic. Shrinking the binary is the lever; `opt-level = "z"` +
+# one CGU + fat LTO is the config-level first step.
+#
+# Use `opt-level = "s"` instead of "z" if runtime throughput matters more
+# than size for your workload.
 [profile.release]
-opt-level = 3
+opt-level = "z"
 strip = true
 lto = true
+codegen-units = 1
 
 # -----------------------------------------------------------------------------
 # Workspace lint configuration (applies to `cargo clippy --workspace -- -D warnings`)
