@@ -444,10 +444,11 @@ pub fn prompt_decision(
     }
     items.push("Cancel — don't install anything".to_string());
 
+    let default_index = if !fixes.is_empty() { 1 } else { 0 };
     let choice = match Select::with_theme(&theme)
         .with_prompt("ven found security issues. How should it proceed?")
         .items(&items)
-        .default(0)
+        .default(default_index)
         .interact()
     {
         Ok(choice) => choice,
