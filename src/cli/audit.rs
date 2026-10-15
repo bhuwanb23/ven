@@ -52,7 +52,7 @@ pub fn cmd_audit(json: bool) -> Result<()> {
     if json {
         print_audit_json(&report);
     } else {
-        print_audit_terminal(&report);
+        print_audit_terminal(&report, false, false, false);
     }
     
     Ok(())
@@ -74,7 +74,7 @@ fn print_audit_json(report: &crate::core::audit::AuditReport) {
 }
 
 /// Print audit report in human-readable terminal format
-fn print_audit_terminal(report: &crate::core::audit::AuditReport) {
+fn print_audit_terminal(report: &crate::core::audit::AuditReport, supply_chain: bool, container_security: bool, threat_detection: bool) {
     let risk_level = risk_level_from_score(report.overall_risk_score);
     let risk_color = risk_level.color();
     
@@ -165,6 +165,138 @@ fn print_audit_terminal(report: &crate::core::audit::AuditReport) {
     }
     println!();
     
+
+    // Supply Chain Security
+    println!(
+        "{",
+        "╔═══════════════════════════════════════════════════════════════════════════╗".bright_black()
+    );
+    println!(
+        "{",
+        "║                    🔐 Supply Chain Security                               ║".bright_black()
+    );
+    println!(
+        "{",
+        "╚═════════════════════════════════════════════════════════════════════════════╝".bright_black()
+    );
+
+    if report.supply_chain.is_empty() {
+        println!(
+            "  {} No supply chain concerns detected",
+            "[OK]".green()
+        );
+    } else {
+        for finding in &report.supply_chain {
+            let sbom_status = if finding.sbom_available {
+                "[SBOM]".green().to_string()
+            } else {
+                "[NO-SBOM]".yellow().to_string()
+            };
+            let confusion_risk = if finding.dependency_confusion_risk {
+                "[RISK]".red().to_string()
+            } else {
+                "[SAFE]".green().to_string()
+            };
+            println!(
+                "  {} {}@{} — {}, {} transitive deps, SBOM: {}",
+                "[WARN]".yellow(),
+                finding.package.bold(),
+                finding.version,
+                confusion_risk,
+                finding.transitive_dep_count,
+                sbom_status
+            );
+        }
+    }
+    println!();
+
+    // Container Security
+    println!(
+        "{",
+        "╔═══════════════════════════════════════════════════════════════════════════╗".bright_black()
+    );
+    println!(
+        "{",
+        "║                    🛡️ Container Security                                 ║".bright_black()
+    );
+    println!(
+        "{",
+        "╚════════════════════════════════════════════════════════════════════════════╝".bright_black()
+    );
+
+    if report.container_security.is_empty() {
+        println!(
+            "  {} No container security concerns detected",
+            "[OK]".green()
+        );
+    } else {
+        for finding in &report.container_security {
+            let image_status = if finding.is_trusted_base {
+                "[TRUSTED]".green().to_string()
+            } else {
+                "[UNTRUSTED]".red().to_string()
+            };
+            let vuln_count = finding.vulnerability_count;
+            println!(
+                "  {} {} — {} ({} vuln{}, base: {})",
+                "[WARN]".yellow(),
+                finding.image_tag.bold(),
+                finding.registry,
+                vuln_count,
+                if vuln_count == 1 { "" } else { "s" },
+                image_status
+            );
+        }
+    }
+    println!();
+
+    // Threat Detection
+    println!(
+        "{",
+        "╔═══════════════════════════════════════════════════════════════════════════╗".bright_black()
+    );
+    println!(
+        "{",
+        "║                    🔍 Threat Detection                                    ║".bright_black()
+    );
+    println!(
+        "{",
+        "╚═════════════════════════════════════════════════════════════════════════════╝".bright_black()
+    );
+
+    if report.malicious_packages.is_empty() && report.dependency_confusion.is_empty() {
+        println!(
+            "  {} No threat detection concerns found",
+            "[OK]".green()
+        );
+    } else {
+        for finding in &report.malicious_packages {
+            let risk = if finding.risk_score > 7.0 {
+                "[HIGH]".red().to_string()
+            } else {
+                "[MEDIUM]".yellow().to_string()
+            };
+            println!(
+                "  {} {}@{} — risk: {}, reason: {}",
+                risk,
+                finding.package.bold(),
+                finding.version,
+                finding.suspected_reason
+            );
+        }
+        for finding in &report.dependency_confusion {
+            println!(
+                "  {} {}@{} — confusion risk: {} (recommended: {})",
+                "[WARN]".yellow(),
+                finding.package.bold(),
+                finding.version,
+                finding.risk_level,
+                finding.recommended_version
+            );
+        }
+    }
+    println!();
+
     // Licensing Concerns
     println!(
         "{}",
